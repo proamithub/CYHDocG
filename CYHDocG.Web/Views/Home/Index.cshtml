@@ -23,7 +23,7 @@
                     </div>
                     <input type="text" id="homeSearchInput" placeholder="Type fever, heart pain, cough, dermatology..." 
                            class="w-full bg-transparent border-none text-white text-sm sm:text-base placeholder-slate-400 outline-none px-2"
-                           autocomplete="off" onkeyup="handleHomeSearch(this.value)" data-i18n="search_placeholder" />
+                           autocomplete="off" onkeyup="handleHomeSearch(this.value)" onkeypress="if(event.key === 'Enter') { event.preventDefault(); executeSearchRedirect(); }" data-i18n="search_placeholder" />
                     <button type="button" onclick="executeSearchRedirect()" class="py-2.5 px-5 rounded-xl bg-red-600 hover:bg-red-700 text-white font-semibold text-xs sm:text-sm flex items-center gap-1.5 shadow-lg shadow-red-600/30 transition-all flex-shrink-0 active:scale-95">
                         <i data-lucide="search" class="w-4 h-4"></i>
                         <span data-i18n="search_btn">Search</span>
@@ -685,7 +685,19 @@
                         box.innerHTML = html;
                         box.classList.remove('hidden');
                     } else {
-                        box.innerHTML = `<div class="p-3 text-xs text-slate-400 text-center">No specific doctor found for "${val}". Searching symptoms...</div>`;
+                        box.innerHTML = `
+                        <a href="/LiveChat?q=${encodeURIComponent(val)}&doc_unavailable=1" class="flex items-center justify-between p-3 rounded-xl bg-slate-800/80 hover:bg-slate-700/80 border border-slate-700/60 text-left transition-all">
+                            <div class="flex items-center gap-2.5">
+                                <div class="w-8 h-8 rounded-lg bg-emerald-500/20 text-emerald-400 flex items-center justify-center font-bold text-xs flex-shrink-0">
+                                    AI
+                                </div>
+                                <div>
+                                    <div class="text-xs font-bold text-white">No live doctor online for "${val}"</div>
+                                    <div class="text-[10px] text-emerald-400">Consult 24/7 AI Health Guru (Powered by Gemini) &rarr;</div>
+                                </div>
+                            </div>
+                            <span class="text-[10px] px-2.5 py-1 rounded-full bg-red-600/30 text-red-400 font-bold border border-red-500/40 flex-shrink-0">START CHAT</span>
+                        </a>`;
                         box.classList.remove('hidden');
                     }
                 } catch (e) {
@@ -694,10 +706,22 @@
             }, 300);
         }
 
-        function executeSearchRedirect() {
+        async function executeSearchRedirect() {
             const input = document.getElementById('homeSearchInput');
-            const q = input ? input.value : '';
-            window.location.href = '/LiveDoctor?q=' + encodeURIComponent(q);
+            const q = input ? input.value.trim() : '';
+            if (!q) return;
+
+            try {
+                const response = await fetch('/api/search/suggestions?q=' + encodeURIComponent(q));
+                const data = await response.json();
+                if (data && data.length > 0) {
+                    window.location.href = '/LiveDoctor?q=' + encodeURIComponent(q);
+                } else {
+                    window.location.href = '/LiveChat?q=' + encodeURIComponent(q) + '&doc_unavailable=1';
+                }
+            } catch (e) {
+                window.location.href = '/LiveChat?q=' + encodeURIComponent(q) + '&doc_unavailable=1';
+            }
         }
     </script>
 }

@@ -34,6 +34,7 @@ public class SearchController : Controller
     }
 
     [HttpPost("/api/search/ai-analyze")]
+    [HttpPost("/Search/Triage")]
     public async Task<IActionResult> Analyze([FromBody] string query)
     {
         var result = await _aiSearchService.AnalyzeSymptomAsync(query);

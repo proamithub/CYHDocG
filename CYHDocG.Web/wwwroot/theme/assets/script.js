@@ -45,23 +45,26 @@ window.addEventListener('scroll', () => {
 // ---- MOBILE MENU ----
 const mobileMenuBtn = document.getElementById('mobile-menu-btn');
 const mobileMenu = document.getElementById('mobile-menu');
-const menuOpen = document.getElementById('menu-open');
-const menuClose = document.getElementById('menu-close');
+const menuOpen = document.getElementById('menu-open') || document.getElementById('menu-icon-open');
+const menuClose = document.getElementById('menu-close') || document.getElementById('menu-icon-close');
 
-mobileMenuBtn.addEventListener('click', () => {
-  const isOpen = !mobileMenu.classList.contains('hidden');
-  mobileMenu.classList.toggle('hidden');
-  menuOpen.classList.toggle('hidden', !isOpen);
-  menuClose.classList.toggle('hidden', isOpen);
-});
-
-mobileMenu.querySelectorAll('a').forEach(link => {
-  link.addEventListener('click', () => {
-    mobileMenu.classList.add('hidden');
-    menuOpen.classList.remove('hidden');
-    menuClose.classList.add('hidden');
+if (mobileMenuBtn && mobileMenu) {
+  mobileMenuBtn.addEventListener('click', () => {
+    const isOpen = !mobileMenu.classList.contains('hidden');
+    mobileMenu.classList.toggle('hidden');
+    if (menuOpen) menuOpen.classList.toggle('hidden', !isOpen);
+    if (menuClose) menuClose.classList.toggle('hidden', isOpen);
+    if (window.lucide) lucide.createIcons();
   });
-});
+
+  mobileMenu.querySelectorAll('a').forEach(link => {
+    link.addEventListener('click', () => {
+      mobileMenu.classList.add('hidden');
+      if (menuOpen) menuOpen.classList.remove('hidden');
+      if (menuClose) menuClose.classList.add('hidden');
+    });
+  });
+}
 
 
 // ---- SCROLL TOP ----
@@ -162,11 +165,14 @@ if (track) {
 
 
 // ---- FORM SUBMISSION ----
-document.getElementById('appt-form').addEventListener('submit', (e) => {
-  e.preventDefault();
-  showToast('Appointment request submitted! We\'ll confirm within 2 hours.');
-  e.target.reset();
-});
+const apptForm = document.getElementById('appt-form');
+if (apptForm) {
+  apptForm.addEventListener('submit', (e) => {
+    e.preventDefault();
+    showToast('Appointment request submitted! We\'ll confirm within 2 hours.');
+    e.target.reset();
+  });
+}
 
 function handleNewsletter(e) {
   e.preventDefault();

@@ -342,6 +342,153 @@
             document.getElementById('videoStageContainer').classList.add('hidden');
         }
 
+        function escapeHtml(text) {
+            if (!text) return '';
+            const map = { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#039;' };
+            return text.toString().replace(/[&<>"']/g, m => map[m]);
+        }
+
+        function appendTypingIndicator(id) {
+            const stream = document.getElementById('messageStream');
+            const html = `
+            <div id="${id}" class="flex items-start gap-3 max-w-xl">
+                <div class="w-8 h-8 rounded-xl bg-emerald-500/20 text-emerald-400 flex items-center justify-center flex-shrink-0 text-xs font-bold font-heading">
+                    AI
+                </div>
+                <div class="bg-slate-800/90 border border-slate-700/60 rounded-2xl rounded-tl-sm p-3.5 text-xs text-slate-300 flex items-center gap-2.5 shadow">
+                    <span class="w-2 h-2 rounded-full bg-emerald-400 animate-ping"></span>
+                    <span>AI Doctor Guru Ji (Gemini AI) विश्लेषण कर रहे हैं...</span>
+                </div>
+            </div>`;
+            stream.insertAdjacentHTML('beforeend', html);
+            stream.scrollTop = stream.scrollHeight;
+            if (window.lucide) lucide.createIcons();
+        }
+
+        function removeTypingIndicator(id) {
+            const el = document.getElementById(id);
+            if (el) el.remove();
+        }
+
+        function renderAiTriageCard(data, query) {
+            const stream = document.getElementById('messageStream');
+            const primaryAdvice = data.aiAdviceHi || data.aiAdviceHinglish || data.aiAdviceEn || "आपके लक्षणों का विश्लेषण पूरा हुआ।";
+            const englishAdvice = (data.aiAdviceEn && data.aiAdviceEn !== primaryAdvice) ? data.aiAdviceEn : '';
+            const severity = data.severity || 'Moderate';
+            const isHigh = data.isEmergency || severity === 'High' || severity === 'Emergency';
+
+            const cardHtml = `
+            <div class="flex items-start gap-3 max-w-2xl">
+                <div class="w-8 h-8 rounded-xl bg-emerald-500/20 text-emerald-400 flex items-center justify-center flex-shrink-0 text-xs font-bold font-heading">
+                    AI
+                </div>
+                <div class="bg-slate-800/90 border border-slate-700/60 text-slate-200 rounded-2xl rounded-tl-sm p-4 sm:p-5 text-xs sm:text-sm leading-relaxed shadow space-y-3.5 w-full">
+                    <!-- Header with Department & Severity -->
+                    <div class="flex flex-wrap items-center justify-between gap-2 border-b border-slate-700/60 pb-3">
+                        <div class="flex items-center gap-2">
+                            <span class="font-heading font-bold text-white text-sm">AI Health Guru Clinical Triage</span>
+                            <span class="px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-400 text-[10px] font-bold">Gemini AI</span>
+                        </div>
+                        <div class="flex items-center gap-1.5 flex-wrap">
+                            <span class="text-[10px] sm:text-[11px] px-2.5 py-0.5 rounded-full bg-slate-950 border border-slate-700 text-slate-300">
+                                Dept: <strong class="text-white">${escapeHtml(data.identifiedDepartment || 'General Medicine')}</strong>
+                            </span>
+                            <span class="text-[10px] sm:text-[11px] px-2.5 py-0.5 rounded-full font-bold ${isHigh ? 'bg-red-500/20 text-red-400 border border-red-500/30' : 'bg-blue-500/20 text-blue-400 border border-blue-500/30'}">
+                                ${data.isEmergency ? '⚠️ Emergency' : 'Severity: ' + severity}
+                            </span>
+                        </div>
+                    </div>
+
+                    ${data.isEmergency ? `
+                    <div class="p-3 rounded-xl bg-red-950/80 border border-red-500/50 text-red-200 text-xs flex items-start gap-2">
+                        <i data-lucide="alert-triangle" class="w-4 h-4 text-red-400 flex-shrink-0 mt-0.5"></i>
+                        <span><strong>आपातकालीन चेतावनी:</strong> ये लक्षण गंभीर हो सकते हैं। यदि सीने में तेज दर्द, सांस फूलना या बेहोशी हो तो तत्काल निकटतम अस्पताल या एम्बुलेंस हेल्पलाइन (108/112) से संपर्क करें।</span>
+                    </div>` : ''}
+
+                    <!-- Advice Content -->
+                    <div class="space-y-2">
+                        <div class="text-slate-100 font-normal leading-relaxed">
+                            ${primaryAdvice.replace(/\n/g, '<br/>')}
+                        </div>
+                        ${englishAdvice ? `
+                        <div class="pt-2 border-t border-slate-700/40 text-xs text-slate-400">
+                            <span class="text-slate-400 uppercase tracking-wider text-[10px] block font-bold mb-1">English Summary:</span>
+                            ${englishAdvice.replace(/\n/g, '<br/>')}
+                        </div>` : ''}
+                    </div>
+
+                    <!-- Interactive Suggestion Chips -->
+                    <div class="pt-2 flex flex-wrap gap-2 border-t border-slate-700/40">
+                        <button onclick="sendQuickPrompt('इस समस्या में क्या परहेज या घरेलू उपाय करें?')" class="px-3 py-1 rounded-xl bg-slate-900 hover:bg-slate-700 text-slate-200 text-xs border border-slate-700 transition-colors flex items-center gap-1.5">
+                            <i data-lucide="shield-check" class="w-3.5 h-3.5 text-emerald-400"></i>
+                            <span>परहेज व सावधानियां</span>
+                        </button>
+                        <button onclick="sendQuickPrompt('मुझे डॉक्टर को कब दिखाना चाहिए?')" class="px-3 py-1 rounded-xl bg-slate-900 hover:bg-slate-700 text-slate-200 text-xs border border-slate-700 transition-colors flex items-center gap-1.5">
+                            <i data-lucide="clock" class="w-3.5 h-3.5 text-blue-400"></i>
+                            <span>कब डॉक्टर को दिखाएं?</span>
+                        </button>
+                        <button onclick="openDoctorSelectModal()" class="px-3 py-1 rounded-xl bg-red-600/30 hover:bg-red-600 text-red-300 hover:text-white text-xs border border-red-500/40 transition-colors flex items-center gap-1.5">
+                            <i data-lucide="video" class="w-3.5 h-3.5"></i>
+                            <span>लाइव डॉक्टर चेक करें</span>
+                        </button>
+                    </div>
+                </div>
+            </div>`;
+
+            stream.insertAdjacentHTML('beforeend', cardHtml);
+            stream.scrollTop = stream.scrollHeight;
+            if (window.lucide) lucide.createIcons();
+        }
+
+        async function handleIncomingSearchQuery(query, isUnavailable) {
+            appendChatMessage('user', query, 'You');
+
+            if (isUnavailable) {
+                const stream = document.getElementById('messageStream');
+                const alertHtml = `
+                <div class="my-2 p-4 rounded-2xl bg-amber-500/10 border border-amber-500/30 text-white shadow-lg">
+                    <div class="flex items-start gap-3">
+                        <div class="w-8 h-8 rounded-xl bg-amber-500/20 text-amber-400 flex items-center justify-center flex-shrink-0 mt-0.5">
+                            <i data-lucide="stethoscope" class="w-4 h-4"></i>
+                        </div>
+                        <div class="flex-1">
+                            <h4 class="font-heading font-bold text-sm text-amber-300 flex items-center gap-2">
+                                <span>डॉक्टर वर्तमान में ऑनलाइन उपलब्ध नहीं हैं</span>
+                                <span class="px-2 py-0.5 rounded-full bg-amber-500/20 text-[10px] text-amber-300 font-semibold uppercase">Offline Notice</span>
+                            </h4>
+                            <p class="text-xs text-slate-200 mt-1.5 leading-relaxed">
+                                क्षमा करें, अभी <strong class="text-white">"${escapeHtml(query)}"</strong> के लिए कोई स्पेशलिस्ट डॉक्टर ऑनलाइन मौजूद नहीं हैं।
+                            </p>
+                            <p class="text-xs text-slate-300 mt-1 leading-relaxed">
+                                लेकिन बिल्कुल चिंता न करें! हमारे <strong class="text-emerald-400">AI डॉक्टर गुरु जी (Powered by Gemini AI)</strong> आपकी सहायता के लिए 24/7 तैयार हैं। नीचे आपके लक्षणों का विस्तृत क्लीनिकल परामर्श प्रस्तुत है:
+                            </p>
+                        </div>
+                    </div>
+                </div>`;
+                stream.insertAdjacentHTML('beforeend', alertHtml);
+                stream.scrollTop = stream.scrollHeight;
+                if (window.lucide) lucide.createIcons();
+            }
+
+            const indicatorId = 'aiTyping_' + Date.now();
+            appendTypingIndicator(indicatorId);
+
+            try {
+                const res = await fetch('/Search/Triage', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(query)
+                });
+                const data = await res.json();
+                removeTypingIndicator(indicatorId);
+                renderAiTriageCard(data, query);
+            } catch (err) {
+                console.error(err);
+                removeTypingIndicator(indicatorId);
+                appendChatMessage('ai', 'क्षमा करें, AI सेवा से संपर्क नहीं हो पाया। कृपया पुनः प्रयास करें।', 'CYH Health AI');
+            }
+        }
+
         async function handleUserChatSubmit(e) {
             e.preventDefault();
             const input = document.getElementById('userChatInput');
@@ -354,6 +501,8 @@
             if (activeConsultationId && consultationConnection) {
                 await consultationConnection.invoke('SendMessage', activeConsultationId, message, 'User');
             } else {
+                const indicatorId = 'aiTyping_' + Date.now();
+                appendTypingIndicator(indicatorId);
                 try {
                     const res = await fetch('/Search/Triage', {
                         method: 'POST',
@@ -361,9 +510,12 @@
                         body: JSON.stringify(message)
                     });
                     const data = await res.json();
-                    appendChatMessage('ai', data.aiAdviceEn || data.aiAdviceHinglish || "I have analyzed your query.", 'CYH Health AI');
+                    removeTypingIndicator(indicatorId);
+                    renderAiTriageCard(data, message);
                 } catch (err) {
                     console.error(err);
+                    removeTypingIndicator(indicatorId);
+                    appendChatMessage('ai', 'क्षमा करें, AI सेवा से संपर्क नहीं हो पाया। कृपया पुनः प्रयास करें।', 'CYH Health AI');
                 }
             }
         }
@@ -452,7 +604,15 @@
 
         document.addEventListener('DOMContentLoaded', () => {
             initConsultationHub();
-            lucide.createIcons();
+            if (window.lucide) lucide.createIcons();
+
+            const urlParams = new URLSearchParams(window.location.search);
+            const q = urlParams.get('q');
+            const docUnavailable = urlParams.get('doc_unavailable') === '1';
+
+            if (q && q.trim()) {
+                handleIncomingSearchQuery(q.trim(), docUnavailable);
+            }
         });
     </script>
 }
