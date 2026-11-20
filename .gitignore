@@ -32,3 +32,5 @@ publish/
 *appsettings.Production.json
 DEPLOYMENT_SECRETS.json
 Deploy-QuickAssets.ps1
+
+scratch/
