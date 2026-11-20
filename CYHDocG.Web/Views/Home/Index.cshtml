@@ -1,133 +1,331 @@
 ﻿@{
-    ViewData["Title"] = "Home";
+    ViewData["Title"] = "Home - CYHDOC Guru JI";
 }
 
-<!-- ===================== HERO SECTION ===================== -->
-<section id="home" class="hero-section flex items-center justify-center relative pt-8 pb-16 lg:py-24 bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 text-white overflow-hidden">
+<!-- ===================== HERO SECTION WITH AI SEARCH ===================== -->
+<section id="home" class="hero-section flex items-center justify-center relative pt-10 pb-16 lg:py-20 bg-gradient-to-br from-slate-950 via-slate-900 to-slate-950 text-white overflow-hidden">
     <!-- Ambient Glow Decos -->
-    <div class="absolute top-10 right-16 w-80 h-80 bg-red-600/15 rounded-full blur-3xl pointer-events-none"></div>
+    <div class="absolute top-10 right-16 w-80 h-80 bg-red-600/20 rounded-full blur-3xl pointer-events-none"></div>
     <div class="absolute bottom-10 left-10 w-72 h-72 bg-blue-600/15 rounded-full blur-3xl pointer-events-none"></div>
 
     <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 relative z-10 w-full">
-        <div class="grid lg:grid-cols-2 gap-12 items-center">
-            <!-- Left Hero Content -->
+        <div class="max-w-3xl mx-auto text-center">
+            <!-- Badges -->
+            <div class="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-red-500/10 border border-red-500/30 text-red-400 text-xs font-semibold uppercase tracking-wider mb-5 shadow-lg shadow-red-500/10" data-aos="fade-down">
+                <span class="w-2 h-2 rounded-full bg-red-500 animate-pulse"></span>
+                <span data-i18n="hero_badge">AI Powered Tele-Medicine 24/7</span>
+            </div>
+
+            <h1 class="font-heading font-black text-4xl sm:text-5xl lg:text-6xl text-white tracking-tight leading-tight mb-4" data-aos="fade-up">
+                CYHDOC <span class="text-transparent bg-clip-text bg-gradient-to-r from-red-500 to-rose-400">Guru JI</span>
+            </h1>
+
+            <p class="text-slate-300 text-sm sm:text-lg leading-relaxed mb-8 max-w-2xl mx-auto font-normal" data-aos="fade-up" data-aos-delay="100" data-i18n="hero_desc">
+                Instant AI symptom triage, real-time live doctor streaming reels, and smart prescription dosage reminders at your fingertips.
+            </p>
+
+            <!-- ===================== AI SMART SEARCH BOX ===================== -->
+            <div class="relative max-w-2xl mx-auto mb-6 text-left" data-aos="fade-up" data-aos-delay="200">
+                <div class="relative bg-slate-900/90 backdrop-blur-xl border-2 border-red-500/40 hover:border-red-500/70 focus-within:border-red-500 focus-within:ring-4 focus-within:ring-red-500/20 rounded-2xl shadow-2xl transition-all p-2 flex items-center gap-2">
+                    <div class="pl-3.5 text-red-400 flex items-center justify-center flex-shrink-0">
+                        <i data-lucide="sparkles" class="w-5 h-5 animate-pulse"></i>
+                    </div>
+                    <input type="text" id="homeSearchInput" placeholder="Type fever, heart pain, cough, dermatology..." 
+                           class="w-full bg-transparent border-none text-white text-sm sm:text-base placeholder-slate-400 outline-none px-2"
+                           autocomplete="off" onkeyup="handleHomeSearch(this.value)" data-i18n="search_placeholder" />
+                    <button type="button" onclick="executeSearchRedirect()" class="py-2.5 px-5 rounded-xl bg-red-600 hover:bg-red-700 text-white font-semibold text-xs sm:text-sm flex items-center gap-1.5 shadow-lg shadow-red-600/30 transition-all flex-shrink-0 active:scale-95">
+                        <i data-lucide="search" class="w-4 h-4"></i>
+                        <span data-i18n="search_btn">AI Diagnose</span>
+                    </button>
+                </div>
+
+                <!-- Auto-Suggest Dropdown Box (AI Dynamic Suggestions) -->
+                <div id="homeSuggestionsBox" class="absolute top-full left-0 right-0 mt-2 bg-slate-900 border border-slate-700/80 rounded-2xl shadow-2xl p-2 hidden z-50 max-h-80 overflow-y-auto">
+                    <!-- Populated dynamically by JS -->
+                </div>
+
+                <!-- Quick Symptom Tags -->
+                <div class="flex flex-wrap items-center justify-center gap-2 mt-4 text-xs">
+                    <span class="text-slate-400">Popular:</span>
+                    <button type="button" onclick="setQuickSearch('Chest Pain')" class="px-3 py-1 rounded-full bg-slate-800/80 hover:bg-slate-700 text-slate-300 border border-slate-700/60 transition-colors">Chest Pain</button>
+                    <button type="button" onclick="setQuickSearch('Fever & Cough')" class="px-3 py-1 rounded-full bg-slate-800/80 hover:bg-slate-700 text-slate-300 border border-slate-700/60 transition-colors">Fever & Cough</button>
+                    <button type="button" onclick="setQuickSearch('Cardiology')" class="px-3 py-1 rounded-full bg-slate-800/80 hover:bg-slate-700 text-slate-300 border border-slate-700/60 transition-colors">Cardiology</button>
+                    <button type="button" onclick="setQuickSearch('Dermatology')" class="px-3 py-1 rounded-full bg-slate-800/80 hover:bg-slate-700 text-slate-300 border border-slate-700/60 transition-colors">Dermatology</button>
+                </div>
+            </div>
+        </div>
+    </div>
+</section>
+
+<!-- ===================== MEDICAL AWARENESS SLIDER LAYER ===================== -->
+<section class="py-12 bg-slate-900 border-y border-slate-800 relative overflow-hidden">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+        <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-8">
             <div>
-                <!-- Badges -->
-                <div class="flex flex-wrap gap-2.5 mb-6" data-aos="fade-up">
-                    <span class="hero-badge bg-white/10 border border-white/15 px-3.5 py-1.5 rounded-full text-xs font-semibold flex items-center gap-2">
-                        <span class="w-2 h-2 rounded-full bg-red-500 animate-pulse"></span>
-                        Board Certified Specialists
-                    </span>
-                    <span class="hero-badge bg-white/10 border border-white/15 px-3.5 py-1.5 rounded-full text-xs font-semibold flex items-center gap-2">
-                        <i data-lucide="activity" class="w-3.5 h-3.5 text-blue-400"></i>
-                        Advanced Diagnostics
-                    </span>
-                    <span class="hero-badge bg-white/10 border border-white/15 px-3.5 py-1.5 rounded-full text-xs font-semibold flex items-center gap-2">
-                        <i data-lucide="shield-check" class="w-3.5 h-3.5 text-green-400"></i>
-                        Patient-Centered Care
-                    </span>
+                <span class="text-xs font-bold text-red-400 uppercase tracking-wider block" data-i18n="awareness_tag">Daily Health Insights</span>
+                <h2 class="font-heading font-extrabold text-2xl sm:text-3xl text-white mt-1" data-i18n="awareness_title">Medical Awareness & Prevention</h2>
+            </div>
+            <div class="flex items-center gap-2">
+                <button onclick="scrollAwareness(-1)" class="w-9 h-9 rounded-xl bg-slate-800 hover:bg-slate-700 border border-slate-700 flex items-center justify-center text-slate-300 hover:text-white transition-all">
+                    <i data-lucide="chevron-left" class="w-4 h-4"></i>
+                </button>
+                <button onclick="scrollAwareness(1)" class="w-9 h-9 rounded-xl bg-slate-800 hover:bg-slate-700 border border-slate-700 flex items-center justify-center text-slate-300 hover:text-white transition-all">
+                    <i data-lucide="chevron-right" class="w-4 h-4"></i>
+                </button>
+            </div>
+        </div>
+
+        <!-- Horizontal Smooth Scroll Cards Container -->
+        <div id="awarenessSlider" class="flex gap-5 overflow-x-auto scroll-smooth pb-4 no-scrollbar">
+            <!-- Card 1 -->
+            <div class="min-w-[280px] sm:min-w-[320px] bg-slate-950/80 border border-slate-800 hover:border-red-500/40 rounded-2xl p-5 flex flex-col justify-between transition-all group">
+                <div>
+                    <div class="w-10 h-10 rounded-xl bg-red-600/20 text-red-500 flex items-center justify-center mb-4 group-hover:scale-110 transition-transform">
+                        <i data-lucide="heart-pulse" class="w-5 h-5"></i>
+                    </div>
+                    <h3 class="font-heading font-bold text-base text-white mb-2">Cardiac Warning Signs</h3>
+                    <p class="text-xs text-slate-400 leading-relaxed">
+                        Unusual shortness of breath, left arm radiation, or cold sweats demand urgent ECG testing. Never delay.
+                    </p>
                 </div>
-
-                <h1 class="font-heading font-extrabold text-4xl sm:text-5xl lg:text-6xl text-white leading-tight mb-6" data-aos="fade-up" data-aos-delay="100">
-                    Comprehensive Care<br />
-                    <span class="text-red-500">For A Healthier</span> Heart & Life
-                </h1>
-
-                <p class="text-slate-300 text-lg leading-relaxed mb-8 max-w-xl" data-aos="fade-up" data-aos-delay="200">
-                    CYHDocGuru provides state-of-the-art medical and cardiac consultations, rapid diagnostics, preventive wellness programs, and personalized treatment plans for every stage of your life.
-                </p>
-
-                <div class="flex flex-wrap gap-4 mb-10" data-aos="fade-up" data-aos-delay="300">
-                    <a href="#appointments" class="btn-primary text-base py-3.5 px-8 rounded-xl shadow-lg shadow-red-600/30 flex items-center gap-2 font-semibold">
-                        <i data-lucide="calendar-plus" class="w-5 h-5"></i>
-                        Schedule Appointment
-                    </a>
-                    <a href="#services" class="btn-outline text-base py-3.5 px-8 rounded-xl border border-white/30 text-white hover:bg-white/10 transition-colors flex items-center gap-2 font-semibold">
-                        <i data-lucide="compass" class="w-5 h-5"></i>
-                        Our Services
-                    </a>
-                </div>
-
-                <!-- Quick Milestone Stats -->
-                <div class="flex flex-wrap gap-8 pt-4 border-t border-white/15" data-aos="fade-up" data-aos-delay="400">
-                    <div>
-                        <div class="font-heading font-bold text-3xl text-white">20+</div>
-                        <div class="text-slate-400 text-xs sm:text-sm">Years Experience</div>
-                    </div>
-                    <div class="border-l border-white/20 pl-8">
-                        <div class="font-heading font-bold text-3xl text-white">15K+</div>
-                        <div class="text-slate-400 text-xs sm:text-sm">Happy Patients</div>
-                    </div>
-                    <div class="border-l border-white/20 pl-8">
-                        <div class="font-heading font-bold text-3xl text-white">99.4%</div>
-                        <div class="text-slate-400 text-xs sm:text-sm">Satisfaction Rate</div>
-                    </div>
+                <div class="mt-4 pt-3 border-t border-slate-800/80 flex items-center justify-between text-[11px] text-red-400 font-semibold">
+                    <span>Cardiology Tips</span>
+                    <i data-lucide="arrow-right" class="w-3.5 h-3.5"></i>
                 </div>
             </div>
 
-            <!-- Right Hero Card / Visual Preview -->
-            <div class="hidden lg:flex justify-center relative" data-aos="fade-left" data-aos-delay="200">
-                <div class="relative w-full max-w-md">
-                    <!-- Feature Card Box -->
-                    <div class="bg-gradient-to-br from-slate-800 to-slate-900 rounded-3xl p-8 border border-white/15 shadow-2xl relative overflow-hidden">
-                        <div class="flex items-center justify-between border-b border-white/10 pb-5 mb-6">
-                            <div class="flex items-center gap-3">
-                                <div class="w-12 h-12 rounded-xl bg-red-600/20 text-red-500 flex items-center justify-center">
-                                    <i data-lucide="heart-pulse" class="w-7 h-7"></i>
+            <!-- Card 2 -->
+            <div class="min-w-[280px] sm:min-w-[320px] bg-slate-950/80 border border-slate-800 hover:border-blue-500/40 rounded-2xl p-5 flex flex-col justify-between transition-all group">
+                <div>
+                    <div class="w-10 h-10 rounded-xl bg-blue-600/20 text-blue-400 flex items-center justify-center mb-4 group-hover:scale-110 transition-transform">
+                        <i data-lucide="activity" class="w-5 h-5"></i>
+                    </div>
+                    <h3 class="font-heading font-bold text-base text-white mb-2">Blood Pressure Normalcy</h3>
+                    <p class="text-xs text-slate-400 leading-relaxed">
+                        Maintain 120/80 mmHg with low sodium intake, 30 minutes of aerobic walk, and routine weekly checks.
+                    </p>
+                </div>
+                <div class="mt-4 pt-3 border-t border-slate-800/80 flex items-center justify-between text-[11px] text-blue-400 font-semibold">
+                    <span>Hypertension Guide</span>
+                    <i data-lucide="arrow-right" class="w-3.5 h-3.5"></i>
+                </div>
+            </div>
+
+            <!-- Card 3 -->
+            <div class="min-w-[280px] sm:min-w-[320px] bg-slate-950/80 border border-slate-800 hover:border-amber-500/40 rounded-2xl p-5 flex flex-col justify-between transition-all group">
+                <div>
+                    <div class="w-10 h-10 rounded-xl bg-amber-600/20 text-amber-400 flex items-center justify-center mb-4 group-hover:scale-110 transition-transform">
+                        <i data-lucide="shield-alert" class="w-5 h-5"></i>
+                    </div>
+                    <h3 class="font-heading font-bold text-base text-white mb-2">Seasonal Viral Infection</h3>
+                    <p class="text-xs text-slate-400 leading-relaxed">
+                        Stay hydrated with electrolyte fluids, prioritize Vitamin C intake, and avoid unprescribed antibiotics.
+                    </p>
+                </div>
+                <div class="mt-4 pt-3 border-t border-slate-800/80 flex items-center justify-between text-[11px] text-amber-400 font-semibold">
+                    <span>Preventive Care</span>
+                    <i data-lucide="arrow-right" class="w-3.5 h-3.5"></i>
+                </div>
+            </div>
+
+            <!-- Card 4 -->
+            <div class="min-w-[280px] sm:min-w-[320px] bg-slate-950/80 border border-slate-800 hover:border-emerald-500/40 rounded-2xl p-5 flex flex-col justify-between transition-all group">
+                <div>
+                    <div class="w-10 h-10 rounded-xl bg-emerald-600/20 text-emerald-400 flex items-center justify-center mb-4 group-hover:scale-110 transition-transform">
+                        <i data-lucide="bell-ring" class="w-5 h-5"></i>
+                    </div>
+                    <h3 class="font-heading font-bold text-base text-white mb-2">Medication Adherence</h3>
+                    <p class="text-xs text-slate-400 leading-relaxed">
+                        Skipping antibiotic or hypertension doses can trigger resistance. Use CYHDocGuru's dose alarms.
+                    </p>
+                </div>
+                <div class="mt-4 pt-3 border-t border-slate-800/80 flex items-center justify-between text-[11px] text-emerald-400 font-semibold">
+                    <span>Dose Reminders</span>
+                    <i data-lucide="arrow-right" class="w-3.5 h-3.5"></i>
+                </div>
+            </div>
+        </div>
+    </div>
+</section>
+
+<!-- ===================== LIVE DOCTOR CONVERSATION & REEL ANIMATION HOOK ===================== -->
+<section class="py-16 bg-gradient-to-b from-slate-900 to-slate-950 relative overflow-hidden">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 relative z-10">
+        <div class="grid lg:grid-cols-2 gap-12 items-center">
+            <!-- Left Text Content -->
+            <div>
+                <span class="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-red-600/20 border border-red-500/30 text-red-400 text-xs font-bold uppercase tracking-wider mb-4" data-i18n="live_hook_tag">
+                    <span class="w-2 h-2 rounded-full bg-red-500 animate-ping"></span> Live Broadcast & 1-to-1
+                </span>
+                <h2 class="font-heading font-black text-3xl sm:text-4xl lg:text-5xl text-white tracking-tight leading-tight mb-5" data-i18n="live_hook_title">
+                    Speak Live With Certified Specialists
+                </h2>
+                <p class="text-slate-300 text-sm sm:text-base leading-relaxed mb-8 max-w-lg" data-i18n="live_hook_desc">
+                    Watch real-time live streams, join interactive video chats, or escalate from AI directly to available doctors in seconds.
+                </p>
+
+                <div class="flex flex-wrap items-center gap-4">
+                    <a asp-controller="LiveDoctor" asp-action="Index" class="py-3.5 px-6 rounded-2xl bg-gradient-to-r from-red-600 to-rose-600 hover:from-red-500 hover:to-rose-500 text-white font-bold text-sm shadow-xl shadow-red-600/30 hover:shadow-red-600/50 active:scale-95 transition-all flex items-center gap-2.5">
+                        <i data-lucide="play" class="w-4 h-4 fill-white"></i>
+                        <span data-i18n="live_hook_btn">Explore LIVE Doctor Reels</span>
+                    </a>
+                    <a asp-controller="LiveChat" asp-action="Index" class="py-3.5 px-6 rounded-2xl bg-slate-800/90 hover:bg-slate-800 border border-slate-700 text-slate-200 hover:text-white font-semibold text-sm transition-all flex items-center gap-2">
+                        <i data-lucide="message-circle" class="w-4 h-4 text-emerald-400"></i>
+                        <span data-i18n="live_chat_btn">Start AI Live Chat</span>
+                    </a>
+                </div>
+            </div>
+
+            <!-- Right: Interactive Reel Phone Mockup Animation -->
+            <div class="flex justify-center">
+                <a asp-controller="LiveDoctor" asp-action="Index" class="block group relative w-72 sm:w-80 h-[480px] bg-slate-900 rounded-[3rem] p-3 border-4 border-slate-800 shadow-2xl shadow-red-600/10 hover:border-red-500/60 transition-all hover:scale-[1.02]">
+                    <!-- Phone Notch & Camera -->
+                    <div class="absolute top-5 left-1/2 -translate-x-1/2 w-28 h-5 bg-slate-800 rounded-full z-30 flex items-center justify-center">
+                        <div class="w-2.5 h-2.5 rounded-full bg-slate-900 border border-slate-700"></div>
+                    </div>
+
+                    <!-- Inner Screen Container -->
+                    <div class="relative w-full h-full bg-slate-950 rounded-[2.3rem] overflow-hidden flex flex-col justify-between p-4">
+                        <!-- Simulated Doctor Stream Background (Dark aesthetic with doctor badge) -->
+                        <div class="absolute inset-0 bg-gradient-to-b from-blue-950/40 via-slate-900/80 to-slate-950 z-0"></div>
+
+                        <!-- Top Overlay: Live Tag + Viewers -->
+                        <div class="relative z-10 flex items-center justify-between pt-5">
+                            <span class="px-2.5 py-1 rounded-full bg-red-600 text-white text-[10px] font-black uppercase tracking-wider flex items-center gap-1.5 shadow-md shadow-red-600/40 animate-pulse">
+                                <span class="w-1.5 h-1.5 rounded-full bg-white"></span> LIVE
+                            </span>
+                            <div class="px-2.5 py-1 rounded-full bg-black/50 backdrop-blur-md text-white text-[11px] font-medium flex items-center gap-1 border border-white/10">
+                                <i data-lucide="eye" class="w-3.5 h-3.5 text-red-400"></i>
+                                <span>1.4k watching</span>
+                            </div>
+                        </div>
+
+                        <!-- Doctor Info Overlay -->
+                        <div class="relative z-10 mt-auto mb-3">
+                            <div class="flex items-center gap-2.5 mb-2">
+                                <div class="w-8 h-8 rounded-full bg-blue-600 flex items-center justify-center text-xs font-bold text-white shadow">
+                                    Dr
                                 </div>
                                 <div>
-                                    <h3 class="font-heading font-bold text-lg text-white">CYHDocGuru Clinic</h3>
-                                    <p class="text-xs text-slate-400">Cardiology & Diagnostics Wing</p>
+                                    <h4 class="text-xs font-bold text-white">Dr. Arvind Mehta, MD</h4>
+                                    <span class="text-[10px] text-slate-400">Chief Cardiologist • 18 yrs exp</span>
                                 </div>
                             </div>
-                            <span class="inline-flex items-center gap-1.5 bg-green-500/20 text-green-400 text-xs px-2.5 py-1 rounded-full font-semibold">
-                                <span class="w-2 h-2 rounded-full bg-green-400 animate-pulse"></span> Active
-                            </span>
-                        </div>
 
-                        <!-- Vitals Overview -->
-                        <div class="space-y-4 mb-6">
-                            <div class="bg-white/5 border border-white/10 rounded-xl p-4 flex items-center justify-between">
-                                <div class="flex items-center gap-3">
-                                    <div class="w-10 h-10 rounded-lg bg-red-600/20 text-red-400 flex items-center justify-center">
-                                        <i data-lucide="activity" class="w-5 h-5"></i>
-                                    </div>
-                                    <div>
-                                        <div class="text-xs text-slate-400">Live Heart Rate</div>
-                                        <div class="text-base font-bold text-white">72 BPM (Optimal)</div>
-                                    </div>
+                            <!-- Animated Floating Chat Simulation -->
+                            <div class="space-y-1.5 bg-black/40 backdrop-blur-md rounded-xl p-2.5 border border-white/5 text-[11px]">
+                                <div class="flex items-center gap-1.5 text-slate-300">
+                                    <span class="font-bold text-red-400">Ravi K:</span>
+                                    <span>Doctor, severe headache since yesterday?</span>
                                 </div>
-                                <span class="text-xs text-green-400 font-medium">Normal Wave</span>
-                            </div>
-
-                            <div class="bg-white/5 border border-white/10 rounded-xl p-4 flex items-center justify-between">
-                                <div class="flex items-center gap-3">
-                                    <div class="w-10 h-10 rounded-lg bg-blue-600/20 text-blue-400 flex items-center justify-center">
-                                        <i data-lucide="shield-check" class="w-5 h-5"></i>
-                                    </div>
-                                    <div>
-                                        <div class="text-xs text-slate-400">Blood Pressure Metric</div>
-                                        <div class="text-base font-bold text-white">120 / 80 mmHg</div>
-                                    </div>
+                                <div class="flex items-center gap-1.5 text-slate-300">
+                                    <span class="font-bold text-blue-400">Dr. Arvind:</span>
+                                    <span>Check your BP first, connect 1-to-1.</span>
                                 </div>
-                                <span class="text-xs text-blue-400 font-medium">Target Zone</span>
-                            </div>
-
-                            <div class="bg-white/5 border border-white/10 rounded-xl p-4 flex items-center justify-between">
-                                <div class="flex items-center gap-3">
-                                    <div class="w-10 h-10 rounded-lg bg-purple-600/20 text-purple-400 flex items-center justify-center">
-                                        <i data-lucide="clock" class="w-5 h-5"></i>
-                                    </div>
-                                    <div>
-                                        <div class="text-xs text-slate-400">Doctor Availability</div>
-                                        <div class="text-base font-bold text-white">Immediate / Online</div>
-                                    </div>
+                                <div class="flex items-center gap-1.5 text-slate-300">
+                                    <span class="font-bold text-emerald-400">Pooja S:</span>
+                                    <span>Thank you for the prescription! ❤️</span>
                                 </div>
-                                <span class="text-xs text-purple-400 font-medium">Available</span>
                             </div>
                         </div>
 
-                        <!-- CTA inside preview card -->
+                        <!-- Right Floating Action Buttons (Like, Share, Comment) -->
+                        <div class="absolute right-3 bottom-24 flex flex-col gap-3.5 z-20 items-center">
+                            <div class="w-9 h-9 rounded-full bg-black/60 border border-white/10 flex items-center justify-center text-red-500 shadow hover:scale-110 transition-transform">
+                                <i data-lucide="heart" class="w-4 h-4 fill-red-500"></i>
+                            </div>
+                            <div class="w-9 h-9 rounded-full bg-black/60 border border-white/10 flex items-center justify-center text-white shadow hover:scale-110 transition-transform">
+                                <i data-lucide="message-square" class="w-4 h-4"></i>
+                            </div>
+                            <div class="w-9 h-9 rounded-full bg-black/60 border border-white/10 flex items-center justify-center text-white shadow hover:scale-110 transition-transform">
+                                <i data-lucide="share-2" class="w-4 h-4"></i>
+                            </div>
+                        </div>
+
+                        <!-- Bottom prompt -->
+                        <div class="relative z-10 py-1 text-center bg-red-600/30 rounded-xl border border-red-500/40 text-[10px] font-bold text-red-300 group-hover:bg-red-600 group-hover:text-white transition-all">
+                            Click to Open Live Doctor Studio
+                        </div>
+                    </div>
+                </a>
+            </div>
+        </div>
+    </div>
+</section>
+
+@section Scripts {
+    <script>
+        function scrollAwareness(direction) {
+            const container = document.getElementById('awarenessSlider');
+            if (container) {
+                container.scrollBy({ left: direction * 320, behavior: 'smooth' });
+            }
+        }
+
+        function setQuickSearch(val) {
+            const input = document.getElementById('homeSearchInput');
+            if (input) {
+                input.value = val;
+                handleHomeSearch(val);
+            }
+        }
+
+        let searchDebounceTimer = null;
+        async function handleHomeSearch(val) {
+            const box = document.getElementById('homeSuggestionsBox');
+            if (!box) return;
+
+            clearTimeout(searchDebounceTimer);
+            if (!val || val.trim().length < 2) {
+                box.classList.add('hidden');
+                box.innerHTML = '';
+                return;
+            }
+
+            searchDebounceTimer = setTimeout(async () => {
+                try {
+                    const response = await fetch('/api/search/suggestions?q=' + encodeURIComponent(val));
+                    const data = await response.json();
+                    
+                    if (data && data.length > 0) {
+                        let html = '';
+                        data.forEach(item => {
+                            html += `
+                            <a href="/LiveDoctor?q=${encodeURIComponent(item.doctorName)}" class="flex items-center justify-between p-2.5 rounded-xl hover:bg-slate-800 transition-colors">
+                                <div class="flex items-center gap-2.5">
+                                    <div class="w-8 h-8 rounded-lg bg-red-600/20 text-red-500 flex items-center justify-center font-bold text-xs">
+                                        Dr
+                                    </div>
+                                    <div>
+                                        <div class="text-xs font-bold text-white">${item.doctorName}</div>
+                                        <div class="text-[10px] text-slate-400">${item.specialty} • ${item.department}</div>
+                                    </div>
+                                </div>
+                                <span class="text-[10px] px-2 py-0.5 rounded-full ${item.isLive ? 'bg-emerald-500/20 text-emerald-400 font-bold' : 'bg-slate-800 text-slate-400'}">
+                                    ${item.isLive ? 'LIVE NOW' : 'Specialist'}
+                                </span>
+                            </a>
+                            `;
+                        });
+                        box.innerHTML = html;
+                        box.classList.remove('hidden');
+                    } else {
+                        box.innerHTML = `<div class="p-3 text-xs text-slate-400 text-center">No specific doctor found for "${val}". Searching symptoms...</div>`;
+                        box.classList.remove('hidden');
+                    }
+                } catch (e) {
+                    console.error(e);
+                }
+            }, 300);
+        }
+
+        function executeSearchRedirect() {
+            const input = document.getElementById('homeSearchInput');
+            const q = input ? input.value : '';
+            window.location.href = '/LiveDoctor?q=' + encodeURIComponent(q);
+        }
+    </script>
+}
                         <a href="#appointments" class="w-full btn-primary text-center justify-center py-3 text-sm font-semibold rounded-lg">
                             Request Priority Consultation
                         </a>

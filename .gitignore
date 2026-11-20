@@ -27,3 +27,7 @@ project.assets.json
 *.nuget.props
 *.nuget.targets
 .dotnet/
+publish/
+*.zip
+*appsettings.Production.json
+DEPLOYMENT_SECRETS.json

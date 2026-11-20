@@ -1,0 +1,14 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <Description>CYHDocGuru Mobile Client Core Library. Shares contracts and DTOs with Repo and consumes Web API with zero code duplication.</Description>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\CYHDocG.Repo\CYHDocG.Repo.csproj" />
+  </ItemGroup>
+
+</Project>

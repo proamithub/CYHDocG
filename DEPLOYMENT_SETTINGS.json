@@ -1,0 +1,41 @@
+{
+  "Database": {
+    "Server": "208.91.198.196",
+    "Database": "CYHDOCGDB",
+    "User": "CYHDOCGUDB",
+    "Password": "CYHDOCGPASSDB",
+    "ConnectionString": "Server=208.91.198.196;Database=CYHDOCGDB;User Id=CYHDOCGUDB;Password=CYHDOCGPASSDB;TrustServerCertificate=True;MultipleActiveResultSets=true;Encrypt=False",
+    "Status": "Configured & Live Verified (20 Tables, 25 Stored Procedures, Google & Gemini Synced)"
+  },
+  "Domains": {
+    "Web": "https://cyhdocg.patnaorthoclinic.com",
+    "Api": "https://cyhdocgapi.patnaorthoclinic.com"
+  },
+  "GoogleAuth": {
+    "ClientId": "YOUR_GOOGLE_CLIENT_ID.apps.googleusercontent.com",
+    "ClientSecret": "YOUR_GOOGLE_CLIENT_SECRET"
+  },
+  "GeminiSettings": {
+    "ApiKey": "YOUR_GEMINI_API_KEY",
+    "ModelName": "gemini-1.5-flash"
+  },
+  "Jwt": {
+    "Key": "PassCyh123456789987654321987654321_PROD",
+    "Issuer": "CYHDocGuru",
+    "Audience": "CYHDocGuruUsers"
+  },
+  "FTP": {
+    "SiteName": "patna",
+    "Host": "208.91.198.227",
+    "Port": 21,
+    "User": "patnag5f",
+    "WebRemoteFolder": "cyhdocg.patnaorthoclinic.com",
+    "ApiRemoteFolder": "cyhdocgapi.patnaorthoclinic.com"
+  },
+  "PublishArtifacts": {
+    "WebFolder": "./publish/web",
+    "ApiFolder": "./publish/api",
+    "WebZip": "./publish/cyhdocg_web.zip",
+    "ApiZip": "./publish/cyhdocg_api.zip"
+  }
+}

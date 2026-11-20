@@ -5,10 +5,8 @@
   <Folder Name="/CYHDocG.Docs/">
     <File Path="CYHDocG.Docs/.gitkeep" />
   </Folder>
-  <Folder Name="/CYHDocG.Mobile/">
-    <File Path="CYHDocG.Mobile/.gitkeep" />
-  </Folder>
   <Project Path="CYHDocG.Api/CYHDocG.Api.csproj" />
+  <Project Path="CYHDocG.Mobile/CYHDocG.Mobile.csproj" />
   <Project Path="CYHDocG.Repo/CYHDocG.Repo.csproj" />
   <Project Path="CYHDocG.Tests/CYHDocG.Tests.csproj" />
   <Project Path="CYHDocG.Web/CYHDocG.Web.csproj" />

@@ -1,0 +1,108 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>@ViewData["Title"] - Doctor Studio | CYHDocGuru</title>
+
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
+
+    <link rel="stylesheet" href="~/theme/assets/output.css" asp-append-version="true" />
+    <link rel="stylesheet" href="~/theme/assets/style.css" asp-append-version="true" />
+    <script src="https://unpkg.com/lucide@latest/dist/umd/lucide.min.js"></script>
+</head>
+<body class="bg-slate-950 font-body text-slate-100 flex min-h-screen">
+
+    <div id="doctorBackdrop" onclick="toggleDoctorSidebar()" class="fixed inset-0 bg-black/60 z-40 hidden md:hidden"></div>
+
+    <!-- Doctor Sidebar -->
+    <aside id="doctorSidebar" class="fixed top-0 bottom-0 left-0 w-64 bg-slate-900 border-r border-slate-800 z-50 flex flex-col transition-transform duration-300 transform -translate-x-full md:translate-x-0">
+        <div class="h-16 flex items-center gap-3 px-6 border-b border-slate-800">
+            <div class="w-9 h-9 bg-blue-600 rounded-xl flex items-center justify-center shadow-lg shadow-blue-600/30">
+                <i data-lucide="stethoscope" class="w-5 h-5 text-white"></i>
+            </div>
+            <div>
+                <span class="font-heading font-extrabold text-base text-white">CYHDOC <span class="text-blue-500">Guru</span></span>
+                <span class="block text-[10px] text-blue-400 font-bold tracking-widest uppercase">Doctor Studio</span>
+            </div>
+        </div>
+
+        <nav class="flex-1 px-4 py-6 space-y-1.5 overflow-y-auto">
+            <a asp-area="Doctor" asp-controller="Dashboard" asp-action="Index" class="flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-sm font-medium transition-all @(ViewContext.RouteData.Values["controller"]?.ToString() == "Dashboard" ? "bg-blue-600 text-white shadow-lg shadow-blue-600/20" : "text-slate-400 hover:text-white hover:bg-slate-800/60")">
+                <i data-lucide="layout-dashboard" class="w-4 h-4"></i>
+                Dashboard
+            </a>
+            <a href="javascript:void(0)" class="flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-sm font-medium text-slate-400 hover:text-white hover:bg-slate-800/60 transition-all">
+                <i data-lucide="video" class="w-4 h-4"></i>
+                Go Live / Schedule
+            </a>
+            <a href="javascript:void(0)" class="flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-sm font-medium text-slate-400 hover:text-white hover:bg-slate-800/60 transition-all">
+                <i data-lucide="messages-square" class="w-4 h-4"></i>
+                1-to-1 Chat Queue
+            </a>
+            <a href="javascript:void(0)" class="flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-sm font-medium text-slate-400 hover:text-white hover:bg-slate-800/60 transition-all">
+                <i data-lucide="file-plus" class="w-4 h-4"></i>
+                Prescription Creator
+            </a>
+            <a href="javascript:void(0)" class="flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-sm font-medium text-slate-400 hover:text-white hover:bg-slate-800/60 transition-all">
+                <i data-lucide="credit-card" class="w-4 h-4"></i>
+                Earnings & Wallet
+            </a>
+        </nav>
+
+        <div class="p-4 border-t border-slate-800">
+            <div class="flex items-center justify-between">
+                <div class="flex items-center gap-3 min-w-0">
+                    <div class="w-9 h-9 rounded-xl bg-blue-900/60 border border-blue-500/30 flex items-center justify-center font-bold text-blue-400">
+                        Dr
+                    </div>
+                    <div class="min-w-0">
+                        <p class="text-xs font-semibold text-white truncate">@(User.Identity?.Name ?? "Doctor")</p>
+                        <span class="text-[10px] text-blue-400">Verified Practitioner</span>
+                    </div>
+                </div>
+                <form asp-area="" asp-controller="Account" asp-action="Logout" method="post">
+                    @Html.AntiForgeryToken()
+                    <button type="submit" class="p-2 text-slate-400 hover:text-red-400 hover:bg-slate-800 rounded-lg transition-all" title="Logout">
+                        <i data-lucide="log-out" class="w-4 h-4"></i>
+                    </button>
+                </form>
+            </div>
+        </div>
+    </aside>
+
+    <div class="flex-1 md:ml-64 flex flex-col min-h-screen">
+        <header class="h-16 bg-slate-900/80 backdrop-blur-md border-b border-slate-800 px-4 sm:px-8 flex items-center justify-between sticky top-0 z-30">
+            <button onclick="toggleDoctorSidebar()" class="md:hidden p-2 text-slate-400 hover:text-white rounded-lg">
+                <i data-lucide="menu" class="w-5 h-5"></i>
+            </button>
+            <div class="font-heading font-semibold text-slate-200 text-sm hidden sm:block">
+                @ViewData["Title"]
+            </div>
+            <div class="flex items-center gap-4">
+                <a asp-area="" asp-controller="Home" asp-action="Index" class="text-xs text-slate-400 hover:text-white flex items-center gap-1.5 transition-colors">
+                    <i data-lucide="globe" class="w-3.5 h-3.5"></i>
+                    View Public Site
+                </a>
+            </div>
+        </header>
+
+        <main class="flex-1 p-4 sm:p-8">
+            @RenderBody()
+        </main>
+    </div>
+
+    <script>
+        lucide.createIcons();
+        function toggleDoctorSidebar() {
+            const sidebar = document.getElementById('doctorSidebar');
+            const backdrop = document.getElementById('doctorBackdrop');
+            sidebar.classList.toggle('-translate-x-full');
+            backdrop.classList.toggle('hidden');
+        }
+    </script>
+    @await RenderSectionAsync("Scripts", required: false)
+</body>
+</html>

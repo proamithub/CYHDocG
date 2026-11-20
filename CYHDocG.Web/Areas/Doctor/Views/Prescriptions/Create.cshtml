@@ -1,0 +1,303 @@
+@{
+    ViewData["Title"] = "Smart Prescription Generator";
+}
+
+<div class="max-w-5xl mx-auto space-y-6">
+    <!-- Header -->
+    <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+        <div>
+            <h1 class="font-heading font-extrabold text-2xl text-white">Smart Prescription Studio</h1>
+            <p class="text-xs text-slate-400 mt-1">Upload handwritten slips for AI OCR parsing, or use fast 3-4 letter auto-suggest.</p>
+        </div>
+        <div class="flex items-center gap-2">
+            <button type="button" onclick="switchMode('ocr')" id="tabBtnOcr" class="px-4 py-2 rounded-xl bg-blue-600 text-white font-semibold text-xs transition-all shadow-md shadow-blue-600/30">
+                <i data-lucide="scan-line" class="w-3.5 h-3.5 inline mr-1"></i> AI OCR Slip Upload
+            </button>
+            <button type="button" onclick="switchMode('manual')" id="tabBtnManual" class="px-4 py-2 rounded-xl bg-slate-800 text-slate-300 hover:text-white font-medium text-xs transition-all">
+                <i data-lucide="pen-tool" class="w-3.5 h-3.5 inline mr-1"></i> Manual Auto-Suggest
+            </button>
+        </div>
+    </div>
+
+    <!-- ===================== MODE 1: OCR FILE UPLOAD & COMPRESSION ===================== -->
+    <div id="ocrSection" class="bg-slate-900 border border-slate-800 rounded-3xl p-6 sm:p-8 space-y-6">
+        <div class="border-2 border-dashed border-slate-700 hover:border-blue-500/60 rounded-3xl p-8 text-center bg-slate-950/60 transition-all cursor-pointer" onclick="document.getElementById('rxFileInput').click()">
+            <input type="file" id="rxFileInput" accept="image/*,.pdf" class="hidden" onchange="handlePrescriptionUpload(this)" />
+            <div class="w-16 h-16 rounded-3xl bg-blue-600/20 text-blue-400 border border-blue-500/30 flex items-center justify-center mx-auto mb-4">
+                <i data-lucide="file-up" class="w-8 h-8"></i>
+            </div>
+            <h3 class="font-heading font-bold text-base text-white">Upload Handwritten Slip or Photo</h3>
+            <p class="text-xs text-slate-400 mt-1">PNG, JPG, or PDF (Auto-compressed maintaining sharpness & OCR readability)</p>
+            <span class="inline-block mt-3 px-3 py-1 rounded-full bg-slate-800 text-slate-300 text-[11px] font-semibold">
+                Click to browse device
+            </span>
+        </div>
+
+        <!-- Compression Metrics & OCR Preview -->
+        <div id="compressionStats" class="hidden bg-slate-950 border border-slate-800 rounded-2xl p-4 flex flex-wrap items-center justify-between gap-4">
+            <div class="flex items-center gap-3">
+                <div class="w-10 h-10 rounded-xl bg-emerald-500/20 text-emerald-400 flex items-center justify-center">
+                    <i data-lucide="check-check" class="w-5 h-5"></i>
+                </div>
+                <div>
+                    <h4 class="text-xs font-bold text-white">Quality-Preserved Smart Compression</h4>
+                    <span id="compressionRatioBadge" class="text-[11px] text-emerald-400 font-semibold"></span>
+                </div>
+            </div>
+            <div class="text-right text-xs">
+                <span class="text-slate-400 block" id="sizeMetricText"></span>
+                <span class="text-blue-400 font-semibold">100% OCR Contrast Preserved</span>
+            </div>
+        </div>
+    </div>
+
+    <!-- ===================== MODE 2: MANUAL ENTRY WITH 3-4 LETTER AUTO-SUGGEST ===================== -->
+    <div id="manualSection" class="hidden bg-slate-900 border border-slate-800 rounded-3xl p-6 sm:p-8 space-y-6">
+        <div class="relative">
+            <label class="block text-xs font-semibold text-slate-300 uppercase tracking-wider mb-2">Search Medicine (Type 3-4 letters)</label>
+            <div class="relative">
+                <input type="text" id="medicineSearchInput" placeholder="Type par, pan, azi, aug..." 
+                       class="w-full px-4 py-3 rounded-2xl bg-slate-950 border border-slate-800 text-white text-sm placeholder-slate-400 outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500" 
+                       onkeyup="handleMedicineSearch(this.value)" autocomplete="off" />
+                <span class="absolute inset-y-0 right-0 pr-4 flex items-center text-slate-400 pointer-events-none">
+                    <i data-lucide="search" class="w-4 h-4"></i>
+                </span>
+            </div>
+
+            <!-- Auto-Suggest Dropdown -->
+            <div id="medicineDropdown" class="absolute top-full left-0 right-0 mt-2 bg-slate-950 border border-slate-800 rounded-2xl shadow-2xl p-2 hidden z-50 max-h-60 overflow-y-auto">
+                <!-- Injected via JS -->
+            </div>
+        </div>
+    </div>
+
+    <!-- ===================== PRESCRIBED MEDICINES TABLE (SHARED REVIEW) ===================== -->
+    <div class="bg-slate-900 border border-slate-800 rounded-3xl p-6 space-y-4">
+        <div class="flex items-center justify-between border-b border-slate-800 pb-4">
+            <h3 class="font-heading font-bold text-base text-white">Medicines & Dosage Schedule</h3>
+            <span class="text-xs text-slate-400" id="medicineCountLabel">0 Medicines Added</span>
+        </div>
+
+        <div class="overflow-x-auto no-scrollbar">
+            <table class="w-full text-left text-xs">
+                <thead>
+                    <tr class="text-slate-400 border-b border-slate-800/80">
+                        <th class="pb-3 font-semibold">Medicine Name</th>
+                        <th class="pb-3 font-semibold">Dosage Schedule</th>
+                        <th class="pb-3 font-semibold">Timing</th>
+                        <th class="pb-3 font-semibold">Duration (Days)</th>
+                        <th class="pb-3 font-semibold">Refill Alert</th>
+                        <th class="pb-3 font-semibold text-right">Action</th>
+                    </tr>
+                </thead>
+                <tbody id="medicineTableBody" class="divide-y divide-slate-800/60 text-slate-200">
+                    <!-- Populated dynamically -->
+                </tbody>
+            </table>
+        </div>
+
+        <!-- Doctor Notes -->
+        <div class="pt-4 border-t border-slate-800">
+            <label class="block text-xs font-semibold text-slate-400 uppercase tracking-wider mb-2">Doctor Advice & Dietary Remarks</label>
+            <textarea id="doctorNotesInput" rows="2" placeholder="e.g. Drink 3 liters of water, avoid oily food, review in 7 days..." 
+                      class="w-full p-3 rounded-2xl bg-slate-950 border border-slate-800 text-white text-xs placeholder-slate-500 outline-none focus:border-blue-500"></textarea>
+        </div>
+
+        <button type="button" onclick="submitFinalPrescription()" class="w-full py-3.5 rounded-2xl bg-blue-600 hover:bg-blue-700 text-white font-bold text-sm shadow-lg shadow-blue-600/30 flex items-center justify-center gap-2 active:scale-95 transition-all">
+            <i data-lucide="check-circle" class="w-4 h-4"></i>
+            <span>Issue & Activate Reminders</span>
+        </button>
+    </div>
+</div>
+
+@section Scripts {
+    <script>
+        let prescribedMedicines = [];
+        let uploadedCompressedUrl = null;
+
+        function switchMode(mode) {
+            if (mode === 'ocr') {
+                document.getElementById('ocrSection').classList.remove('hidden');
+                document.getElementById('manualSection').classList.add('hidden');
+                document.getElementById('tabBtnOcr').className = "px-4 py-2 rounded-xl bg-blue-600 text-white font-semibold text-xs transition-all shadow-md shadow-blue-600/30";
+                document.getElementById('tabBtnManual').className = "px-4 py-2 rounded-xl bg-slate-800 text-slate-300 hover:text-white font-medium text-xs transition-all";
+            } else {
+                document.getElementById('ocrSection').classList.add('hidden');
+                document.getElementById('manualSection').classList.remove('hidden');
+                document.getElementById('tabBtnManual').className = "px-4 py-2 rounded-xl bg-blue-600 text-white font-semibold text-xs transition-all shadow-md shadow-blue-600/30";
+                document.getElementById('tabBtnOcr').className = "px-4 py-2 rounded-xl bg-slate-800 text-slate-300 hover:text-white font-medium text-xs transition-all";
+            }
+        }
+
+        async function handlePrescriptionUpload(input) {
+            if (!input.files || !input.files[0]) return;
+            const file = input.files[0];
+
+            const formData = new FormData();
+            formData.append('file', file);
+            formData.append('doctorId', '@(User.FindFirst("DoctorId")?.Value ?? "1")');
+            formData.append('userId', '@ViewBag.TargetUserId');
+
+            try {
+                const res = await fetch('/api/prescriptions/upload-and-compress', {
+                    method: 'POST',
+                    body: formData
+                });
+                const data = await res.json();
+                if (data.success) {
+                    uploadedCompressedUrl = data.compressedFileUrl;
+
+                    document.getElementById('compressionStats').classList.remove('hidden');
+                    document.getElementById('compressionRatioBadge').textContent = `Compressed: ${data.compressionRatio}`;
+                    document.getElementById('sizeMetricText').textContent = `${data.originalSizeKb} KB → ${data.compressedSizeKb} KB`;
+
+                    // Load extracted medicines
+                    if (data.extractedData && data.extractedData.medicines) {
+                        data.extractedData.medicines.forEach(m => addMedicineToTable(m));
+                    }
+                    alert("Prescription slip compressed with OCR sharpness and parsed successfully!");
+                } else {
+                    alert(data.message || 'Upload failed');
+                }
+            } catch (err) {
+                console.error(err);
+            }
+        }
+
+        let medDebounce = null;
+        async function handleMedicineSearch(query) {
+            clearTimeout(medDebounce);
+            const dropdown = document.getElementById('medicineDropdown');
+            if (!query || query.length < 2) {
+                dropdown.classList.add('hidden');
+                return;
+            }
+
+            medDebounce = setTimeout(async () => {
+                try {
+                    const res = await fetch('/api/prescriptions/search-medicines?q=' + encodeURIComponent(query));
+                    const data = await res.json();
+                    if (data && data.length > 0) {
+                        let html = '';
+                        data.forEach(item => {
+                            html += `
+                            <div onclick="selectMasterMedicine('${item.brandName}')" class="p-2.5 rounded-xl hover:bg-slate-900 cursor-pointer flex items-center justify-between text-xs transition-colors">
+                                <span class="font-bold text-white">${item.brandName}</span>
+                                <span class="text-slate-400 text-[11px]">${item.dosageForm} • ${item.strength || ''}</span>
+                            </div>`;
+                        });
+                        dropdown.innerHTML = html;
+                        dropdown.classList.remove('hidden');
+                    } else {
+                        dropdown.innerHTML = `<div class="p-2 text-xs text-slate-400 text-center">No matching medicines found</div>`;
+                        dropdown.classList.remove('hidden');
+                    }
+                } catch (e) {
+                    console.error(e);
+                }
+            }, 250);
+        }
+
+        function selectMasterMedicine(name) {
+            document.getElementById('medicineDropdown').classList.add('hidden');
+            document.getElementById('medicineSearchInput').value = '';
+            addMedicineToTable({
+                medicineName: name,
+                dosageSchedule: '1-0-1',
+                timingInstruction: 'After Meal',
+                durationDays: 5,
+                totalUnits: 10
+            });
+        }
+
+        function addMedicineToTable(med) {
+            prescribedMedicines.push(med);
+            renderMedicineTable();
+        }
+
+        function removeMedicine(index) {
+            prescribedMedicines.splice(index, 1);
+            renderMedicineTable();
+        }
+
+        function renderMedicineTable() {
+            const tbody = document.getElementById('medicineTableBody');
+            document.getElementById('medicineCountLabel').textContent = `${prescribedMedicines.length} Medicines Added`;
+
+            if (!prescribedMedicines.length) {
+                tbody.innerHTML = `<tr><td colspan="6" class="py-4 text-center text-slate-500">No medicines added yet. Type 3-4 letters above or upload slip.</td></tr>`;
+                return;
+            }
+
+            let html = '';
+            prescribedMedicines.forEach((m, idx) => {
+                html += `
+                <tr class="hover:bg-slate-950/40">
+                    <td class="py-3 font-semibold text-white">${m.medicineName}</td>
+                    <td class="py-3">
+                        <select onchange="prescribedMedicines[${idx}].dosageSchedule = this.value" class="bg-slate-950 border border-slate-800 rounded-lg p-1 text-xs text-slate-200 outline-none">
+                            <option value="1-0-1" ${m.dosageSchedule === '1-0-1' ? 'selected' : ''}>1-0-1 (Morning & Night)</option>
+                            <option value="1-1-1" ${m.dosageSchedule === '1-1-1' ? 'selected' : ''}>1-1-1 (Three times)</option>
+                            <option value="1-0-0" ${m.dosageSchedule === '1-0-0' ? 'selected' : ''}>1-0-0 (Morning only)</option>
+                            <option value="0-0-1" ${m.dosageSchedule === '0-0-1' ? 'selected' : ''}>0-0-1 (Night only)</option>
+                            <option value="0-1-0" ${m.dosageSchedule === '0-1-0' ? 'selected' : ''}>0-1-0 (Afternoon only)</option>
+                        </select>
+                    </td>
+                    <td class="py-3">
+                        <select onchange="prescribedMedicines[${idx}].timingInstruction = this.value" class="bg-slate-950 border border-slate-800 rounded-lg p-1 text-xs text-slate-200 outline-none">
+                            <option value="After Meal" ${m.timingInstruction === 'After Meal' ? 'selected' : ''}>After Meal</option>
+                            <option value="Before Meal" ${m.timingInstruction === 'Before Meal' ? 'selected' : ''}>Before Meal</option>
+                        </select>
+                    </td>
+                    <td class="py-3">
+                        <input type="number" value="${m.durationDays}" min="1" max="90" onchange="prescribedMedicines[${idx}].durationDays = parseInt(this.value)" class="w-16 bg-slate-950 border border-slate-800 rounded-lg p-1 text-xs text-white text-center outline-none" />
+                    </td>
+                    <td class="py-3 text-red-400 font-semibold">
+                        Day ${m.durationDays - 2} (Auto Alert)
+                    </td>
+                    <td class="py-3 text-right">
+                        <button type="button" onclick="removeMedicine(${idx})" class="p-1 text-red-400 hover:text-red-300">
+                            <i data-lucide="trash-2" class="w-4 h-4"></i>
+                        </button>
+                    </td>
+                </tr>`;
+            });
+            tbody.innerHTML = html;
+            lucide.createIcons();
+        }
+
+        async function submitFinalPrescription() {
+            if (!prescribedMedicines.length) {
+                return alert("Please add at least one medicine before issuing prescription.");
+            }
+
+            const payload = {
+                doctorId: @(User.FindFirst("DoctorId")?.Value ?? "1"),
+                userId: @ViewBag.TargetUserId,
+                compressedFileUrl: uploadedCompressedUrl,
+                originalFileUrl: uploadedCompressedUrl,
+                doctorNotes: document.getElementById('doctorNotesInput').value,
+                medicines: prescribedMedicines
+            };
+
+            try {
+                const res = await fetch('/api/prescriptions/save', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload)
+                });
+                const data = await res.json();
+                if (data.success) {
+                    alert("Prescription issued successfully! Daily dose reminders & refill alerts have been scheduled.");
+                    window.location.reload();
+                } else {
+                    alert(data.message || 'Saving failed');
+                }
+            } catch (err) {
+                console.error(err);
+            }
+        }
+
+        document.addEventListener('DOMContentLoaded', renderMedicineTable);
+    </script>
+}

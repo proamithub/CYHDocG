@@ -1,0 +1,224 @@
+@model List<CYHDocG.Repo.DTOs.DoctorReelDto>
+@{
+    ViewData["Title"] = "LIVE Doctor Reels Feed";
+    bool isAuth = ViewBag.IsAuthenticated ?? false;
+}
+
+<!-- SignalR Client Script -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/microsoft-signalr/8.0.0/signalr.min.js"></script>
+
+<div class="bg-black text-white min-h-[calc(100vh-80px)] flex justify-center items-center py-2 relative overflow-hidden">
+
+    <!-- Reels Scrollable Feed Container (Vertical Snap Scroll) -->
+    <div id="reelsContainer" class="w-full max-w-sm sm:max-w-md h-[calc(100vh-96px)] overflow-y-scroll snap-y snap-mandatory no-scrollbar relative rounded-3xl border border-slate-800 shadow-2xl bg-slate-950">
+        
+        @if (Model != null && Model.Any())
+        {
+            int index = 0;
+            foreach (var reel in Model)
+            {
+                <div class="reel-card @(index == 0 ? "active-reel" : "") h-full w-full snap-start relative flex flex-col justify-between p-4 overflow-hidden" 
+                     data-stream-id="@(reel.StreamId ?? reel.DoctorId)" 
+                     data-index="@index">
+
+                    <!-- Background: Live Stream Simulation / Video Element -->
+                    <div class="absolute inset-0 z-0 bg-gradient-to-b from-slate-900 via-slate-950 to-black flex items-center justify-center">
+                        @if (!string.IsNullOrEmpty(reel.LiveStreamUrl))
+                        {
+                            <video src="@reel.LiveStreamUrl" autoplay loop muted playsinline class="w-full h-full object-cover opacity-80"></video>
+                        }
+                        else
+                        {
+                            <!-- Fallback Animated Healthcare Wave -->
+                            <div class="flex flex-col items-center justify-center text-center p-6 space-y-4">
+                                <div class="w-20 h-20 rounded-3xl bg-red-600/20 text-red-500 border border-red-500/30 flex items-center justify-center shadow-2xl animate-pulse">
+                                    <i data-lucide="stethoscope" class="w-10 h-10"></i>
+                                </div>
+                                <div>
+                                    <h3 class="font-heading font-extrabold text-xl text-white">@reel.DoctorName</h3>
+                                    <p class="text-xs text-slate-400 mt-1">@reel.Specialty • @reel.Department</p>
+                                </div>
+                                @if (reel.ScheduledLiveAt.HasValue && !reel.IsLive)
+                                {
+                                    <div class="px-4 py-2 rounded-2xl bg-slate-900 border border-amber-500/40 text-amber-400 text-xs font-bold tracking-wider" 
+                                         data-scheduled-time="@reel.ScheduledLiveAt.Value.ToString("o")">
+                                        Calculating countdown...
+                                    </div>
+                                }
+                            </div>
+                        }
+                        <div class="absolute inset-0 bg-gradient-to-t from-black via-transparent to-black/60 pointer-events-none"></div>
+                    </div>
+
+                    <!-- ===================== TOP OVERLAY ===================== -->
+                    <div class="relative z-10 flex items-start justify-between pt-2">
+                        <div class="flex items-center gap-2.5">
+                            <div class="w-10 h-10 rounded-full bg-red-600 border-2 border-white flex items-center justify-center font-bold text-xs text-white shadow">
+                                @(reel.DoctorPhoto != null ? "" : "Dr")
+                            </div>
+                            <div>
+                                <div class="flex items-center gap-2">
+                                    <h4 class="text-sm font-bold text-white">@reel.DoctorName</h4>
+                                    @if (reel.IsLive)
+                                    {
+                                        <span class="px-2 py-0.5 rounded-full bg-red-600 text-[10px] font-black uppercase tracking-wider flex items-center gap-1 shadow animate-pulse">
+                                            <span class="w-1.5 h-1.5 rounded-full bg-white"></span> LIVE
+                                        </span>
+                                    }
+                                </div>
+                                <span class="text-[11px] text-slate-300">@reel.Specialty • @reel.ExperienceYears yrs exp</span>
+                            </div>
+                        </div>
+
+                        <!-- Live Viewers Counter & Follow Button -->
+                        <div class="flex flex-col items-end gap-1.5">
+                            <span class="px-2.5 py-1 rounded-full bg-black/50 backdrop-blur-md text-white text-[11px] font-medium flex items-center gap-1.5 border border-white/10">
+                                <i data-lucide="eye" class="w-3.5 h-3.5 text-red-400"></i>
+                                <span>@(reel.CurrentViewers > 0 ? reel.CurrentViewers : 842)</span>
+                            </span>
+                            <button type="button" onclick="handleFollowToggle(@reel.DoctorId, this)" class="px-2.5 py-0.5 rounded-full bg-red-600 hover:bg-red-700 text-white text-[10px] font-bold tracking-wider uppercase transition-all shadow">
+                                @(reel.IsFollowing ? "Following" : "+ Follow")
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- ===================== RIGHT ACTION COLUMN ===================== -->
+                    <div class="absolute right-3 bottom-24 flex flex-col items-center gap-4 z-20">
+                        <!-- Like Button -->
+                        <button type="button" onclick="handleToggleReelLike(@(reel.StreamId ?? reel.DoctorId))" class="reel-like-btn flex flex-col items-center gap-1 text-white hover:text-red-500 transition-colors @(reel.HasLiked ? "text-red-500" : "")">
+                            <div class="w-11 h-11 rounded-full bg-black/60 backdrop-blur-md border border-white/15 flex items-center justify-center shadow-lg active:scale-90 transition-transform">
+                                <i data-lucide="heart" class="w-5 h-5 @(reel.HasLiked ? "fill-current" : "")"></i>
+                            </div>
+                            <span class="like-count text-[11px] font-bold">@reel.TotalLikes</span>
+                        </button>
+
+                        <!-- Comment Button -->
+                        <button type="button" onclick="focusChatInput()" class="flex flex-col items-center gap-1 text-white hover:text-blue-400 transition-colors">
+                            <div class="w-11 h-11 rounded-full bg-black/60 backdrop-blur-md border border-white/15 flex items-center justify-center shadow-lg active:scale-90 transition-transform">
+                                <i data-lucide="message-square" class="w-5 h-5"></i>
+                            </div>
+                            <span class="text-[11px] font-bold">Chat</span>
+                        </button>
+
+                        <!-- Share Button -->
+                        <button type="button" onclick="handleShareReel('@reel.EncryptedDoctorId')" class="flex flex-col items-center gap-1 text-white hover:text-emerald-400 transition-colors">
+                            <div class="w-11 h-11 rounded-full bg-black/60 backdrop-blur-md border border-white/15 flex items-center justify-center shadow-lg active:scale-90 transition-transform">
+                                <i data-lucide="share-2" class="w-5 h-5"></i>
+                            </div>
+                            <span class="text-[11px] font-bold">Share</span>
+                        </button>
+
+                        <!-- 1-to-1 Live Call / Chat Handoff -->
+                        <a asp-controller="LiveChat" asp-action="Index" class="flex flex-col items-center gap-1 text-white hover:text-amber-400 transition-colors" title="Request 1-to-1 Consultation">
+                            <div class="w-11 h-11 rounded-full bg-gradient-to-tr from-amber-500 to-red-600 border border-white/20 flex items-center justify-center shadow-lg active:scale-90 transition-transform animate-bounce">
+                                <i data-lucide="phone-call" class="w-5 h-5 text-white"></i>
+                            </div>
+                            <span class="text-[10px] font-bold text-amber-400">1-to-1</span>
+                        </a>
+                    </div>
+
+                    <!-- ===================== BOTTOM: FLOATING COMMENTS & INPUT BAR ===================== -->
+                    <div class="relative z-10 space-y-3 w-[84%]">
+                        <!-- Floating Live Comments Container (Latest 5 streamed real-time) -->
+                        <div class="floating-comments-box flex flex-col gap-1.5 max-h-36 overflow-hidden">
+                            <div class="flex items-center gap-1.5 text-xs text-white bg-black/40 backdrop-blur-md px-2.5 py-1 rounded-xl border border-white/10">
+                                <span class="font-bold text-red-400">System:</span>
+                                <span class="text-slate-300">Welcome to @reel.DoctorName's stream!</span>
+                            </div>
+                        </div>
+
+                        <!-- Bottom Input Bar -->
+                        <form onsubmit="handleSendReelComment(event)" class="relative flex items-center">
+                            <input type="text" id="reelChatInput" placeholder="Add a comment... (max 250 chars)" maxlength="250"
+                                   onclick="checkGuestInteraction(event, 'chat')"
+                                   class="w-full bg-black/60 backdrop-blur-md border border-white/20 text-white placeholder-slate-400 text-xs rounded-full py-2.5 pl-4 pr-10 outline-none focus:border-red-500 focus:ring-1 focus:ring-red-500 transition-all" />
+                            <button type="submit" class="absolute right-1.5 w-7 h-7 bg-red-600 hover:bg-red-700 text-white rounded-full flex items-center justify-center transition-all shadow">
+                                <i data-lucide="send" class="w-3.5 h-3.5"></i>
+                            </button>
+                        </form>
+                    </div>
+
+                </div>
+                index++;
+            }
+        }
+        else
+        {
+            <div class="h-full flex flex-col items-center justify-center p-8 text-center text-slate-400">
+                <i data-lucide="tv" class="w-12 h-12 text-slate-600 mb-3"></i>
+                <h3 class="font-heading font-bold text-lg text-white">No Live Streams Available</h3>
+                <p class="text-xs text-slate-400 mt-1">Check back in a few minutes or consult our 24/7 AI Health Chat.</p>
+                <a asp-controller="LiveChat" asp-action="Index" class="mt-4 px-4 py-2 rounded-xl bg-red-600 text-white text-xs font-semibold">
+                    Open AI Chat
+                </a>
+            </div>
+        }
+
+    </div>
+
+    <!-- ===================== GUEST LOGIN BARRIER MODAL ===================== -->
+    <div id="guestLoginBarrierModal" class="fixed inset-0 bg-black/80 backdrop-blur-md z-[999] hidden flex items-center justify-center p-4">
+        <div class="bg-slate-900 border border-red-500/40 rounded-3xl p-6 sm:p-8 max-w-sm w-full shadow-2xl relative text-center">
+            <button onclick="closeGuestLoginModal()" class="absolute top-4 right-4 text-slate-400 hover:text-white">
+                <i data-lucide="x" class="w-5 h-5"></i>
+            </button>
+            <div class="w-14 h-14 bg-red-600/20 text-red-500 border border-red-500/30 rounded-2xl mx-auto flex items-center justify-center mb-4">
+                <i data-lucide="lock" class="w-7 h-7"></i>
+            </div>
+            <h3 class="font-heading font-extrabold text-xl text-white">Member Access Required</h3>
+            <p id="guestBarrierMessage" class="text-xs sm:text-sm text-slate-300 mt-2 leading-relaxed">
+                Please sign in to like, comment, or continue watching live doctor streams.
+            </p>
+            <div class="space-y-3 mt-6">
+                <a asp-controller="Account" asp-action="Login" class="w-full py-3 rounded-xl bg-red-600 hover:bg-red-700 text-white font-bold text-sm shadow-lg shadow-red-600/30 flex items-center justify-center gap-2 transition-all">
+                    <span>Sign In Now</span>
+                    <i data-lucide="arrow-right" class="w-4 h-4"></i>
+                </a>
+                <a asp-controller="Account" asp-action="Register" class="w-full py-3 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 font-semibold text-xs flex items-center justify-center transition-all">
+                    Create New Free Account
+                </a>
+            </div>
+        </div>
+    </div>
+
+</div>
+
+@section Scripts {
+    <script>
+        window.isUserLoggedIn = @(isAuth ? "true" : "false");
+
+        function focusChatInput() {
+            if (checkGuestInteraction(null, 'chat')) {
+                const input = document.getElementById('reelChatInput');
+                if (input) input.focus();
+            }
+        }
+
+        async function handleFollowToggle(doctorId, btn) {
+            if (!checkGuestInteraction(null, 'follow doctors')) return;
+            try {
+                const res = await fetch('/api/livedoctor/toggle-follow', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(doctorId)
+                });
+                const data = await res.json();
+                if (data.success) {
+                    btn.textContent = data.data ? "Following" : "+ Follow";
+                }
+            } catch (err) {
+                console.error(err);
+            }
+        }
+
+        function handleShareReel(encryptedId) {
+            const url = window.location.origin + '/LiveDoctor?ref=' + encryptedId;
+            navigator.clipboard.writeText(url).then(() => {
+                alert('Stream link copied to clipboard!');
+            }).catch(() => {
+                prompt('Copy this stream link:', url);
+            });
+        }
+    </script>
+    <script src="~/js/live-reel-player.js" asp-append-version="true"></script>
+}

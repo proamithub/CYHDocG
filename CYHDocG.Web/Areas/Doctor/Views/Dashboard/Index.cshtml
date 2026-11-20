@@ -1,0 +1,59 @@
+@{
+    ViewData["Title"] = "Doctor Studio Dashboard";
+}
+
+<div class="space-y-6">
+    <div class="bg-gradient-to-r from-blue-900/40 via-slate-900 to-slate-900 border border-blue-500/20 rounded-3xl p-6 sm:p-8 flex flex-col md:flex-row items-start md:items-center justify-between gap-6">
+        <div>
+            <span class="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-blue-500/10 border border-blue-500/20 text-blue-400 text-xs font-semibold uppercase tracking-wider mb-2">
+                <span class="w-2 h-2 rounded-full bg-blue-500 animate-pulse"></span> Doctor Consultation Portal
+            </span>
+            <h1 class="font-heading font-extrabold text-2xl sm:text-3xl text-white">Hello, Dr. @(User.Identity?.Name ?? "Specialist")</h1>
+            <p class="text-xs sm:text-sm text-slate-400 mt-1 max-w-xl">
+                Start live stream broadcasting, accept 1-to-1 patient consultations with live timers, and issue smart prescriptions.
+            </p>
+        </div>
+
+        <div class="flex items-center gap-3">
+            <button class="px-5 py-2.5 rounded-xl bg-red-600 hover:bg-red-700 text-white font-semibold text-xs sm:text-sm flex items-center gap-2 shadow-lg shadow-red-600/30 transition-all active:scale-[0.98]">
+                <span class="w-2 h-2 rounded-full bg-white animate-ping"></span>
+                <span>Go Live Now</span>
+            </button>
+            <button class="px-5 py-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-white font-medium text-xs sm:text-sm border border-slate-700 transition-all">
+                Schedule Stream
+            </button>
+        </div>
+    </div>
+
+    <!-- Doctor Metrics -->
+    <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6">
+        <div class="bg-slate-900/60 border border-slate-800/80 rounded-2xl p-5">
+            <div class="text-xs font-medium text-slate-400 uppercase tracking-wider mb-2">My Live Stream Followers</div>
+            <div class="font-heading font-bold text-2xl text-white">1,248</div>
+            <span class="text-xs text-blue-400 flex items-center gap-1 mt-1">
+                <i data-lucide="users" class="w-3.5 h-3.5"></i> +42 this week
+            </span>
+        </div>
+        <div class="bg-slate-900/60 border border-slate-800/80 rounded-2xl p-5">
+            <div class="text-xs font-medium text-slate-400 uppercase tracking-wider mb-2">1-to-1 Patient Chats Today</div>
+            <div class="font-heading font-bold text-2xl text-white">14</div>
+            <span class="text-xs text-purple-400 flex items-center gap-1 mt-1">
+                <i data-lucide="clock" class="w-3.5 h-3.5"></i> Active queue ready
+            </span>
+        </div>
+        <div class="bg-slate-900/60 border border-slate-800/80 rounded-2xl p-5">
+            <div class="text-xs font-medium text-slate-400 uppercase tracking-wider mb-2">Consultation Rate</div>
+            <div class="font-heading font-bold text-2xl text-white">₹35 / min</div>
+            <span class="text-xs text-emerald-400 flex items-center gap-1 mt-1">
+                <i data-lucide="check-circle" class="w-3.5 h-3.5"></i> Admin Approved
+            </span>
+        </div>
+        <div class="bg-slate-900/60 border border-slate-800/80 rounded-2xl p-5">
+            <div class="text-xs font-medium text-slate-400 uppercase tracking-wider mb-2">My Wallet Balance</div>
+            <div class="font-heading font-bold text-2xl text-emerald-400">₹8,450</div>
+            <span class="text-xs text-slate-400 flex items-center gap-1 mt-1">
+                <i data-lucide="arrow-down-circle" class="w-3.5 h-3.5"></i> Request Payout
+            </span>
+        </div>
+    </div>
+</div>

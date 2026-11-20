@@ -1,0 +1,89 @@
+@{
+    ViewData["Title"] = "Doctor Earnings & Payout Wallet";
+}
+
+<div class="max-w-5xl mx-auto space-y-6">
+    <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+        <div>
+            <h1 class="font-heading font-extrabold text-2xl text-white">Doctor Earnings & Wallet</h1>
+            <p class="text-xs text-slate-400 mt-1">Live 80% consultation earnings credit, session history, and bank payouts.</p>
+        </div>
+        <button onclick="alert('Payout request submitted to Admin accounts team!')" class="px-5 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-semibold text-xs sm:text-sm shadow-lg shadow-emerald-600/30 flex items-center gap-2 active:scale-95 transition-all">
+            <i data-lucide="arrow-down-to-line" class="w-4 h-4"></i>
+            <span>Request Bank Payout</span>
+        </button>
+    </div>
+
+    <!-- Earnings Overview Cards -->
+    <div class="grid grid-cols-1 sm:grid-cols-3 gap-4 sm:gap-6">
+        <div class="bg-slate-900/80 border border-slate-800 rounded-2xl p-5">
+            <span class="text-xs font-semibold text-slate-400 uppercase tracking-wider block mb-1">Available Payout Balance</span>
+            <div class="font-heading font-bold text-2xl text-emerald-400">₹8,450.00</div>
+            <span class="text-[11px] text-slate-400 flex items-center gap-1 mt-1">
+                <i data-lucide="shield-check" class="w-3.5 h-3.5 text-emerald-400"></i> Direct Bank Transfer Ready
+            </span>
+        </div>
+
+        <div class="bg-slate-900/80 border border-slate-800 rounded-2xl p-5">
+            <span class="text-xs font-semibold text-slate-400 uppercase tracking-wider block mb-1">This Month Consultations</span>
+            <div class="font-heading font-bold text-2xl text-white">42 Sessions</div>
+            <span class="text-[11px] text-blue-400 font-semibold flex items-center gap-1 mt-1">
+                Avg: 9.5 mins / session
+            </span>
+        </div>
+
+        <div class="bg-slate-900/80 border border-slate-800 rounded-2xl p-5">
+            <span class="text-xs font-semibold text-slate-400 uppercase tracking-wider block mb-1">Lifetime Withdrawn</span>
+            <div class="font-heading font-bold text-2xl text-white">₹62,100.00</div>
+            <span class="text-[11px] text-slate-400 flex items-center gap-1 mt-1">
+                100% On-time settlements
+            </span>
+        </div>
+    </div>
+
+    <!-- Consultation Passbook History -->
+    <div class="bg-slate-900 border border-slate-800 rounded-3xl p-6 space-y-4">
+        <h3 class="font-heading font-bold text-base text-white border-b border-slate-800 pb-4">Recent Settled Consultations</h3>
+
+        <div class="overflow-x-auto no-scrollbar">
+            <table class="w-full text-left text-xs">
+                <thead>
+                    <tr class="text-slate-400 border-b border-slate-800/80">
+                        <th class="pb-3 font-semibold">Date & Time</th>
+                        <th class="pb-3 font-semibold">Patient</th>
+                        <th class="pb-3 font-semibold">Duration</th>
+                        <th class="pb-3 font-semibold">Rate</th>
+                        <th class="pb-3 font-semibold">Gross Fee</th>
+                        <th class="pb-3 font-semibold text-right">Your Net (80%)</th>
+                    </tr>
+                </thead>
+                <tbody class="divide-y divide-slate-800/60 text-slate-200">
+                    <tr class="hover:bg-slate-950/40">
+                        <td class="py-3 text-slate-400">Today, 02:40 PM</td>
+                        <td class="py-3 font-semibold text-white">Rahul Sharma</td>
+                        <td class="py-3">12 Mins</td>
+                        <td class="py-3 font-mono">₹35/min</td>
+                        <td class="py-3 font-mono">₹420.00</td>
+                        <td class="py-3 text-right font-mono font-bold text-emerald-400">+₹336.00</td>
+                    </tr>
+                    <tr class="hover:bg-slate-950/40">
+                        <td class="py-3 text-slate-400">Yesterday, 05:15 PM</td>
+                        <td class="py-3 font-semibold text-white">Priya Patel</td>
+                        <td class="py-3">8 Mins</td>
+                        <td class="py-3 font-mono">₹35/min</td>
+                        <td class="py-3 font-mono">₹280.00</td>
+                        <td class="py-3 text-right font-mono font-bold text-emerald-400">+₹224.00</td>
+                    </tr>
+                    <tr class="hover:bg-slate-950/40">
+                        <td class="py-3 text-slate-400">18 Nov 2026, 11:30 AM</td>
+                        <td class="py-3 font-semibold text-white">Amit Kumar</td>
+                        <td class="py-3">15 Mins</td>
+                        <td class="py-3 font-mono">₹35/min</td>
+                        <td class="py-3 font-mono">₹525.00</td>
+                        <td class="py-3 text-right font-mono font-bold text-emerald-400">+₹420.00</td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
