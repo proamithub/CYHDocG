@@ -1,0 +1,660 @@
+﻿@{
+    ViewData["Title"] = "Home";
+}
+
+<!-- ===================== HERO SECTION ===================== -->
+<section id="home" class="hero-section flex items-center justify-center relative pt-8 pb-16 lg:py-24 bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 text-white overflow-hidden">
+    <!-- Ambient Glow Decos -->
+    <div class="absolute top-10 right-16 w-80 h-80 bg-red-600/15 rounded-full blur-3xl pointer-events-none"></div>
+    <div class="absolute bottom-10 left-10 w-72 h-72 bg-blue-600/15 rounded-full blur-3xl pointer-events-none"></div>
+
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 relative z-10 w-full">
+        <div class="grid lg:grid-cols-2 gap-12 items-center">
+            <!-- Left Hero Content -->
+            <div>
+                <!-- Badges -->
+                <div class="flex flex-wrap gap-2.5 mb-6" data-aos="fade-up">
+                    <span class="hero-badge bg-white/10 border border-white/15 px-3.5 py-1.5 rounded-full text-xs font-semibold flex items-center gap-2">
+                        <span class="w-2 h-2 rounded-full bg-red-500 animate-pulse"></span>
+                        Board Certified Specialists
+                    </span>
+                    <span class="hero-badge bg-white/10 border border-white/15 px-3.5 py-1.5 rounded-full text-xs font-semibold flex items-center gap-2">
+                        <i data-lucide="activity" class="w-3.5 h-3.5 text-blue-400"></i>
+                        Advanced Diagnostics
+                    </span>
+                    <span class="hero-badge bg-white/10 border border-white/15 px-3.5 py-1.5 rounded-full text-xs font-semibold flex items-center gap-2">
+                        <i data-lucide="shield-check" class="w-3.5 h-3.5 text-green-400"></i>
+                        Patient-Centered Care
+                    </span>
+                </div>
+
+                <h1 class="font-heading font-extrabold text-4xl sm:text-5xl lg:text-6xl text-white leading-tight mb-6" data-aos="fade-up" data-aos-delay="100">
+                    Comprehensive Care<br />
+                    <span class="text-red-500">For A Healthier</span> Heart & Life
+                </h1>
+
+                <p class="text-slate-300 text-lg leading-relaxed mb-8 max-w-xl" data-aos="fade-up" data-aos-delay="200">
+                    CYHDocGuru provides state-of-the-art medical and cardiac consultations, rapid diagnostics, preventive wellness programs, and personalized treatment plans for every stage of your life.
+                </p>
+
+                <div class="flex flex-wrap gap-4 mb-10" data-aos="fade-up" data-aos-delay="300">
+                    <a href="#appointments" class="btn-primary text-base py-3.5 px-8 rounded-xl shadow-lg shadow-red-600/30 flex items-center gap-2 font-semibold">
+                        <i data-lucide="calendar-plus" class="w-5 h-5"></i>
+                        Schedule Appointment
+                    </a>
+                    <a href="#services" class="btn-outline text-base py-3.5 px-8 rounded-xl border border-white/30 text-white hover:bg-white/10 transition-colors flex items-center gap-2 font-semibold">
+                        <i data-lucide="compass" class="w-5 h-5"></i>
+                        Our Services
+                    </a>
+                </div>
+
+                <!-- Quick Milestone Stats -->
+                <div class="flex flex-wrap gap-8 pt-4 border-t border-white/15" data-aos="fade-up" data-aos-delay="400">
+                    <div>
+                        <div class="font-heading font-bold text-3xl text-white">20+</div>
+                        <div class="text-slate-400 text-xs sm:text-sm">Years Experience</div>
+                    </div>
+                    <div class="border-l border-white/20 pl-8">
+                        <div class="font-heading font-bold text-3xl text-white">15K+</div>
+                        <div class="text-slate-400 text-xs sm:text-sm">Happy Patients</div>
+                    </div>
+                    <div class="border-l border-white/20 pl-8">
+                        <div class="font-heading font-bold text-3xl text-white">99.4%</div>
+                        <div class="text-slate-400 text-xs sm:text-sm">Satisfaction Rate</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Right Hero Card / Visual Preview -->
+            <div class="hidden lg:flex justify-center relative" data-aos="fade-left" data-aos-delay="200">
+                <div class="relative w-full max-w-md">
+                    <!-- Feature Card Box -->
+                    <div class="bg-gradient-to-br from-slate-800 to-slate-900 rounded-3xl p-8 border border-white/15 shadow-2xl relative overflow-hidden">
+                        <div class="flex items-center justify-between border-b border-white/10 pb-5 mb-6">
+                            <div class="flex items-center gap-3">
+                                <div class="w-12 h-12 rounded-xl bg-red-600/20 text-red-500 flex items-center justify-center">
+                                    <i data-lucide="heart-pulse" class="w-7 h-7"></i>
+                                </div>
+                                <div>
+                                    <h3 class="font-heading font-bold text-lg text-white">CYHDocGuru Clinic</h3>
+                                    <p class="text-xs text-slate-400">Cardiology & Diagnostics Wing</p>
+                                </div>
+                            </div>
+                            <span class="inline-flex items-center gap-1.5 bg-green-500/20 text-green-400 text-xs px-2.5 py-1 rounded-full font-semibold">
+                                <span class="w-2 h-2 rounded-full bg-green-400 animate-pulse"></span> Active
+                            </span>
+                        </div>
+
+                        <!-- Vitals Overview -->
+                        <div class="space-y-4 mb-6">
+                            <div class="bg-white/5 border border-white/10 rounded-xl p-4 flex items-center justify-between">
+                                <div class="flex items-center gap-3">
+                                    <div class="w-10 h-10 rounded-lg bg-red-600/20 text-red-400 flex items-center justify-center">
+                                        <i data-lucide="activity" class="w-5 h-5"></i>
+                                    </div>
+                                    <div>
+                                        <div class="text-xs text-slate-400">Live Heart Rate</div>
+                                        <div class="text-base font-bold text-white">72 BPM (Optimal)</div>
+                                    </div>
+                                </div>
+                                <span class="text-xs text-green-400 font-medium">Normal Wave</span>
+                            </div>
+
+                            <div class="bg-white/5 border border-white/10 rounded-xl p-4 flex items-center justify-between">
+                                <div class="flex items-center gap-3">
+                                    <div class="w-10 h-10 rounded-lg bg-blue-600/20 text-blue-400 flex items-center justify-center">
+                                        <i data-lucide="shield-check" class="w-5 h-5"></i>
+                                    </div>
+                                    <div>
+                                        <div class="text-xs text-slate-400">Blood Pressure Metric</div>
+                                        <div class="text-base font-bold text-white">120 / 80 mmHg</div>
+                                    </div>
+                                </div>
+                                <span class="text-xs text-blue-400 font-medium">Target Zone</span>
+                            </div>
+
+                            <div class="bg-white/5 border border-white/10 rounded-xl p-4 flex items-center justify-between">
+                                <div class="flex items-center gap-3">
+                                    <div class="w-10 h-10 rounded-lg bg-purple-600/20 text-purple-400 flex items-center justify-center">
+                                        <i data-lucide="clock" class="w-5 h-5"></i>
+                                    </div>
+                                    <div>
+                                        <div class="text-xs text-slate-400">Doctor Availability</div>
+                                        <div class="text-base font-bold text-white">Immediate / Online</div>
+                                    </div>
+                                </div>
+                                <span class="text-xs text-purple-400 font-medium">Available</span>
+                            </div>
+                        </div>
+
+                        <!-- CTA inside preview card -->
+                        <a href="#appointments" class="w-full btn-primary text-center justify-center py-3 text-sm font-semibold rounded-lg">
+                            Request Priority Consultation
+                        </a>
+                    </div>
+
+                    <!-- Floating Badge Top Left -->
+                    <div class="absolute -top-5 -left-6 bg-white text-slate-900 rounded-xl px-4 py-3 shadow-xl border border-gray-100 flex items-center gap-3">
+                        <div class="w-9 h-9 bg-red-100 text-red-600 rounded-full flex items-center justify-center">
+                            <i data-lucide="award" class="w-5 h-5"></i>
+                        </div>
+                        <div>
+                            <div class="font-bold text-xs">Top Rated Clinic</div>
+                            <div class="text-[11px] text-slate-500">Excellence in Heart Care</div>
+                        </div>
+                    </div>
+
+                    <!-- Floating Badge Bottom Right -->
+                    <div class="absolute -bottom-5 -right-6 bg-white text-slate-900 rounded-xl px-4 py-3 shadow-xl border border-gray-100 flex items-center gap-3">
+                        <div class="w-9 h-9 bg-green-100 text-green-600 rounded-full flex items-center justify-center">
+                            <i data-lucide="check-circle" class="w-5 h-5"></i>
+                        </div>
+                        <div>
+                            <div class="font-bold text-xs">24/7 Response</div>
+                            <div class="text-[11px] text-slate-500">Always Here For You</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</section>
+
+<!-- ===================== QUICK APPOINTMENT BOOKING ===================== -->
+<section id="appointments" class="py-16 bg-white">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+        <div class="text-center mb-12" data-aos="fade-up">
+            <span class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wider bg-red-100 text-red-600 mb-3">
+                <i data-lucide="calendar-check" class="w-3.5 h-3.5"></i>
+                Online Appointment
+            </span>
+            <h2 class="font-heading font-bold text-3xl lg:text-4xl text-slate-900 mt-2">Book Your Consultation</h2>
+            <p class="text-slate-500 max-w-2xl mx-auto mt-3">
+                Schedule a consultation with our experienced cardiologists and physicians. We will confirm your preferred timing within 2 business hours.
+            </p>
+        </div>
+
+        <div class="bg-gradient-to-br from-slate-900 to-slate-800 rounded-3xl p-8 lg:p-12 shadow-2xl text-white max-w-5xl mx-auto" data-aos="fade-up" data-aos-delay="100">
+            <form id="appt-form" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                <div>
+                    <label class="block text-xs font-semibold uppercase tracking-wider text-slate-300 mb-2">Patient Full Name *</label>
+                    <input type="text" placeholder="John Doe" required
+                           class="w-full bg-slate-800/80 border border-slate-700 text-white rounded-xl px-4 py-3 text-sm focus:outline-none focus:border-red-500 transition-colors" />
+                </div>
+
+                <div>
+                    <label class="block text-xs font-semibold uppercase tracking-wider text-slate-300 mb-2">Email Address *</label>
+                    <input type="email" placeholder="patient@example.com" required
+                           class="w-full bg-slate-800/80 border border-slate-700 text-white rounded-xl px-4 py-3 text-sm focus:outline-none focus:border-red-500 transition-colors" />
+                </div>
+
+                <div>
+                    <label class="block text-xs font-semibold uppercase tracking-wider text-slate-300 mb-2">Contact Phone *</label>
+                    <input type="tel" placeholder="+1 (555) 000-0000" required
+                           class="w-full bg-slate-800/80 border border-slate-700 text-white rounded-xl px-4 py-3 text-sm focus:outline-none focus:border-red-500 transition-colors" />
+                </div>
+
+                <div>
+                    <label class="block text-xs font-semibold uppercase tracking-wider text-slate-300 mb-2">Preferred Date *</label>
+                    <input type="date" required
+                           class="w-full bg-slate-800/80 border border-slate-700 text-white rounded-xl px-4 py-3 text-sm focus:outline-none focus:border-red-500 transition-colors" />
+                </div>
+
+                <div>
+                    <label class="block text-xs font-semibold uppercase tracking-wider text-slate-300 mb-2">Medical Department</label>
+                    <select class="w-full bg-slate-800/80 border border-slate-700 text-white rounded-xl px-4 py-3 text-sm focus:outline-none focus:border-red-500 transition-colors">
+                        <option>General Cardiology</option>
+                        <option>ECG & Diagnostics</option>
+                        <option>Hypertension Management</option>
+                        <option>Preventive Health & Lifestyle</option>
+                        <option>Cardiac Rehabilitation</option>
+                        <option>Emergency Heart Care</option>
+                    </select>
+                </div>
+
+                <div>
+                    <label class="block text-xs font-semibold uppercase tracking-wider text-slate-300 mb-2">Brief Medical Concern</label>
+                    <input type="text" placeholder="e.g. Chest pain, routine checkup"
+                           class="w-full bg-slate-800/80 border border-slate-700 text-white rounded-xl px-4 py-3 text-sm focus:outline-none focus:border-red-500 transition-colors" />
+                </div>
+
+                <div class="md:col-span-2 lg:col-span-3 text-center mt-4">
+                    <button type="submit" class="btn-primary px-10 py-3.5 text-base rounded-xl font-bold shadow-lg shadow-red-600/30 inline-flex items-center gap-2">
+                        <i data-lucide="calendar-plus" class="w-5 h-5"></i>
+                        Confirm Appointment Request
+                    </button>
+                    <p class="text-xs text-slate-400 mt-3">We respect your privacy. Medical records remain 100% confidential.</p>
+                </div>
+            </form>
+        </div>
+    </div>
+</section>
+
+<!-- ===================== ABOUT SECTION ===================== -->
+<section id="about" class="py-20 bg-slate-50">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+        <div class="grid lg:grid-cols-2 gap-16 items-center">
+            <!-- Left Info Cards -->
+            <div data-aos="fade-right">
+                <div class="bg-white rounded-3xl p-8 sm:p-10 shadow-xl border border-slate-100">
+                    <span class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wider bg-red-100 text-red-600 mb-4">
+                        <i data-lucide="shield-check" class="w-3.5 h-3.5"></i>
+                        About CYHDocGuru
+                    </span>
+                    <h2 class="font-heading font-bold text-3xl sm:text-4xl text-slate-900 leading-tight mb-5">
+                        Your Trusted Medical Partner with Decades of Proven Excellence
+                    </h2>
+                    <p class="text-slate-600 leading-relaxed mb-6">
+                        At CYHDocGuru, our mission is to deliver comprehensive, compassionate, and precise healthcare. Our team comprises fellowship-trained cardiologists, experienced physicians, and skilled clinicians using state-of-the-art diagnostic technology.
+                    </p>
+
+                    <div class="grid grid-cols-2 gap-4 mb-8">
+                        <div class="bg-slate-50 rounded-2xl p-5 border border-slate-100">
+                            <div class="font-heading font-extrabold text-3xl text-red-600">20+</div>
+                            <div class="text-sm font-medium text-slate-700 mt-1">Years of Care</div>
+                        </div>
+                        <div class="bg-slate-50 rounded-2xl p-5 border border-slate-100">
+                            <div class="font-heading font-extrabold text-3xl text-blue-600">15K+</div>
+                            <div class="text-sm font-medium text-slate-700 mt-1">Patients Treated</div>
+                        </div>
+                        <div class="bg-slate-50 rounded-2xl p-5 border border-slate-100">
+                            <div class="font-heading font-extrabold text-3xl text-green-600">100%</div>
+                            <div class="text-sm font-medium text-slate-700 mt-1">Certified Specialists</div>
+                        </div>
+                        <div class="bg-slate-50 rounded-2xl p-5 border border-slate-100">
+                            <div class="font-heading font-extrabold text-3xl text-purple-600">24/7</div>
+                            <div class="text-sm font-medium text-slate-700 mt-1">Emergency Support</div>
+                        </div>
+                    </div>
+
+                    <div class="space-y-3">
+                        <div class="flex items-center gap-3 text-slate-700 text-sm">
+                            <div class="w-6 h-6 rounded-full bg-green-100 text-green-600 flex items-center justify-center flex-shrink-0">
+                                <i data-lucide="check" class="w-4 h-4"></i>
+                            </div>
+                            <span>Accredited Cardiology & Multi-specialty Healthcare Facility</span>
+                        </div>
+                        <div class="flex items-center gap-3 text-slate-700 text-sm">
+                            <div class="w-6 h-6 rounded-full bg-green-100 text-green-600 flex items-center justify-center flex-shrink-0">
+                                <i data-lucide="check" class="w-4 h-4"></i>
+                            </div>
+                            <span>Modern High-Resolution Imaging, 12-Lead ECG & Echo Labs</span>
+                        </div>
+                        <div class="flex items-center gap-3 text-slate-700 text-sm">
+                            <div class="w-6 h-6 rounded-full bg-green-100 text-green-600 flex items-center justify-center flex-shrink-0">
+                                <i data-lucide="check" class="w-4 h-4"></i>
+                            </div>
+                            <span>Patient-first treatment plans with personalized follow-up care</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Right Why Us Points -->
+            <div data-aos="fade-left" class="space-y-6">
+                <div class="bg-white rounded-2xl p-6 shadow-md border border-slate-100 flex items-start gap-5">
+                    <div class="w-14 h-14 rounded-2xl bg-red-100 text-red-600 flex items-center justify-center flex-shrink-0">
+                        <i data-lucide="award" class="w-7 h-7"></i>
+                    </div>
+                    <div>
+                        <h3 class="font-heading font-bold text-lg text-slate-900 mb-1">Recognized Clinical Excellence</h3>
+                        <p class="text-slate-500 text-sm leading-relaxed">
+                            Our physicians are board-certified and hold affiliations with leading medical institutes, ensuring you receive the highest standard of care.
+                        </p>
+                    </div>
+                </div>
+
+                <div class="bg-white rounded-2xl p-6 shadow-md border border-slate-100 flex items-start gap-5">
+                    <div class="w-14 h-14 rounded-2xl bg-blue-100 text-blue-600 flex items-center justify-center flex-shrink-0">
+                        <i data-lucide="microscope" class="w-7 h-7"></i>
+                    </div>
+                    <div>
+                        <h3 class="font-heading font-bold text-lg text-slate-900 mb-1">State-of-the-Art Diagnostics</h3>
+                        <p class="text-slate-500 text-sm leading-relaxed">
+                            From digital electrocardiography to ultrasound echocardiograms, we utilize precision equipment for early detection and targeted treatments.
+                        </p>
+                    </div>
+                </div>
+
+                <div class="bg-white rounded-2xl p-6 shadow-md border border-slate-100 flex items-start gap-5">
+                    <div class="w-14 h-14 rounded-2xl bg-green-100 text-green-600 flex items-center justify-center flex-shrink-0">
+                        <i data-lucide="heart-handshake" class="w-7 h-7"></i>
+                    </div>
+                    <div>
+                        <h3 class="font-heading font-bold text-lg text-slate-900 mb-1">Holistic & Preventive Focus</h3>
+                        <p class="text-slate-500 text-sm leading-relaxed">
+                            We don't just treat illnesses—we empower you with lifestyle, nutritional, and preventive plans to safeguard long-term wellness.
+                        </p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</section>
+
+<!-- ===================== SERVICES GRID ===================== -->
+<section id="services" class="py-20 bg-white">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+        <div class="text-center mb-16" data-aos="fade-up">
+            <span class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wider bg-red-100 text-red-600 mb-3">
+                <i data-lucide="heart-pulse" class="w-3.5 h-3.5"></i>
+                Clinical Specialties
+            </span>
+            <h2 class="font-heading font-bold text-3xl sm:text-4xl text-slate-900 mt-2">Comprehensive Healthcare Services</h2>
+            <p class="text-slate-500 max-w-2xl mx-auto mt-3">
+                Discover our specialized cardiovascular and medical solutions designed to deliver the best diagnostic accuracy and clinical outcomes.
+            </p>
+        </div>
+
+        <div class="grid md:grid-cols-2 lg:grid-cols-3 gap-8">
+            <!-- Service 1 -->
+            <div class="bg-slate-50 hover:bg-white rounded-3xl p-8 border border-slate-200/80 hover:shadow-xl transition-all duration-300 group" data-aos="fade-up" data-aos-delay="0">
+                <div class="w-14 h-14 rounded-2xl bg-red-100 text-red-600 flex items-center justify-center mb-6 group-hover:bg-red-600 group-hover:text-white transition-colors">
+                    <i data-lucide="heart" class="w-7 h-7"></i>
+                </div>
+                <h3 class="font-heading font-bold text-xl text-slate-900 mb-3">Cardiac Consultation</h3>
+                <p class="text-slate-600 text-sm leading-relaxed mb-4">
+                    Thorough cardiovascular health evaluations, symptom assessments, risk profiling, and personalized health recommendations.
+                </p>
+                <a href="#appointments" class="inline-flex items-center gap-2 text-red-600 font-semibold text-sm hover:gap-3 transition-all">
+                    Book Consultation <i data-lucide="arrow-right" class="w-4 h-4"></i>
+                </a>
+            </div>
+
+            <!-- Service 2 -->
+            <div class="bg-slate-50 hover:bg-white rounded-3xl p-8 border border-slate-200/80 hover:shadow-xl transition-all duration-300 group" data-aos="fade-up" data-aos-delay="100">
+                <div class="w-14 h-14 rounded-2xl bg-blue-100 text-blue-600 flex items-center justify-center mb-6 group-hover:bg-blue-600 group-hover:text-white transition-colors">
+                    <i data-lucide="activity" class="w-7 h-7"></i>
+                </div>
+                <h3 class="font-heading font-bold text-xl text-slate-900 mb-3">ECG & Diagnostics</h3>
+                <p class="text-slate-600 text-sm leading-relaxed mb-4">
+                    Advanced 12-lead electrocardiography, Holter monitoring, stress testing, and high-frequency ultrasound imaging.
+                </p>
+                <a href="#appointments" class="inline-flex items-center gap-2 text-blue-600 font-semibold text-sm hover:gap-3 transition-all">
+                    Learn Diagnostics <i data-lucide="arrow-right" class="w-4 h-4"></i>
+                </a>
+            </div>
+
+            <!-- Service 3 -->
+            <div class="bg-slate-50 hover:bg-white rounded-3xl p-8 border border-slate-200/80 hover:shadow-xl transition-all duration-300 group" data-aos="fade-up" data-aos-delay="200">
+                <div class="w-14 h-14 rounded-2xl bg-purple-100 text-purple-600 flex items-center justify-center mb-6 group-hover:bg-purple-600 group-hover:text-white transition-colors">
+                    <i data-lucide="stethoscope" class="w-7 h-7"></i>
+                </div>
+                <h3 class="font-heading font-bold text-xl text-slate-900 mb-3">Hypertension Management</h3>
+                <p class="text-slate-600 text-sm leading-relaxed mb-4">
+                    Targeted blood pressure stabilization plans blending pharmaceutical management, dietary regimens, and active monitoring.
+                </p>
+                <a href="#appointments" class="inline-flex items-center gap-2 text-purple-600 font-semibold text-sm hover:gap-3 transition-all">
+                    View Care Plan <i data-lucide="arrow-right" class="w-4 h-4"></i>
+                </a>
+            </div>
+
+            <!-- Service 4 -->
+            <div class="bg-slate-50 hover:bg-white rounded-3xl p-8 border border-slate-200/80 hover:shadow-xl transition-all duration-300 group" data-aos="fade-up" data-aos-delay="0">
+                <div class="w-14 h-14 rounded-2xl bg-green-100 text-green-600 flex items-center justify-center mb-6 group-hover:bg-green-600 group-hover:text-white transition-colors">
+                    <i data-lucide="dumbbell" class="w-7 h-7"></i>
+                </div>
+                <h3 class="font-heading font-bold text-xl text-slate-900 mb-3">Cardiac Rehabilitation</h3>
+                <p class="text-slate-600 text-sm leading-relaxed mb-4">
+                    Supervised recovery programs for post-surgical, angioplasty, or myocardial infarction recovery to rebuild stamina and health safely.
+                </p>
+                <a href="#appointments" class="inline-flex items-center gap-2 text-green-600 font-semibold text-sm hover:gap-3 transition-all">
+                    Rehab Details <i data-lucide="arrow-right" class="w-4 h-4"></i>
+                </a>
+            </div>
+
+            <!-- Service 5 -->
+            <div class="bg-slate-50 hover:bg-white rounded-3xl p-8 border border-slate-200/80 hover:shadow-xl transition-all duration-300 group" data-aos="fade-up" data-aos-delay="100">
+                <div class="w-14 h-14 rounded-2xl bg-yellow-100 text-yellow-600 flex items-center justify-center mb-6 group-hover:bg-yellow-500 group-hover:text-white transition-colors">
+                    <i data-lucide="shield" class="w-7 h-7"></i>
+                </div>
+                <h3 class="font-heading font-bold text-xl text-slate-900 mb-3">Preventive Cardiology</h3>
+                <p class="text-slate-600 text-sm leading-relaxed mb-4">
+                    Early lipid profile screening, arterial plaque assessment, and risk prevention routines for individuals with genetic heart history.
+                </p>
+                <a href="#appointments" class="inline-flex items-center gap-2 text-yellow-600 font-semibold text-sm hover:gap-3 transition-all">
+                    Preventive Check <i data-lucide="arrow-right" class="w-4 h-4"></i>
+                </a>
+            </div>
+
+            <!-- Service 6 -->
+            <div class="bg-slate-50 hover:bg-white rounded-3xl p-8 border border-slate-200/80 hover:shadow-xl transition-all duration-300 group" data-aos="fade-up" data-aos-delay="200">
+                <div class="w-14 h-14 rounded-2xl bg-red-100 text-red-600 flex items-center justify-center mb-6 group-hover:bg-red-600 group-hover:text-white transition-colors">
+                    <i data-lucide="siren" class="w-7 h-7"></i>
+                </div>
+                <h3 class="font-heading font-bold text-xl text-slate-900 mb-3">24/7 Emergency Care</h3>
+                <p class="text-slate-600 text-sm leading-relaxed mb-4">
+                    Emergency response protocols for acute chest pain, arrhythmia surges, and critical symptoms with rapid ambulance coordination.
+                </p>
+                <a href="tel:+18003624878" class="inline-flex items-center gap-2 text-red-600 font-semibold text-sm hover:gap-3 transition-all">
+                    Call Emergency <i data-lucide="phone-call" class="w-4 h-4"></i>
+                </a>
+            </div>
+        </div>
+    </div>
+</section>
+
+<!-- ===================== DEPARTMENTS ===================== -->
+<section id="departments" class="py-20 bg-slate-50">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+        <div class="text-center mb-16" data-aos="fade-up">
+            <span class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wider bg-blue-100 text-blue-600 mb-3">
+                <i data-lucide="building-2" class="w-3.5 h-3.5"></i>
+                Hospital Wings
+            </span>
+            <h2 class="font-heading font-bold text-3xl sm:text-4xl text-slate-900 mt-2">Specialized Medical Departments</h2>
+            <p class="text-slate-500 max-w-2xl mx-auto mt-3">
+                Each unit is equipped with certified specialists and modern technologies for specific healthcare needs.
+            </p>
+        </div>
+
+        <div class="grid sm:grid-cols-2 lg:grid-cols-3 gap-8">
+            <div class="bg-gradient-to-br from-red-600 to-red-800 text-white rounded-3xl p-8 shadow-xl" data-aos="fade-up">
+                <i data-lucide="heart-pulse" class="w-10 h-10 mb-4 opacity-90"></i>
+                <h3 class="font-heading font-bold text-xl mb-2">General Cardiology</h3>
+                <p class="text-red-100 text-sm leading-relaxed mb-4">Routine checkups, diagnostic assessments, and primary cardiac therapies.</p>
+                <span class="text-xs bg-white/20 px-3 py-1 rounded-full font-semibold">Available Daily</span>
+            </div>
+
+            <div class="bg-white rounded-3xl p-8 border border-slate-200/80 shadow-md" data-aos="fade-up" data-aos-delay="100">
+                <div class="w-10 h-10 rounded-xl bg-blue-100 text-blue-600 flex items-center justify-center mb-4">
+                    <i data-lucide="activity" class="w-6 h-6"></i>
+                </div>
+                <h3 class="font-heading font-bold text-xl text-slate-900 mb-2">Interventional Cardiology</h3>
+                <p class="text-slate-500 text-sm leading-relaxed mb-4">Catheter-based therapies, angioplasty, and coronary stent procedures.</p>
+                <span class="text-xs bg-slate-100 text-slate-600 px-3 py-1 rounded-full font-semibold">Specialist Wing</span>
+            </div>
+
+            <div class="bg-white rounded-3xl p-8 border border-slate-200/80 shadow-md" data-aos="fade-up" data-aos-delay="200">
+                <div class="w-10 h-10 rounded-xl bg-purple-100 text-purple-600 flex items-center justify-center mb-4">
+                    <i data-lucide="zap" class="w-6 h-6"></i>
+                </div>
+                <h3 class="font-heading font-bold text-xl text-slate-900 mb-2">Electrophysiology</h3>
+                <p class="text-slate-500 text-sm leading-relaxed mb-4">In-depth arrhythmia analysis, cardiac pacemakers, and ablation therapies.</p>
+                <span class="text-xs bg-slate-100 text-slate-600 px-3 py-1 rounded-full font-semibold">Advanced Care</span>
+            </div>
+        </div>
+    </div>
+</section>
+
+<!-- ===================== TESTIMONIALS SLIDER ===================== -->
+<section id="testimonials" class="py-20 bg-white">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+        <div class="text-center mb-16" data-aos="fade-up">
+            <span class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wider bg-yellow-100 text-yellow-700 mb-3">
+                <i data-lucide="message-square" class="w-3.5 h-3.5"></i>
+                Patient Stories
+            </span>
+            <h2 class="font-heading font-bold text-3xl sm:text-4xl text-slate-900 mt-2">What Our Patients Say</h2>
+            <p class="text-slate-500 max-w-2xl mx-auto mt-3">
+                Over 15,000 patients trust CYHDocGuru for their heart and health care needs.
+            </p>
+        </div>
+
+        <div class="slider-container" data-aos="fade-up" data-aos-delay="100">
+            <div class="slider-track" id="testimonial-track">
+                <!-- Slide 1 -->
+                <div class="slide">
+                    <div class="testimonial-card bg-slate-50 rounded-2xl p-7 border border-slate-200/80 mx-2 shadow-sm">
+                        <div class="text-yellow-400 mb-3 text-lg">★★★★★</div>
+                        <p class="text-slate-600 text-sm leading-relaxed mb-5">
+                            "The specialists at CYHDocGuru diagnosed my cardiac blockage quickly and provided calm, clear guidance. Their attention to detail was exceptional."
+                        </p>
+                        <div class="flex items-center gap-3">
+                            <div class="w-10 h-10 rounded-full bg-red-600 text-white font-bold flex items-center justify-center text-sm">MJ</div>
+                            <div>
+                                <div class="font-heading font-bold text-sm text-slate-900">Michael Johnson</div>
+                                <div class="text-xs text-slate-500">Cardiac Patient</div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Slide 2 -->
+                <div class="slide">
+                    <div class="testimonial-card bg-slate-50 rounded-2xl p-7 border border-slate-200/80 mx-2 shadow-sm">
+                        <div class="text-yellow-400 mb-3 text-lg">★★★★★</div>
+                        <p class="text-slate-600 text-sm leading-relaxed mb-5">
+                            "Managing high blood pressure was a constant struggle until I visited CYHDocGuru. Their customized program brought my levels into perfect range."
+                        </p>
+                        <div class="flex items-center gap-3">
+                            <div class="w-10 h-10 rounded-full bg-blue-600 text-white font-bold flex items-center justify-center text-sm">SE</div>
+                            <div>
+                                <div class="font-heading font-bold text-sm text-slate-900">Sarah Edwards</div>
+                                <div class="text-xs text-slate-500">Hypertension Patient</div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Slide 3 -->
+                <div class="slide">
+                    <div class="testimonial-card bg-slate-50 rounded-2xl p-7 border border-slate-200/80 mx-2 shadow-sm">
+                        <div class="text-yellow-400 mb-3 text-lg">★★★★★</div>
+                        <p class="text-slate-600 text-sm leading-relaxed mb-5">
+                            "The post-operative cardiac rehabilitation plan was outstanding. The clinicians guided me safely each week. Today I am active and feeling energetic!"
+                        </p>
+                        <div class="flex items-center gap-3">
+                            <div class="w-10 h-10 rounded-full bg-green-600 text-white font-bold flex items-center justify-center text-sm">RB</div>
+                            <div>
+                                <div class="font-heading font-bold text-sm text-slate-900">Robert Barnes</div>
+                                <div class="text-xs text-slate-500">Rehabilitation Patient</div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Slider Navigation Controls -->
+        <div class="flex items-center justify-center gap-4 mt-8">
+            <button id="slide-prev" aria-label="Previous Testimonial" class="w-10 h-10 rounded-full border-2 border-red-600 text-red-600 flex items-center justify-center hover:bg-red-600 hover:text-white transition-all">
+                <i data-lucide="chevron-left" class="w-5 h-5"></i>
+            </button>
+            <div class="flex gap-2" id="slider-dots"></div>
+            <button id="slide-next" aria-label="Next Testimonial" class="w-10 h-10 rounded-full border-2 border-red-600 text-red-600 flex items-center justify-center hover:bg-red-600 hover:text-white transition-all">
+                <i data-lucide="chevron-right" class="w-5 h-5"></i>
+            </button>
+        </div>
+    </div>
+</section>
+
+<!-- ===================== FAQ ACCORDION ===================== -->
+<section id="faq" class="py-20 bg-slate-50">
+    <div class="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
+        <div class="text-center mb-16" data-aos="fade-up">
+            <span class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wider bg-blue-100 text-blue-600 mb-3">
+                <i data-lucide="help-circle" class="w-3.5 h-3.5"></i>
+                Common Queries
+            </span>
+            <h2 class="font-heading font-bold text-3xl sm:text-4xl text-slate-900 mt-2">Frequently Asked Questions</h2>
+            <p class="text-slate-500 max-w-xl mx-auto mt-3">Find answers to common questions regarding visits, appointments, and medical support.</p>
+        </div>
+
+        <div class="space-y-4" data-aos="fade-up" data-aos-delay="100">
+            <div class="bg-white rounded-2xl border border-slate-200/80 overflow-hidden shadow-sm">
+                <div class="faq-question p-5 flex items-center justify-between font-semibold text-slate-800 cursor-pointer select-none" onclick="toggleFAQ(this)">
+                    <span>How can I book an appointment with CYHDocGuru?</span>
+                    <i data-lucide="plus" class="w-5 h-5 text-red-600 faq-icon flex-shrink-0"></i>
+                </div>
+                <div class="faq-answer px-5 pb-5 text-slate-600 text-sm leading-relaxed border-t border-slate-100 pt-3">
+                    You can easily schedule a consultation online using our appointment form above, call our dedicated helpline at +1 (800) DOC-GURU, or email care@cyhdocguru.com. We confirm appointments within 2 hours.
+                </div>
+            </div>
+
+            <div class="bg-white rounded-2xl border border-slate-200/80 overflow-hidden shadow-sm">
+                <div class="faq-question p-5 flex items-center justify-between font-semibold text-slate-800 cursor-pointer select-none" onclick="toggleFAQ(this)">
+                    <span>What should I bring to my first cardiac consultation?</span>
+                    <i data-lucide="plus" class="w-5 h-5 text-red-600 faq-icon flex-shrink-0"></i>
+                </div>
+                <div class="faq-answer px-5 pb-5 text-slate-600 text-sm leading-relaxed border-t border-slate-100 pt-3">
+                    Please bring any recent blood test reports, prior ECG or imaging records, your current medication list, and your photo ID with insurance coverage details.
+                </div>
+            </div>
+
+            <div class="bg-white rounded-2xl border border-slate-200/80 overflow-hidden shadow-sm">
+                <div class="faq-question p-5 flex items-center justify-between font-semibold text-slate-800 cursor-pointer select-none" onclick="toggleFAQ(this)">
+                    <span>Do you offer emergency medical consultations?</span>
+                    <i data-lucide="plus" class="w-5 h-5 text-red-600 faq-icon flex-shrink-0"></i>
+                </div>
+                <div class="faq-answer px-5 pb-5 text-slate-600 text-sm leading-relaxed border-t border-slate-100 pt-3">
+                    Yes, our emergency helpline operates 24/7. If you experience severe chest heaviness, sudden shortness of breath, or palpitations, call +1 (800) DOC-GURU or visit our emergency wing immediately.
+                </div>
+            </div>
+
+            <div class="bg-white rounded-2xl border border-slate-200/80 overflow-hidden shadow-sm">
+                <div class="faq-question p-5 flex items-center justify-between font-semibold text-slate-800 cursor-pointer select-none" onclick="toggleFAQ(this)">
+                    <span>Are remote / telemedicine appointments supported?</span>
+                    <i data-lucide="plus" class="w-5 h-5 text-red-600 faq-icon flex-shrink-0"></i>
+                </div>
+                <div class="faq-answer px-5 pb-5 text-slate-600 text-sm leading-relaxed border-t border-slate-100 pt-3">
+                    Yes, we provide secure video consultations for routine follow-ups, medication reviews, and second opinions, available Monday through Saturday.
+                </div>
+            </div>
+        </div>
+    </div>
+</section>
+
+<!-- ===================== CONTACT SECTION ===================== -->
+<section id="contact" class="py-20 bg-white">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+        <div class="text-center mb-16" data-aos="fade-up">
+            <span class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wider bg-green-100 text-green-700 mb-3">
+                <i data-lucide="map-pin" class="w-3.5 h-3.5"></i>
+                Get In Touch
+            </span>
+            <h2 class="font-heading font-bold text-3xl sm:text-4xl text-slate-900 mt-2">Visit Or Contact CYHDocGuru</h2>
+            <p class="text-slate-500 max-w-xl mx-auto mt-3">We are here to assist you and your family on the journey toward better health.</p>
+        </div>
+
+        <div class="grid md:grid-cols-3 gap-8">
+            <div class="bg-slate-50 rounded-3xl p-8 border border-slate-200/80 text-center" data-aos="fade-up">
+                <div class="w-14 h-14 rounded-2xl bg-red-100 text-red-600 flex items-center justify-center mx-auto mb-5">
+                    <i data-lucide="phone-call" class="w-7 h-7"></i>
+                </div>
+                <h3 class="font-heading font-bold text-lg text-slate-900 mb-2">Telephone Helpline</h3>
+                <p class="text-slate-500 text-sm mb-4">General questions & appointments</p>
+                <a href="tel:+18003624878" class="text-red-600 font-bold text-lg hover:underline">+1 (800) DOC-GURU</a>
+            </div>
+
+            <div class="bg-slate-50 rounded-3xl p-8 border border-slate-200/80 text-center" data-aos="fade-up" data-aos-delay="100">
+                <div class="w-14 h-14 rounded-2xl bg-blue-100 text-blue-600 flex items-center justify-center mx-auto mb-5">
+                    <i data-lucide="map-pin" class="w-7 h-7"></i>
+                </div>
+                <h3 class="font-heading font-bold text-lg text-slate-900 mb-2">Clinic Location</h3>
+                <p class="text-slate-500 text-sm mb-4">123 Medical Health Plaza, Suite 400</p>
+                <span class="text-blue-600 font-semibold text-sm">Healthcare Medical District</span>
+            </div>
+
+            <div class="bg-slate-50 rounded-3xl p-8 border border-slate-200/80 text-center" data-aos="fade-up" data-aos-delay="200">
+                <div class="w-14 h-14 rounded-2xl bg-green-100 text-green-600 flex items-center justify-center mx-auto mb-5">
+                    <i data-lucide="clock" class="w-7 h-7"></i>
+                </div>
+                <h3 class="font-heading font-bold text-lg text-slate-900 mb-2">Operating Hours</h3>
+                <p class="text-slate-500 text-sm mb-2">Mon – Fri: 8:00 AM – 8:00 PM</p>
+                <p class="text-slate-500 text-sm mb-2">Saturday: 9:00 AM – 5:00 PM</p>
+                <span class="text-red-600 font-bold text-sm">Emergency Wing: 24/7</span>
+            </div>
+        </div>
+    </div>
+</section>

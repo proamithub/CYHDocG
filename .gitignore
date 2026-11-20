@@ -1,0 +1,29 @@
+## Visual Studio / .NET .gitignore
+.vs/
+[Bb]in/
+[Oo]bj/
+*.user
+*.suo
+*.userosscache
+*.sln.docstates
+.vscode/
+
+# Build results
+[Dd]ebug/
+[Rr]elease/
+x64/
+x86/
+[Aa]rms/
+[Aa]rm64/
+build/
+*.appx
+*.appxbundle
+*.msix
+*.msixbundle
+
+# Dotnet publishing & assets
+project.lock.json
+project.assets.json
+*.nuget.props
+*.nuget.targets
+.dotnet/
