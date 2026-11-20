@@ -21,7 +21,24 @@ builder.Services.AddScoped<IWalletRepository, WalletRepository>();
 builder.Services.AddScoped<IPrescriptionRepository, PrescriptionRepository>();
 builder.Services.AddScoped<IAiSearchService, AiSearchService>();
 builder.Services.AddScoped<IJwtTokenService, JwtTokenService>();
+builder.Services.AddScoped<ILiveKitTokenService, LiveKitTokenService>();
 builder.Services.AddHttpClient();
+
+// Configure LiveKit Settings from appsettings
+builder.Services.Configure<LiveKitSettings>(options =>
+{
+    var section = builder.Configuration.GetSection("LiveKitSettings");
+    if (!section.Exists() || string.IsNullOrEmpty(section["ApiKey"]))
+    {
+        section = builder.Configuration.GetSection("LiveKit");
+    }
+    section.Bind(options);
+    var explicitUrl = section["LiveKitUrl"] ?? section["Url"] ?? section["ServerUrl"];
+    if (!string.IsNullOrWhiteSpace(explicitUrl))
+    {
+        options.LiveKitUrl = explicitUrl;
+    }
+});
 
 // 3. Configure JWT Authentication
 var jwtKey = builder.Configuration["Authentication:Jwt:SecretKey"] 

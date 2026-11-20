@@ -6,6 +6,12 @@ public class ConsultationRequestDto
     public long DoctorId { get; set; }
 }
 
+public class VideoTokenRequestDto
+{
+    public long ConsultationId { get; set; }
+    public string? RoomName { get; set; }
+}
+
 public class ConsultationActiveDto
 {
     public long ConsultationId { get; set; }

@@ -10,12 +10,41 @@ public class LiveChatController : Controller
     private readonly IConsultationRepository _consultationRepo;
     private readonly IDoctorRepository _doctorRepo;
     private readonly IAiSearchService _aiSearchService;
+    private readonly ILiveKitTokenService _liveKitTokenService;
+    private readonly IConfiguration _config;
 
-    public LiveChatController(IConsultationRepository consultationRepo, IDoctorRepository doctorRepo, IAiSearchService aiSearchService)
+    public LiveChatController(
+        IConsultationRepository consultationRepo, 
+        IDoctorRepository doctorRepo, 
+        IAiSearchService aiSearchService,
+        ILiveKitTokenService liveKitTokenService,
+        IConfiguration config)
     {
         _consultationRepo = consultationRepo;
         _doctorRepo = doctorRepo;
         _aiSearchService = aiSearchService;
+        _liveKitTokenService = liveKitTokenService;
+        _config = config;
+    }
+
+    [HttpPost("/api/consultation/video-token")]
+    public IActionResult GetVideoToken([FromBody] VideoTokenRequestDto request)
+    {
+        string identity = User.Identity?.Name ?? $"user_{Guid.NewGuid().ToString("N")[..6]}";
+        string participantName = User.Identity?.Name ?? "Patient";
+        string roomName = !string.IsNullOrWhiteSpace(request.RoomName) ? request.RoomName : $"consultation_{request.ConsultationId}";
+
+        string token = _liveKitTokenService.GenerateAccessToken(roomName, identity, participantName);
+        string serverUrl = _liveKitTokenService.GetServerUrl();
+
+        return Ok(new
+        {
+            success = true,
+            token = token,
+            serverUrl = serverUrl,
+            roomName = roomName,
+            participantIdentity = identity
+        });
     }
 
     [HttpGet("/LiveChat")]

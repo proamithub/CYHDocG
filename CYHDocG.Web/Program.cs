@@ -1,3 +1,4 @@
+using CYHDocG.Repo.DTOs;
 using CYHDocG.Repo.Implementations;
 using CYHDocG.Repo.Interfaces;
 
@@ -6,6 +7,22 @@ var builder = WebApplication.CreateBuilder(args);
 // 1. Add MVC & Controllers with Views
 builder.Services.AddControllersWithViews();
 builder.Services.AddSignalR();
+
+// Configure LiveKit Settings from appsettings
+builder.Services.Configure<LiveKitSettings>(options =>
+{
+    var section = builder.Configuration.GetSection("LiveKitSettings");
+    if (!section.Exists() || string.IsNullOrEmpty(section["ApiKey"]))
+    {
+        section = builder.Configuration.GetSection("LiveKit");
+    }
+    section.Bind(options);
+    var explicitUrl = section["LiveKitUrl"] ?? section["Url"] ?? section["ServerUrl"];
+    if (!string.IsNullOrWhiteSpace(explicitUrl))
+    {
+        options.LiveKitUrl = explicitUrl;
+    }
+});
 
 // 2. Register Repositories (Dapper + Stored Procedures)
 builder.Services.AddScoped<IBaseRepository, BaseRepository>();
@@ -19,6 +36,7 @@ builder.Services.AddScoped<IAiSearchService, AiSearchService>();
 builder.Services.AddScoped<IImageCompressionService, ImageCompressionService>();
 builder.Services.AddScoped<IOcrPrescriptionService, OcrPrescriptionService>();
 builder.Services.AddScoped<IJwtTokenService, JwtTokenService>();
+builder.Services.AddScoped<ILiveKitTokenService, LiveKitTokenService>();
 builder.Services.AddHttpClient();
 
 // 3. Cookie Authentication for Role-Based Portals (Admin, Doctor, User)

@@ -5,12 +5,14 @@
 }
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/microsoft-signalr/8.0.0/signalr.min.js"></script>
+<!-- LiveKit Real-Time WebRTC SDK -->
+<script src="https://cdn.jsdelivr.net/npm/livekit-client/dist/livekit-client.umd.min.js"></script>
 
-<div class="min-h-[calc(100vh-80px)] bg-slate-950 py-6 px-4 sm:px-6 lg:px-8 flex justify-center items-center">
-    <div class="w-full max-w-4xl bg-slate-900 border border-slate-800 rounded-3xl shadow-2xl overflow-hidden flex flex-col h-[82vh]">
+<div class="min-h-[calc(100vh-80px)] bg-slate-950 py-4 sm:py-6 px-3 sm:px-6 lg:px-8 flex justify-center items-center">
+    <div class="w-full max-w-5xl bg-slate-900 border border-slate-800 rounded-3xl shadow-2xl overflow-hidden flex flex-col h-[85vh]">
         
         <!-- ===================== CHAT TOP BAR ===================== -->
-        <div class="p-4 sm:px-6 border-b border-slate-800 bg-slate-900/90 backdrop-blur-md flex flex-wrap items-center justify-between gap-3">
+        <div class="p-3 sm:p-4 border-b border-slate-800 bg-slate-900/95 backdrop-blur-md flex flex-wrap items-center justify-between gap-3">
             <div class="flex items-center gap-3">
                 <div id="chatAvatar" class="w-10 h-10 rounded-2xl bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 flex items-center justify-center font-bold">
                     <i data-lucide="bot" class="w-5 h-5"></i>
@@ -25,26 +27,72 @@
             </div>
 
             <!-- Dual Synchronized Timer Box (Shows when doctor joins) -->
-            <div id="consultationTimerContainer" class="hidden flex items-center gap-3 bg-slate-950 px-4 py-2 rounded-2xl border border-red-500/30">
+            <div id="consultationTimerContainer" class="hidden flex items-center gap-3 bg-slate-950 px-3.5 py-1.5 rounded-2xl border border-red-500/30">
                 <div class="flex items-center gap-2">
                     <span class="w-2 h-2 rounded-full bg-red-500 animate-ping"></span>
-                    <span id="consultationClock" class="font-mono font-bold text-base sm:text-lg text-white">00:00:00</span>
+                    <span id="consultationClock" class="font-mono font-bold text-sm sm:text-base text-white">00:00:00</span>
                 </div>
-                <div class="h-6 w-px bg-slate-800"></div>
+                <div class="h-5 w-px bg-slate-800"></div>
                 <div class="text-right">
                     <div id="consultationAccruedBill" class="text-xs font-bold text-emerald-400">₹0.00</div>
-                    <span class="text-[10px] text-slate-400">Live Accrued</span>
+                    <span class="text-[9px] text-slate-400">Live Accrued</span>
                 </div>
-                <button type="button" onclick="endCurrentConsultation()" class="ml-2 px-3 py-1 bg-red-600/30 hover:bg-red-600 text-red-300 hover:text-white rounded-xl text-xs font-semibold transition-all">
+                <button type="button" onclick="endCurrentConsultation()" class="ml-1 px-3 py-1 bg-red-600/30 hover:bg-red-600 text-red-300 hover:text-white rounded-xl text-xs font-semibold transition-all">
                     End Call
                 </button>
             </div>
 
-            <!-- Escalation CTA Button -->
+            <!-- Escalation & Video Call Buttons -->
             <div id="escalateBtnWrapper" class="flex items-center gap-2">
                 <button type="button" onclick="openDoctorSelectModal()" class="px-3.5 py-2 rounded-xl bg-gradient-to-r from-red-600 to-rose-600 hover:from-red-500 hover:to-rose-500 text-white font-bold text-xs shadow-md shadow-red-600/20 flex items-center gap-1.5 active:scale-95 transition-all">
-                    <i data-lucide="phone-forwarded" class="w-3.5 h-3.5"></i>
+                    <i data-lucide="video" class="w-3.5 h-3.5"></i>
                     <span>Connect Live Doctor</span>
+                </button>
+            </div>
+        </div>
+
+        <!-- ===================== LIVEKIT TWO-WAY VIDEO STAGE (Collapsible) ===================== -->
+        <div id="videoStageContainer" class="hidden border-b border-slate-800 bg-black relative flex-shrink-0 h-64 sm:h-80 md:h-96 transition-all">
+            <!-- Remote Doctor Video Feed -->
+            <div class="w-full h-full relative overflow-hidden flex items-center justify-center bg-slate-950">
+                <video id="remoteDoctorVideo" autoplay playsinline class="w-full h-full object-cover"></video>
+                
+                <!-- Waiting placeholder if remote video not yet attached -->
+                <div id="remoteVideoPlaceholder" class="absolute inset-0 flex flex-col items-center justify-center text-center p-4 bg-slate-950">
+                    <div class="w-16 h-16 rounded-full bg-blue-600/20 text-blue-400 border border-blue-500/30 flex items-center justify-center mb-3 animate-pulse">
+                        <i data-lucide="stethoscope" class="w-8 h-8"></i>
+                    </div>
+                    <h4 class="text-white font-heading font-bold text-sm sm:text-base">Connecting Video Stream...</h4>
+                    <p class="text-xs text-slate-400 mt-1">Establishing encrypted WebRTC channel via LiveKit Cloud</p>
+                </div>
+
+                <!-- Video HUD Overlay -->
+                <div class="absolute top-3 left-3 bg-black/60 backdrop-blur-md px-3 py-1.5 rounded-xl border border-white/10 flex items-center gap-2 z-10">
+                    <span class="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
+                    <span id="videoDoctorName" class="text-xs font-semibold text-white">Live Doctor Video</span>
+                </div>
+            </div>
+
+            <!-- Local Patient Picture-in-Picture (PIP) Self Video -->
+            <div class="absolute bottom-4 right-4 w-28 h-20 sm:w-36 sm:h-28 rounded-2xl overflow-hidden border-2 border-white/20 shadow-2xl bg-slate-900 z-20">
+                <video id="localPatientVideo" autoplay playsinline muted class="w-full h-full object-cover"></video>
+                <div class="absolute bottom-1 left-1 bg-black/70 px-1.5 py-0.5 rounded text-[9px] text-white font-medium">You</div>
+            </div>
+
+            <!-- In-Call Media Controls Bar -->
+            <div class="absolute bottom-4 left-1/2 -translate-x-1/2 bg-slate-900/90 backdrop-blur-md border border-slate-700/80 rounded-2xl px-3 py-2 flex items-center gap-2.5 z-30 shadow-2xl">
+                <button type="button" id="btnToggleMic" onclick="toggleMicrophone()" class="w-9 h-9 rounded-xl bg-slate-800 hover:bg-slate-700 text-white flex items-center justify-center transition-all">
+                    <i data-lucide="mic" id="iconMic" class="w-4 h-4"></i>
+                </button>
+                <button type="button" id="btnToggleCam" onclick="toggleCamera()" class="w-9 h-9 rounded-xl bg-slate-800 hover:bg-slate-700 text-white flex items-center justify-center transition-all">
+                    <i data-lucide="video" id="iconCam" class="w-4 h-4"></i>
+                </button>
+                <button type="button" onclick="toggleVideoStageSize()" class="w-9 h-9 rounded-xl bg-slate-800 hover:bg-slate-700 text-white flex items-center justify-center transition-all">
+                    <i data-lucide="maximize-2" class="w-4 h-4"></i>
+                </button>
+                <button type="button" onclick="endCurrentConsultation()" class="px-3.5 py-1.5 rounded-xl bg-red-600 hover:bg-red-700 text-white font-bold text-xs flex items-center gap-1.5 shadow-lg shadow-red-600/40 transition-all">
+                    <i data-lucide="phone-off" class="w-3.5 h-3.5"></i>
+                    <span>Leave</span>
                 </button>
             </div>
         </div>
@@ -58,7 +106,7 @@
                 </div>
                 <div class="bg-slate-800/90 border border-slate-700/60 rounded-2xl p-4 text-xs sm:text-sm text-slate-200 leading-relaxed shadow">
                     Namaste! 🙏 I am your <strong>CYHDoc AI Health Assistant</strong>.<br />
-                    Please tell me what symptoms or health questions you have today (e.g. fever, headache, chest tightness, dosage inquiry). If needed, I will immediately escalate your request to an available live specialist doctor.
+                    Please tell me what symptoms or health questions you have today (e.g. fever, headache, chest tightness, dosage inquiry). If needed, I will immediately escalate your request to an available live specialist doctor with 2-way HD Video Consultation.
                 </div>
             </div>
         </div>
@@ -92,8 +140,8 @@
             <i data-lucide="x" class="w-5 h-5"></i>
         </button>
         <div class="mb-4">
-            <h3 class="font-heading font-bold text-lg text-white">Select Live Doctor for Consultation</h3>
-            <p class="text-xs text-slate-400 mt-0.5">Request will be sent immediately to the doctor's queue.</p>
+            <h3 class="font-heading font-bold text-lg text-white">Select Live Doctor for Video Consultation</h3>
+            <p class="text-xs text-slate-400 mt-0.5">Two-way encrypted HD video room will be launched immediately.</p>
         </div>
 
         <div class="space-y-3 max-h-80 overflow-y-auto no-scrollbar">
@@ -115,8 +163,9 @@
                             </div>
                         </div>
                         <button type="button" onclick="requestDoctorConsultation(@doc.DoctorId, '@doc.DoctorName', @doc.ConsultationFeePerMinute, @(doc.IsFreeConsultation ? "false" : "true"))" 
-                                class="px-4 py-2 rounded-xl bg-red-600 hover:bg-red-700 text-white text-xs font-bold shadow-md shadow-red-600/30 transition-all active:scale-95">
-                            Connect
+                                class="px-4 py-2 rounded-xl bg-red-600 hover:bg-red-700 text-white text-xs font-bold shadow-md shadow-red-600/30 transition-all active:scale-95 flex items-center gap-1.5">
+                            <i data-lucide="video" class="w-3.5 h-3.5"></i>
+                            <span>Call</span>
                         </button>
                     </div>
                 }
@@ -137,8 +186,12 @@
         const isUserAuth = @(isAuth ? "true" : "false");
         let activeConsultationId = null;
         let consultationConnection = null;
+        let livekitRoom = null;
+        let isMicMuted = false;
+        let isCamOff = false;
+        let localStreamFallback = null;
 
-        // Initialize SignalR for 1-to-1 Consultation
+        // 1. Initialize SignalR for 1-to-1 Consultation Synchronization
         function initConsultationHub() {
             consultationConnection = new signalR.HubConnectionBuilder()
                 .withUrl('/hubs/consultation')
@@ -154,12 +207,139 @@
             });
 
             consultationConnection.on('ConsultationEnded', function (endData) {
+                cleanupVideoSession();
                 stopSynchronizedTimer();
                 alert(`Consultation completed! Total Duration: ${Math.ceil(endData.durationSeconds / 60)} mins. Billed: ₹${endData.billedAmount}`);
                 window.location.reload();
             });
 
-            consultationConnection.start().catch(err => console.error(err));
+            consultationConnection.start().catch(err => console.error("SignalR Connection Error: ", err));
+        }
+
+        // 2. Start LiveKit Video Consultation
+        async function startLiveKitVideoConsultation(consultationId, doctorName) {
+            const stage = document.getElementById('videoStageContainer');
+            stage.classList.remove('hidden');
+            document.getElementById('videoDoctorName').textContent = `Dr. ${doctorName}`;
+
+            try {
+                // Fetch dynamic LiveKit Token from backend (configured via appsettings.json)
+                const res = await fetch('/api/consultation/video-token', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ consultationId: consultationId })
+                });
+
+                const data = await res.json();
+                if (!data.success || !data.token) {
+                    throw new Error("Unable to obtain video token");
+                }
+
+                if (window.LivekitClient && data.serverUrl) {
+                    // Initialize official LiveKit Room
+                    livekitRoom = new LivekitClient.Room({
+                        adaptiveStream: true,
+                        dynacast: true
+                    });
+
+                    // Handle Remote Video/Audio Track Subscribed
+                    livekitRoom.on(LivekitClient.RoomEvent.TrackSubscribed, (track, publication, participant) => {
+                        if (track.kind === LivekitClient.Track.Kind.Video) {
+                            const remoteVid = document.getElementById('remoteDoctorVideo');
+                            track.attach(remoteVid);
+                            document.getElementById('remoteVideoPlaceholder').classList.add('hidden');
+                        }
+                    });
+
+                    // Connect to LiveKit WebSocket Server
+                    await livekitRoom.connect(data.serverUrl, data.token);
+
+                    // Publish Local Camera and Mic
+                    await livekitRoom.localParticipant.enableCameraAndMicrophone();
+
+                    // Attach local video track to self PIP
+                    const localVideoTrack = Array.from(livekitRoom.localParticipant.videoTrackPublications.values())[0]?.track;
+                    if (localVideoTrack) {
+                        localVideoTrack.attach(document.getElementById('localPatientVideo'));
+                    }
+                } else {
+                    // Fallback to standard browser WebRTC media stream
+                    await startLocalMediaFallback();
+                }
+            } catch (err) {
+                console.warn("LiveKit connection notice, running local camera preview fallback: ", err);
+                await startLocalMediaFallback();
+            }
+        }
+
+        // 3. Fallback Camera Preview
+        async function startLocalMediaFallback() {
+            try {
+                localStreamFallback = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
+                const localVid = document.getElementById('localPatientVideo');
+                localVid.srcObject = localStreamFallback;
+                localVid.play();
+                document.getElementById('remoteVideoPlaceholder').innerHTML = `
+                    <div class="w-16 h-16 rounded-full bg-blue-600/20 text-blue-400 border border-blue-500/30 flex items-center justify-center mb-3">
+                        <i data-lucide="video" class="w-8 h-8"></i>
+                    </div>
+                    <h4 class="text-white font-heading font-bold text-sm sm:text-base">Video Room Live</h4>
+                    <p class="text-xs text-slate-400 mt-1">Waiting for doctor stream to join...</p>
+                `;
+                lucide.createIcons();
+            } catch (e) {
+                console.error("Camera access error: ", e);
+            }
+        }
+
+        // 4. In-Call Media Controls
+        function toggleMicrophone() {
+            isMicMuted = !isMicMuted;
+            if (livekitRoom?.localParticipant) {
+                livekitRoom.localParticipant.setMicrophoneEnabled(!isMicMuted);
+            }
+            if (localStreamFallback) {
+                localStreamFallback.getAudioTracks().forEach(t => t.enabled = !isMicMuted);
+            }
+            document.getElementById('btnToggleMic').className = isMicMuted 
+                ? "w-9 h-9 rounded-xl bg-red-600 text-white flex items-center justify-center transition-all"
+                : "w-9 h-9 rounded-xl bg-slate-800 hover:bg-slate-700 text-white flex items-center justify-center transition-all";
+        }
+
+        function toggleCamera() {
+            isCamOff = !isCamOff;
+            if (livekitRoom?.localParticipant) {
+                livekitRoom.localParticipant.setCameraEnabled(!isCamOff);
+            }
+            if (localStreamFallback) {
+                localStreamFallback.getVideoTracks().forEach(t => t.enabled = !isCamOff);
+            }
+            document.getElementById('btnToggleCam').className = isCamOff 
+                ? "w-9 h-9 rounded-xl bg-red-600 text-white flex items-center justify-center transition-all"
+                : "w-9 h-9 rounded-xl bg-slate-800 hover:bg-slate-700 text-white flex items-center justify-center transition-all";
+        }
+
+        function toggleVideoStageSize() {
+            const stage = document.getElementById('videoStageContainer');
+            if (stage.classList.contains('h-64') || stage.classList.contains('h-80') || stage.classList.contains('h-96')) {
+                stage.classList.remove('h-64', 'sm:h-80', 'md:h-96');
+                stage.classList.add('h-[60vh]');
+            } else {
+                stage.classList.remove('h-[60vh]');
+                stage.classList.add('h-64', 'sm:h-80', 'md:h-96');
+            }
+        }
+
+        function cleanupVideoSession() {
+            if (livekitRoom) {
+                livekitRoom.disconnect();
+                livekitRoom = null;
+            }
+            if (localStreamFallback) {
+                localStreamFallback.getTracks().forEach(t => t.stop());
+                localStreamFallback = null;
+            }
+            document.getElementById('videoStageContainer').classList.add('hidden');
         }
 
         async function handleUserChatSubmit(e) {
@@ -168,23 +348,20 @@
             const message = input.value.trim();
             if (!message) return;
 
-            // Render user bubble
             appendChatMessage('user', message, 'You');
             input.value = '';
 
-            // If active consultation with doctor
             if (activeConsultationId && consultationConnection) {
                 await consultationConnection.invoke('SendMessage', activeConsultationId, message, 'User');
             } else {
-                // Send to AI Assistant
                 try {
-                    const res = await fetch('/api/consultation/ai-chat', {
+                    const res = await fetch('/Search/Triage', {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json' },
                         body: JSON.stringify(message)
                     });
                     const data = await res.json();
-                    appendChatMessage('ai', data.reply, 'CYH Health AI');
+                    appendChatMessage('ai', data.aiAdviceEn || data.aiAdviceHinglish || "I have analyzed your query.", 'CYH Health AI');
                 } catch (err) {
                     console.error(err);
                 }
@@ -239,21 +416,22 @@
                 if (data.success) {
                     activeConsultationId = data.data;
 
-                    // Update UI to doctor mode
                     document.getElementById('chatPartnerName').textContent = doctorName;
-                    document.getElementById('chatPartnerStatus').textContent = "1-to-1 Live Call";
+                    document.getElementById('chatPartnerStatus').textContent = "1-to-1 Live Video";
                     document.getElementById('chatPartnerStatus').className = "px-2 py-0.5 rounded-full bg-blue-500/20 text-blue-400 text-[10px] font-bold uppercase tracking-wider";
                     document.getElementById('escalateBtnWrapper').classList.add('hidden');
 
-                    // Join consultation room
                     if (consultationConnection) {
                         await consultationConnection.invoke('JoinConsultation', activeConsultationId.toString());
                     }
 
-                    // Start timer
+                    // Start synchronized timer
                     startSynchronizedTimer(new Date().toISOString(), rate, isPaid);
 
-                    appendChatMessage('doctor', `Hello! I have accepted your consultation request. How are you feeling today?`, doctorName);
+                    // Launch LiveKit Video Stream
+                    await startLiveKitVideoConsultation(activeConsultationId, doctorName);
+
+                    appendChatMessage('doctor', `Namaste! Video consultation is now active. I am listening to your health concerns.`, doctorName);
                 } else {
                     alert(data.message || 'Consultation request failed');
                 }
@@ -264,13 +442,17 @@
 
         async function endCurrentConsultation() {
             if (!activeConsultationId) return;
-            if (!confirm("Are you sure you want to end this consultation and settle bill?")) return;
+            if (!confirm("Are you sure you want to end this video consultation and settle bill?")) return;
 
+            cleanupVideoSession();
             if (consultationConnection) {
                 await consultationConnection.invoke('EndSession', activeConsultationId);
             }
         }
 
-        document.addEventListener('DOMContentLoaded', initConsultationHub);
+        document.addEventListener('DOMContentLoaded', () => {
+            initConsultationHub();
+            lucide.createIcons();
+        });
     </script>
 }

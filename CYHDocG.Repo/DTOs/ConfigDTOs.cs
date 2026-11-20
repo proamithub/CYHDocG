@@ -4,6 +4,15 @@ public class AppConfigDto
 {
     public AuthenticationConfig Authentication { get; set; } = new();
     public AiSettingsConfig AiSettings { get; set; } = new();
+    public LiveKitSettings LiveKitSettings { get; set; } = new();
+}
+
+public class LiveKitSettings
+{
+    public const string SectionName = "LiveKitSettings";
+    public string LiveKitUrl { get; set; } = "wss://cyhastro-pimmehdb.livekit.cloud";
+    public string ApiKey { get; set; } = string.Empty;
+    public string ApiSecret { get; set; } = string.Empty;
 }
 
 public class AuthenticationConfig
