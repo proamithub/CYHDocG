@@ -66,8 +66,8 @@
             </div>
         </div>
 
-        <!-- Horizontal Smooth Scroll Cards Container -->
-        <div id="awarenessSlider" class="flex gap-5 overflow-x-auto scroll-smooth pb-4 no-scrollbar">
+        <!-- Horizontal Smooth Scroll Cards Container (Auto-sliding, No Scrollbar) -->
+        <div id="awarenessSlider" class="flex gap-5 overflow-x-auto scroll-smooth pb-4 no-scrollbar" style="scrollbar-width: none; -ms-overflow-style: none;">
             <!-- Card 1 -->
             <div class="min-w-[280px] sm:min-w-[320px] bg-slate-950/80 border border-slate-800 hover:border-red-500/40 rounded-2xl p-5 flex flex-col justify-between transition-all group">
                 <div>
@@ -135,6 +135,41 @@
                     <i data-lucide="arrow-right" class="w-3.5 h-3.5"></i>
                 </div>
             </div>
+
+            <!-- Card 5 -->
+            <div class="min-w-[280px] sm:min-w-[320px] bg-slate-950/80 border border-slate-800 hover:border-purple-500/40 rounded-2xl p-5 flex flex-col justify-between transition-all group">
+                <div>
+                    <div class="w-10 h-10 rounded-xl bg-purple-600/20 text-purple-400 flex items-center justify-center mb-4 group-hover:scale-110 transition-transform">
+                        <i data-lucide="dna" class="w-5 h-5"></i>
+                    </div>
+                    <h3 class="font-heading font-bold text-base text-white mb-2">Diabetes & Vascular Health</h3>
+                    <p class="text-xs text-slate-400 leading-relaxed">
+                        Keep HbA1c below 6.5%. Uncontrolled blood sugar thickens artery walls and doubles heart stroke probability.
+                    </p>
+                </div>
+                <div class="mt-4 pt-3 border-t border-slate-800/80 flex items-center justify-between text-[11px] text-purple-400 font-semibold">
+                    <span>Sugar Balance</span>
+                    <i data-lucide="arrow-right" class="w-3.5 h-3.5"></i>
+                </div>
+            </div>
+
+            <!-- Card 6 -->
+            <div class="min-w-[280px] sm:min-w-[320px] bg-slate-950/80 border border-slate-800 hover:border-rose-500/40 rounded-2xl p-5 flex flex-col justify-between transition-all group">
+                <div>
+                    <div class="w-10 h-10 rounded-xl bg-rose-600/20 text-rose-400 flex items-center justify-center mb-4 group-hover:scale-110 transition-transform">
+                        <i data-lucide="sparkles" class="w-5 h-5"></i>
+                    </div>
+                    <h3 class="font-heading font-bold text-base text-white mb-2">Emergency Response Steps</h3>
+                    <p class="text-xs text-slate-400 leading-relaxed">
+                        In severe chest pressure, have patient sit upright, avoid exertion, chew 300mg aspirin, and dial our 24/7 team.
+                    </p>
+                </div>
+                <div class="mt-4 pt-3 border-t border-slate-800/80 flex items-center justify-between text-[11px] text-rose-400 font-semibold">
+                    <span>Emergency Guide</span>
+                    <i data-lucide="arrow-right" class="w-3.5 h-3.5"></i>
+                </div>
+            </div>
+        </div>
         </div>
     </div>
 </section>
@@ -745,12 +780,51 @@
 
 @section Scripts {
     <script>
+        let awarenessAutoTimer = null;
+        let isAwarenessPaused = false;
+
         function scrollAwareness(direction) {
             const container = document.getElementById('awarenessSlider');
-            if (container) {
-                container.scrollBy({ left: direction * 320, behavior: 'smooth' });
+            if (!container) return;
+            const scrollStep = 340;
+            const maxScroll = container.scrollWidth - container.clientWidth;
+
+            if (direction > 0 && container.scrollLeft >= maxScroll - 15) {
+                // Loop back to start smoothly
+                container.scrollTo({ left: 0, behavior: 'smooth' });
+            } else if (direction < 0 && container.scrollLeft <= 15) {
+                // Loop to end smoothly
+                container.scrollTo({ left: maxScroll, behavior: 'smooth' });
+            } else {
+                container.scrollBy({ left: direction * scrollStep, behavior: 'smooth' });
             }
+            resetAwarenessTimer();
         }
+
+        function startAwarenessAutoSlide() {
+            if (awarenessAutoTimer) clearInterval(awarenessAutoTimer);
+            awarenessAutoTimer = setInterval(() => {
+                if (!isAwarenessPaused) {
+                    scrollAwareness(1);
+                }
+            }, 3500);
+        }
+
+        function resetAwarenessTimer() {
+            if (awarenessAutoTimer) clearInterval(awarenessAutoTimer);
+            startAwarenessAutoSlide();
+        }
+
+        document.addEventListener('DOMContentLoaded', () => {
+            const slider = document.getElementById('awarenessSlider');
+            if (slider) {
+                slider.addEventListener('mouseenter', () => { isAwarenessPaused = true; });
+                slider.addEventListener('mouseleave', () => { isAwarenessPaused = false; });
+                slider.addEventListener('touchstart', () => { isAwarenessPaused = true; }, { passive: true });
+                slider.addEventListener('touchend', () => { isAwarenessPaused = false; }, { passive: true });
+                startAwarenessAutoSlide();
+            }
+        });
 
         function setQuickSearch(val) {
             const input = document.getElementById('homeSearchInput');

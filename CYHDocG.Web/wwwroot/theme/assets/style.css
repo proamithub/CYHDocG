@@ -485,3 +485,17 @@ footer {
   padding-left: 1rem;
   padding-right: 1rem;
 }
+
+/* Hide scrollbar for Chrome, Safari, Edge and Firefox */
+.no-scrollbar::-webkit-scrollbar,
+#awarenessSlider::-webkit-scrollbar {
+  display: none !important;
+  width: 0 !important;
+  height: 0 !important;
+}
+
+.no-scrollbar,
+#awarenessSlider {
+  -ms-overflow-style: none !important;
+  scrollbar-width: none !important;
+}
