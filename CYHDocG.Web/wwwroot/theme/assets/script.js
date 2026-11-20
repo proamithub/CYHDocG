@@ -5,26 +5,40 @@ AOS.init({ duration: 900, once: true, easing: 'ease-in-out', offset: 60 });
 lucide.createIcons();
 
 // ---- PRELOADER ----
-window.addEventListener('load', () => {
-  setTimeout(() => {
-    document.getElementById('preloader').classList.add('hidden');
-  }, 2200);
-});
+function dismissPreloader() {
+  const preloader = document.getElementById('preloader');
+  if (preloader && !preloader.classList.contains('hidden')) {
+    preloader.style.transition = 'opacity 0.3s ease, visibility 0.3s ease';
+    preloader.style.opacity = '0';
+    setTimeout(() => {
+      preloader.classList.add('hidden');
+    }, 300);
+  }
+}
+
+if (document.readyState === 'complete') {
+  setTimeout(dismissPreloader, 100);
+} else {
+  window.addEventListener('DOMContentLoaded', () => {
+    setTimeout(dismissPreloader, 200);
+  });
+  window.addEventListener('load', () => {
+    setTimeout(dismissPreloader, 150);
+  });
+  // Fallback safety: never keep preloader visible more than 800ms
+  setTimeout(dismissPreloader, 800);
+}
 
 // ---- NAVBAR SCROLL ----
 const navbar = document.getElementById('navbar');
-const logoText = document.getElementById('logo-text');
-const navLinks = document.querySelectorAll('.nav-link');
 
 window.addEventListener('scroll', () => {
-  if (window.scrollY > 60) {
-    navbar.classList.add('scrolled');
-    navbar.querySelectorAll('.nav-link').forEach(l => {
-      l.style.color = document.documentElement.classList.contains('dark') ? '#CBD5E1' : '#0F172A';
-    });
-  } else {
-    navbar.classList.remove('scrolled');
-    navbar.querySelectorAll('.nav-link').forEach(l => { l.style.color = ''; });
+  if (navbar) {
+    if (window.scrollY > 40) {
+      navbar.classList.add('scrolled');
+    } else {
+      navbar.classList.remove('scrolled');
+    }
   }
 });
 

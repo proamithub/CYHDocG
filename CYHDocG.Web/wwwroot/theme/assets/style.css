@@ -140,7 +140,8 @@ html {
   left: 0;
   right: 0;
   height: 100px;
-  background: linear-gradient(to bottom, transparent, #f8fafc);
+  background: linear-gradient(to bottom, transparent, #0f172a);
+  pointer-events: none;
 }
 .btn-outline:hover,
 .hero-badge {
@@ -429,8 +430,9 @@ textarea:focus {
   }
 }
 #navbar.scrolled {
-  background: rgba(255, 255, 255, 0.97) !important;
-  box-shadow: 0 4px 24px rgba(0, 0, 0, 0.08);
+  background: rgba(15, 23, 42, 0.98) !important;
+  box-shadow: 0 4px 24px rgba(0, 0, 0, 0.4);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
 }
 .sticky {
   position: sticky;
@@ -458,4 +460,28 @@ textarea:focus {
 }
 footer {
   background: #050d1a;
+}
+
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0.75rem 1.5rem;
+  border-radius: 0.5rem;
+  font-weight: 600;
+  background-color: #dc2626;
+  color: #fff;
+  transition: all 0.2s;
+}
+
+.btn:hover {
+  background-color: #b91c1c;
+}
+
+.container-custom {
+  max-width: 80rem;
+  margin-left: auto;
+  margin-right: auto;
+  padding-left: 1rem;
+  padding-right: 1rem;
 }

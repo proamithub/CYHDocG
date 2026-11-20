@@ -31,3 +31,4 @@ publish/
 *.zip
 *appsettings.Production.json
 DEPLOYMENT_SECRETS.json
+Deploy-QuickAssets.ps1

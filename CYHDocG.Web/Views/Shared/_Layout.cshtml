@@ -23,6 +23,28 @@
     <link rel="stylesheet" href="~/theme/assets/output.css" asp-append-version="true" />
     <link rel="icon" href="~/theme/assets/heart.png" type="image/x-icon" />
 
+    <!-- Tailwind CSS Play Engine -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    colors: {
+                        primary: '#dc2626',
+                        secondary: '#0f172a',
+                        accent: '#0ea5e9'
+                    },
+                    fontFamily: {
+                        sans: ['Inter', 'sans-serif'],
+                        heading: ['Outfit', 'sans-serif'],
+                        body: ['Inter', 'sans-serif']
+                    }
+                }
+            }
+        };
+    </script>
+
     <!-- Lucide Icons -->
     <script src="https://unpkg.com/lucide@latest/dist/umd/lucide.min.js"></script>
     <script src="~/theme/assets/aos.js"></script>

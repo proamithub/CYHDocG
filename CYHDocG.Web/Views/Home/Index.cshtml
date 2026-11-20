@@ -253,111 +253,6 @@
     </div>
 </section>
 
-@section Scripts {
-    <script>
-        function scrollAwareness(direction) {
-            const container = document.getElementById('awarenessSlider');
-            if (container) {
-                container.scrollBy({ left: direction * 320, behavior: 'smooth' });
-            }
-        }
-
-        function setQuickSearch(val) {
-            const input = document.getElementById('homeSearchInput');
-            if (input) {
-                input.value = val;
-                handleHomeSearch(val);
-            }
-        }
-
-        let searchDebounceTimer = null;
-        async function handleHomeSearch(val) {
-            const box = document.getElementById('homeSuggestionsBox');
-            if (!box) return;
-
-            clearTimeout(searchDebounceTimer);
-            if (!val || val.trim().length < 2) {
-                box.classList.add('hidden');
-                box.innerHTML = '';
-                return;
-            }
-
-            searchDebounceTimer = setTimeout(async () => {
-                try {
-                    const response = await fetch('/api/search/suggestions?q=' + encodeURIComponent(val));
-                    const data = await response.json();
-                    
-                    if (data && data.length > 0) {
-                        let html = '';
-                        data.forEach(item => {
-                            html += `
-                            <a href="/LiveDoctor?q=${encodeURIComponent(item.doctorName)}" class="flex items-center justify-between p-2.5 rounded-xl hover:bg-slate-800 transition-colors">
-                                <div class="flex items-center gap-2.5">
-                                    <div class="w-8 h-8 rounded-lg bg-red-600/20 text-red-500 flex items-center justify-center font-bold text-xs">
-                                        Dr
-                                    </div>
-                                    <div>
-                                        <div class="text-xs font-bold text-white">${item.doctorName}</div>
-                                        <div class="text-[10px] text-slate-400">${item.specialty} • ${item.department}</div>
-                                    </div>
-                                </div>
-                                <span class="text-[10px] px-2 py-0.5 rounded-full ${item.isLive ? 'bg-emerald-500/20 text-emerald-400 font-bold' : 'bg-slate-800 text-slate-400'}">
-                                    ${item.isLive ? 'LIVE NOW' : 'Specialist'}
-                                </span>
-                            </a>
-                            `;
-                        });
-                        box.innerHTML = html;
-                        box.classList.remove('hidden');
-                    } else {
-                        box.innerHTML = `<div class="p-3 text-xs text-slate-400 text-center">No specific doctor found for "${val}". Searching symptoms...</div>`;
-                        box.classList.remove('hidden');
-                    }
-                } catch (e) {
-                    console.error(e);
-                }
-            }, 300);
-        }
-
-        function executeSearchRedirect() {
-            const input = document.getElementById('homeSearchInput');
-            const q = input ? input.value : '';
-            window.location.href = '/LiveDoctor?q=' + encodeURIComponent(q);
-        }
-    </script>
-}
-                        <a href="#appointments" class="w-full btn-primary text-center justify-center py-3 text-sm font-semibold rounded-lg">
-                            Request Priority Consultation
-                        </a>
-                    </div>
-
-                    <!-- Floating Badge Top Left -->
-                    <div class="absolute -top-5 -left-6 bg-white text-slate-900 rounded-xl px-4 py-3 shadow-xl border border-gray-100 flex items-center gap-3">
-                        <div class="w-9 h-9 bg-red-100 text-red-600 rounded-full flex items-center justify-center">
-                            <i data-lucide="award" class="w-5 h-5"></i>
-                        </div>
-                        <div>
-                            <div class="font-bold text-xs">Top Rated Clinic</div>
-                            <div class="text-[11px] text-slate-500">Excellence in Heart Care</div>
-                        </div>
-                    </div>
-
-                    <!-- Floating Badge Bottom Right -->
-                    <div class="absolute -bottom-5 -right-6 bg-white text-slate-900 rounded-xl px-4 py-3 shadow-xl border border-gray-100 flex items-center gap-3">
-                        <div class="w-9 h-9 bg-green-100 text-green-600 rounded-full flex items-center justify-center">
-                            <i data-lucide="check-circle" class="w-5 h-5"></i>
-                        </div>
-                        <div>
-                            <div class="font-bold text-xs">24/7 Response</div>
-                            <div class="text-[11px] text-slate-500">Always Here For You</div>
-                        </div>
-                    </div>
-                </div>
-            </div>
-        </div>
-    </div>
-</section>
-
 <!-- ===================== QUICK APPOINTMENT BOOKING ===================== -->
 <section id="appointments" class="py-16 bg-white">
     <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
@@ -856,3 +751,77 @@
         </div>
     </div>
 </section>
+
+@section Scripts {
+    <script>
+        function scrollAwareness(direction) {
+            const container = document.getElementById('awarenessSlider');
+            if (container) {
+                container.scrollBy({ left: direction * 320, behavior: 'smooth' });
+            }
+        }
+
+        function setQuickSearch(val) {
+            const input = document.getElementById('homeSearchInput');
+            if (input) {
+                input.value = val;
+                handleHomeSearch(val);
+            }
+        }
+
+        let searchDebounceTimer = null;
+        async function handleHomeSearch(val) {
+            const box = document.getElementById('homeSuggestionsBox');
+            if (!box) return;
+
+            clearTimeout(searchDebounceTimer);
+            if (!val || val.trim().length < 2) {
+                box.classList.add('hidden');
+                box.innerHTML = '';
+                return;
+            }
+
+            searchDebounceTimer = setTimeout(async () => {
+                try {
+                    const response = await fetch('/api/search/suggestions?q=' + encodeURIComponent(val));
+                    const data = await response.json();
+                    
+                    if (data && data.length > 0) {
+                        let html = '';
+                        data.forEach(item => {
+                            html += `
+                            <a href="/LiveDoctor?q=${encodeURIComponent(item.doctorName)}" class="flex items-center justify-between p-2.5 rounded-xl hover:bg-slate-800 transition-colors">
+                                <div class="flex items-center gap-2.5">
+                                    <div class="w-8 h-8 rounded-lg bg-red-600/20 text-red-500 flex items-center justify-center font-bold text-xs">
+                                        Dr
+                                    </div>
+                                    <div>
+                                        <div class="text-xs font-bold text-white">${item.doctorName}</div>
+                                        <div class="text-[10px] text-slate-400">${item.specialty} • ${item.department}</div>
+                                    </div>
+                                </div>
+                                <span class="text-[10px] px-2 py-0.5 rounded-full ${item.isLive ? 'bg-emerald-500/20 text-emerald-400 font-bold' : 'bg-slate-800 text-slate-400'}">
+                                    ${item.isLive ? 'LIVE NOW' : 'Specialist'}
+                                </span>
+                            </a>
+                            `;
+                        });
+                        box.innerHTML = html;
+                        box.classList.remove('hidden');
+                    } else {
+                        box.innerHTML = `<div class="p-3 text-xs text-slate-400 text-center">No specific doctor found for "${val}". Searching symptoms...</div>`;
+                        box.classList.remove('hidden');
+                    }
+                } catch (e) {
+                    console.error(e);
+                }
+            }, 300);
+        }
+
+        function executeSearchRedirect() {
+            const input = document.getElementById('homeSearchInput');
+            const q = input ? input.value : '';
+            window.location.href = '/LiveDoctor?q=' + encodeURIComponent(q);
+        }
+    </script>
+}
