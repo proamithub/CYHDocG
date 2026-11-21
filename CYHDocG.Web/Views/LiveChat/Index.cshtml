@@ -357,7 +357,7 @@
                 </div>
                 <div class="bg-slate-800/90 border border-slate-700/60 rounded-2xl rounded-tl-sm p-3.5 text-xs text-slate-300 flex items-center gap-2.5 shadow">
                     <span class="w-2 h-2 rounded-full bg-emerald-400 animate-ping"></span>
-                    <span>AI Doctor Guru Ji (Gemini AI) विश्लेषण कर रहे हैं...</span>
+                    <span>AI Clinical Assistant (Gemini AI) is analyzing your symptoms...</span>
                 </div>
             </div>`;
             stream.insertAdjacentHTML('beforeend', html);
@@ -372,8 +372,8 @@
 
         function renderAiTriageCard(data, query) {
             const stream = document.getElementById('messageStream');
-            const primaryAdvice = data.aiAdviceHi || data.aiAdviceHinglish || data.aiAdviceEn || "आपके लक्षणों का विश्लेषण पूरा हुआ।";
-            const englishAdvice = (data.aiAdviceEn && data.aiAdviceEn !== primaryAdvice) ? data.aiAdviceEn : '';
+            const primaryAdvice = data.aiAdviceEn || data.aiAdvice || "Clinical symptom analysis complete.";
+            const englishAdvice = '';
             const severity = data.severity || 'Moderate';
             const isHigh = data.isEmergency || severity === 'High' || severity === 'Emergency';
 
@@ -402,7 +402,7 @@
                     ${data.isEmergency ? `
                     <div class="p-3 rounded-xl bg-red-950/80 border border-red-500/50 text-red-200 text-xs flex items-start gap-2">
                         <i data-lucide="alert-triangle" class="w-4 h-4 text-red-400 flex-shrink-0 mt-0.5"></i>
-                        <span><strong>आपातकालीन चेतावनी:</strong> ये लक्षण गंभीर हो सकते हैं। यदि सीने में तेज दर्द, सांस फूलना या बेहोशी हो तो तत्काल निकटतम अस्पताल या एम्बुलेंस हेल्पलाइन (108/112) से संपर्क करें।</span>
+                        <span><strong>Emergency Warning:</strong> These symptoms may indicate an urgent medical situation. If experiencing severe chest pain, shortness of breath, loss of consciousness, or sudden numbness, call emergency services (112 / 911 / 108) immediately.</span>
                     </div>` : ''}
 
                     <!-- Advice Content -->
@@ -410,26 +410,21 @@
                         <div class="text-slate-100 font-normal leading-relaxed">
                             ${primaryAdvice.replace(/\n/g, '<br/>')}
                         </div>
-                        ${englishAdvice ? `
-                        <div class="pt-2 border-t border-slate-700/40 text-xs text-slate-400">
-                            <span class="text-slate-400 uppercase tracking-wider text-[10px] block font-bold mb-1">English Summary:</span>
-                            ${englishAdvice.replace(/\n/g, '<br/>')}
-                        </div>` : ''}
                     </div>
 
                     <!-- Interactive Suggestion Chips -->
                     <div class="pt-2 flex flex-wrap gap-2 border-t border-slate-700/40">
-                        <button onclick="sendQuickPrompt('इस समस्या में क्या परहेज या घरेलू उपाय करें?')" class="px-3 py-1 rounded-xl bg-slate-900 hover:bg-slate-700 text-slate-200 text-xs border border-slate-700 transition-colors flex items-center gap-1.5">
+                        <button onclick="sendQuickPrompt('What precautions or home care remedies should I take?')" class="px-3 py-1 rounded-xl bg-slate-900 hover:bg-slate-700 text-slate-200 text-xs border border-slate-700 transition-colors flex items-center gap-1.5">
                             <i data-lucide="shield-check" class="w-3.5 h-3.5 text-emerald-400"></i>
-                            <span>परहेज व सावधानियां</span>
+                            <span>Precautions & Care</span>
                         </button>
-                        <button onclick="sendQuickPrompt('मुझे डॉक्टर को कब दिखाना चाहिए?')" class="px-3 py-1 rounded-xl bg-slate-900 hover:bg-slate-700 text-slate-200 text-xs border border-slate-700 transition-colors flex items-center gap-1.5">
+                        <button onclick="sendQuickPrompt('When should I see a doctor in person?')" class="px-3 py-1 rounded-xl bg-slate-900 hover:bg-slate-700 text-slate-200 text-xs border border-slate-700 transition-colors flex items-center gap-1.5">
                             <i data-lucide="clock" class="w-3.5 h-3.5 text-blue-400"></i>
-                            <span>कब डॉक्टर को दिखाएं?</span>
+                            <span>When to See Doctor</span>
                         </button>
                         <button onclick="openDoctorSelectModal()" class="px-3 py-1 rounded-xl bg-red-600/30 hover:bg-red-600 text-red-300 hover:text-white text-xs border border-red-500/40 transition-colors flex items-center gap-1.5">
                             <i data-lucide="video" class="w-3.5 h-3.5"></i>
-                            <span>लाइव डॉक्टर चेक करें</span>
+                            <span>Check Live Doctors</span>
                         </button>
                     </div>
                 </div>
@@ -453,14 +448,14 @@
                         </div>
                         <div class="flex-1">
                             <h4 class="font-heading font-bold text-sm text-amber-300 flex items-center gap-2">
-                                <span>डॉक्टर वर्तमान में ऑनलाइन उपलब्ध नहीं हैं</span>
+                                <span>Doctor Currently Offline</span>
                                 <span class="px-2 py-0.5 rounded-full bg-amber-500/20 text-[10px] text-amber-300 font-semibold uppercase">Offline Notice</span>
                             </h4>
                             <p class="text-xs text-slate-200 mt-1.5 leading-relaxed">
-                                क्षमा करें, अभी <strong class="text-white">"${escapeHtml(query)}"</strong> के लिए कोई स्पेशलिस्ट डॉक्टर ऑनलाइन मौजूद नहीं हैं।
+                                Currently, no specialist doctor is live online for <strong class="text-white">"${escapeHtml(query)}"</strong>.
                             </p>
                             <p class="text-xs text-slate-300 mt-1 leading-relaxed">
-                                लेकिन बिल्कुल चिंता न करें! हमारे <strong class="text-emerald-400">AI डॉक्टर गुरु जी (Powered by Gemini AI)</strong> आपकी सहायता के लिए 24/7 तैयार हैं। नीचे आपके लक्षणों का विस्तृत क्लीनिकल परामर्श प्रस्तुत है:
+                                Don't worry! Our <strong class="text-emerald-400">AI Clinical Assistant (Powered by Gemini AI)</strong> is available 24/7 to help you. Here is the clinical triage assessment for your symptoms:
                             </p>
                         </div>
                     </div>
@@ -485,7 +480,7 @@
             } catch (err) {
                 console.error(err);
                 removeTypingIndicator(indicatorId);
-                appendChatMessage('ai', 'क्षमा करें, AI सेवा से संपर्क नहीं हो पाया। कृपया पुनः प्रयास करें।', 'CYH Health AI');
+                appendChatMessage('ai', 'Sorry, unable to connect to the AI service. Please try again.', 'CYH Health AI');
             }
         }
 
@@ -515,7 +510,7 @@
                 } catch (err) {
                     console.error(err);
                     removeTypingIndicator(indicatorId);
-                    appendChatMessage('ai', 'क्षमा करें, AI सेवा से संपर्क नहीं हो पाया। कृपया पुनः प्रयास करें।', 'CYH Health AI');
+                    appendChatMessage('ai', 'Sorry, unable to connect to the AI service. Please try again.', 'CYH Health AI');
                 }
             }
         }

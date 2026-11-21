@@ -60,26 +60,33 @@
             console.log('[LiveReel] DoctorLiveStatusChanged received:', status);
             const card = document.querySelector(`.reel-card[data-doctor-id="${status.doctorId}"]`);
             if (card) {
-                const liveBadge = card.querySelector('.doctor-live-badge');
-                const videoEl = card.querySelector('video.live-stream-video');
-                const placeholder = card.querySelector('.live-stream-placeholder');
-                
-                card.setAttribute('data-is-live', status.isLive ? 'true' : 'false');
-
-                if (status.isLive) {
-                    if (liveBadge) liveBadge.classList.remove('hidden');
-                    // If currently active reel, connect live video stream immediately!
-                    if (card.classList.contains('active-reel')) {
-                        connectLiveKitStream(status.doctorId, card);
-                    }
-                } else {
-                    if (liveBadge) liveBadge.classList.add('hidden');
+                if (!status.isLive) {
                     if (card.classList.contains('active-reel')) {
                         disconnectLiveKitStream();
                     }
-                    if (videoEl) videoEl.classList.add('hidden');
-                    if (placeholder) placeholder.classList.remove('hidden');
+                    card.style.transition = 'opacity 0.4s ease, transform 0.4s ease';
+                    card.style.opacity = '0';
+                    card.style.transform = 'scale(0.95)';
+                    setTimeout(() => {
+                        card.remove();
+                        const remaining = document.querySelectorAll('.reel-card');
+                        if (remaining.length === 0) {
+                            window.location.reload();
+                        } else {
+                            syncActiveReel();
+                        }
+                    }, 400);
+                } else {
+                    card.setAttribute('data-is-live', 'true');
+                    const liveBadge = card.querySelector('.doctor-live-badge');
+                    if (liveBadge) liveBadge.classList.remove('hidden');
+                    if (card.classList.contains('active-reel')) {
+                        connectLiveKitStream(status.doctorId, card);
+                    }
                 }
+            } else if (status.isLive) {
+                // Doctor just went live and wasn't in list -> reload to show in reels
+                setTimeout(() => window.location.reload(), 500);
             }
         });
 

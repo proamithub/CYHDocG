@@ -42,6 +42,7 @@ builder.Services.AddScoped<IDoctorRepository, DoctorRepository>();
 builder.Services.AddScoped<IConsultationRepository, ConsultationRepository>();
 builder.Services.AddScoped<IWalletRepository, WalletRepository>();
 builder.Services.AddScoped<IPrescriptionRepository, PrescriptionRepository>();
+builder.Services.AddScoped<IFaqRepository, FaqRepository>();
 builder.Services.AddScoped<IAiSearchService, AiSearchService>();
 builder.Services.AddScoped<IImageCompressionService, ImageCompressionService>();
 builder.Services.AddScoped<IOcrPrescriptionService, OcrPrescriptionService>();

@@ -70,6 +70,17 @@ public class AccountController : Controller
     [ValidateAntiForgeryToken]
     public async Task<IActionResult> Register(RegisterRequestDto model)
     {
+        // Normalize and strictly validate 10-digit mobile number
+        if (!TryValidateIndianMobile(model.Phone, out string normalizedPhone, out string phoneError))
+        {
+            ModelState.AddModelError(nameof(model.Phone), phoneError);
+        }
+        else
+        {
+            model.Phone = normalizedPhone;
+            ModelState.Remove(nameof(model.Phone));
+        }
+
         if (!ModelState.IsValid)
         {
             return View(model);
@@ -91,6 +102,62 @@ public class AccountController : Controller
         }
 
         return RedirectToAction(nameof(Login));
+    }
+
+    private static bool TryValidateIndianMobile(string? input, out string cleaned, out string error)
+    {
+        cleaned = string.Empty;
+        error = string.Empty;
+
+        if (string.IsNullOrWhiteSpace(input))
+        {
+            error = "Mobile number is mandatory.";
+            return false;
+        }
+
+        // Extract digits only
+        string digits = new string(input.Where(char.IsDigit).ToArray());
+
+        // Strip leading 91 if length is 12
+        if (digits.Length == 12 && digits.StartsWith("91"))
+        {
+            digits = digits.Substring(2);
+        }
+        // Strip leading 0 if length is 11
+        else if (digits.Length == 11 && digits.StartsWith("0"))
+        {
+            digits = digits.Substring(1);
+        }
+
+        if (digits.Length != 10)
+        {
+            error = "Mobile number must be exactly 10 digits.";
+            return false;
+        }
+
+        char first = digits[0];
+        if (first < '6' || first > '9')
+        {
+            error = "Mobile number must start with 6, 7, 8, or 9.";
+            return false;
+        }
+
+        // Reject all identical digits (e.g. 0000000000, 1111111111, ..., 9999999999)
+        if (digits.All(c => c == first))
+        {
+            error = "Please enter a valid mobile number (all digits cannot be the same).";
+            return false;
+        }
+
+        // Reject dummy sequential patterns
+        if (digits == "1234567890" || digits == "0123456789")
+        {
+            error = "Sequential dummy numbers like 1234567890 are not permitted.";
+            return false;
+        }
+
+        cleaned = digits;
+        return true;
     }
 
     [HttpPost]

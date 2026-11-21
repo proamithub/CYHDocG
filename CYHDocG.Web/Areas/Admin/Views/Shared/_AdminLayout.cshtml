@@ -74,6 +74,10 @@
                 <i data-lucide="user-check" class="w-4 h-4"></i>
                 Doctors & Approvals
             </a>
+            <a asp-area="Admin" asp-controller="Users" asp-action="Index" class="flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-sm font-medium transition-all @(ViewContext.RouteData.Values["controller"]?.ToString() == "Users" ? "bg-red-600 text-white shadow-lg shadow-red-600/20" : "text-slate-400 hover:text-white hover:bg-slate-800/60")">
+                <i data-lucide="users" class="w-4 h-4"></i>
+                Users & Logins
+            </a>
             <a asp-area="Admin" asp-controller="Ledger" asp-action="Index" class="flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-sm font-medium transition-all @(ViewContext.RouteData.Values["controller"]?.ToString() == "Ledger" ? "bg-red-600 text-white shadow-lg shadow-red-600/20" : "text-slate-400 hover:text-white hover:bg-slate-800/60")">
                 <i data-lucide="wallet" class="w-4 h-4"></i>
                 Pricing & Ledger
@@ -81,6 +85,10 @@
             <a asp-area="Admin" asp-controller="Medicines" asp-action="Index" class="flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-sm font-medium transition-all @(ViewContext.RouteData.Values["controller"]?.ToString() == "Medicines" ? "bg-red-600 text-white shadow-lg shadow-red-600/20" : "text-slate-400 hover:text-white hover:bg-slate-800/60")">
                 <i data-lucide="pill" class="w-4 h-4"></i>
                 Master Medicines
+            </a>
+            <a asp-area="Admin" asp-controller="Faqs" asp-action="Index" class="flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-sm font-medium transition-all @(ViewContext.RouteData.Values["controller"]?.ToString() == "Faqs" ? "bg-red-600 text-white shadow-lg shadow-red-600/20" : "text-slate-400 hover:text-white hover:bg-slate-800/60")">
+                <i data-lucide="help-circle" class="w-4 h-4"></i>
+                FAQs Manager
             </a>
             <a asp-area="Admin" asp-controller="Dashboard" asp-action="Index" class="flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-sm font-medium text-slate-400 hover:text-white hover:bg-slate-800/60 transition-all">
                 <i data-lucide="shield-alert" class="w-4 h-4"></i>

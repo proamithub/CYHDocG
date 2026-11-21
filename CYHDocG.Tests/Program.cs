@@ -16,10 +16,11 @@ class Program
 
         string connStr = "Server=208.91.198.196;Database=CYHDOCGDB;User Id=CYHDOCGUDB;Password=CYHDOCGPASSDB;TrustServerCertificate=True;MultipleActiveResultSets=true;Encrypt=False;Connect Timeout=30;";
 
-        string scriptPath = Path.GetFullPath(@"..\CYHDocG.Database\00_FULL_SETUP_CYHDOCGDB.sql");
+        string relativeScript = args.Length > 0 ? args[0] : @"CYHDocG.Database\00_FULL_SETUP_CYHDOCGDB.sql";
+        string scriptPath = Path.GetFullPath(relativeScript);
         if (!File.Exists(scriptPath))
         {
-            scriptPath = Path.GetFullPath(@"CYHDocG.Database\00_FULL_SETUP_CYHDOCGDB.sql");
+            scriptPath = Path.GetFullPath(Path.Combine("..", relativeScript));
         }
 
         if (!File.Exists(scriptPath))
@@ -57,7 +58,16 @@ class Program
                 {
                     using var cmd = new SqlCommand(batch, connection);
                     cmd.CommandTimeout = 120;
-                    await cmd.ExecuteNonQueryAsync();
+                    using var reader = await cmd.ExecuteReaderAsync();
+                    while (await reader.ReadAsync())
+                    {
+                        var rowVals = new List<string>();
+                        for (int f = 0; f < reader.FieldCount; f++)
+                        {
+                            rowVals.Add($"{reader.GetName(f)}={reader.GetValue(f)}");
+                        }
+                        Console.WriteLine("  [USER] " + string.Join(" | ", rowVals));
+                    }
                     executed++;
                     if (executed % 5 == 0 || i == batches.Length - 1)
                     {

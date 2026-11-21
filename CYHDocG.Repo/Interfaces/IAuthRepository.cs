@@ -9,4 +9,6 @@ public interface IAuthRepository
     Task<UserProfileDto?> LoginUserAsync(string email);
     Task<UserProfileDto?> GoogleLoginAsync(GoogleAuthDto request);
     Task<ApiResponse> ChangePasswordAsync(ChangePasswordDto request);
+    Task<IEnumerable<AdminUserListDto>> GetAllUsersForAdminAsync(string? search = null);
+    Task<ApiResponse> ToggleUserActiveStatusAsync(long userId);
 }

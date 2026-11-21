@@ -1,0 +1,273 @@
+@model List<CYHDocG.Repo.DTOs.FaqDto>
+@{
+    ViewData["Title"] = "FAQs Management";
+    Layout = "_AdminLayout";
+    int totalCount = Model?.Count ?? 0;
+    int activeCount = Model?.Count(f => f.IsActive) ?? 0;
+    int inactiveCount = totalCount - activeCount;
+}
+
+<div class="space-y-6">
+    <!-- Header with Stats -->
+    <div class="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+        <div>
+            <div class="flex items-center gap-2.5">
+                <div class="w-9 h-9 rounded-xl bg-red-600/20 border border-red-500/30 flex items-center justify-center text-red-500">
+                    <i data-lucide="help-circle" class="w-5 h-5"></i>
+                </div>
+                <div>
+                    <h1 class="font-heading font-extrabold text-2xl text-white">Frequently Asked Questions (FAQ)</h1>
+                    <p class="text-xs text-slate-400">Manage questions and answers displayed across the patient portal.</p>
+                </div>
+            </div>
+        </div>
+
+        <button onclick="openCreateModal()" type="button" class="py-2.5 px-4 rounded-xl bg-gradient-to-r from-red-600 to-rose-600 hover:from-red-500 hover:to-rose-500 text-white font-bold text-xs shadow-lg shadow-red-600/30 flex items-center gap-2 active:scale-95 transition-all">
+            <i data-lucide="plus-circle" class="w-4 h-4"></i>
+            <span>Add New FAQ</span>
+        </button>
+    </div>
+
+    <!-- Alert Messages -->
+    @if (TempData["SuccessMessage"] != null)
+    {
+        <div class="p-4 rounded-2xl bg-emerald-950/80 border border-emerald-500/40 text-emerald-300 text-xs flex items-center gap-2.5 shadow-lg">
+            <i data-lucide="check-circle" class="w-4 h-4 text-emerald-400 flex-shrink-0"></i>
+            <span>@TempData["SuccessMessage"]</span>
+        </div>
+    }
+    @if (TempData["ErrorMessage"] != null)
+    {
+        <div class="p-4 rounded-2xl bg-red-950/80 border border-red-500/40 text-red-300 text-xs flex items-center gap-2.5 shadow-lg">
+            <i data-lucide="alert-triangle" class="w-4 h-4 text-red-400 flex-shrink-0"></i>
+            <span>@TempData["ErrorMessage"]</span>
+        </div>
+    }
+
+    <!-- Stat Cards -->
+    <div class="grid grid-cols-2 sm:grid-cols-4 gap-4">
+        <div class="bg-slate-900/90 border border-slate-800 rounded-2xl p-4">
+            <div class="text-[11px] font-bold uppercase tracking-wider text-slate-400">Total Questions</div>
+            <div class="text-2xl font-black text-white mt-1">@totalCount</div>
+        </div>
+        <div class="bg-slate-900/90 border border-slate-800 rounded-2xl p-4">
+            <div class="text-[11px] font-bold uppercase tracking-wider text-emerald-400">Live on Site</div>
+            <div class="text-2xl font-black text-emerald-400 mt-1">@activeCount</div>
+        </div>
+        <div class="bg-slate-900/90 border border-slate-800 rounded-2xl p-4">
+            <div class="text-[11px] font-bold uppercase tracking-wider text-slate-400">Draft / Hidden</div>
+            <div class="text-2xl font-black text-slate-300 mt-1">@inactiveCount</div>
+        </div>
+        <div class="bg-slate-900/90 border border-slate-800 rounded-2xl p-4">
+            <div class="text-[11px] font-bold uppercase tracking-wider text-blue-400">Portal Status</div>
+            <div class="text-xs font-semibold text-emerald-400 mt-2 flex items-center gap-1.5">
+                <span class="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
+                <span>Active & Live</span>
+            </div>
+        </div>
+    </div>
+
+    <!-- Filter & Search Bar -->
+    <div class="bg-slate-900/90 border border-slate-800 rounded-2xl p-4">
+        <form method="get" class="flex flex-col sm:flex-row items-center gap-3">
+            <div class="relative flex-1 w-full">
+                <i data-lucide="search" class="w-4 h-4 absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400"></i>
+                <input type="text" name="q" value="@ViewBag.SearchTerm" placeholder="Search questions or answers..." 
+                       class="w-full pl-10 pr-4 py-2 bg-slate-950 border border-slate-800 rounded-xl text-xs text-white placeholder-slate-500 focus:outline-none focus:border-red-500 transition-colors" />
+            </div>
+            <div class="flex items-center gap-2 w-full sm:w-auto">
+                <select name="cat" onchange="this.form.submit()" class="py-2 px-3 bg-slate-950 border border-slate-800 rounded-xl text-xs text-white focus:outline-none focus:border-red-500 transition-colors">
+                    <option value="">All Categories</option>
+                    <option value="General" selected="@(ViewBag.SelectedCategory == "General")">General</option>
+                    <option value="Appointments" selected="@(ViewBag.SelectedCategory == "Appointments")">Appointments</option>
+                    <option value="Consultation" selected="@(ViewBag.SelectedCategory == "Consultation")">Consultation</option>
+                    <option value="Emergency" selected="@(ViewBag.SelectedCategory == "Emergency")">Emergency</option>
+                    <option value="Telemedicine" selected="@(ViewBag.SelectedCategory == "Telemedicine")">Telemedicine</option>
+                    <option value="Live Doctor" selected="@(ViewBag.SelectedCategory == "Live Doctor")">Live Doctor</option>
+                    <option value="AI Triage" selected="@(ViewBag.SelectedCategory == "AI Triage")">AI Triage</option>
+                    <option value="Wallet" selected="@(ViewBag.SelectedCategory == "Wallet")">Wallet</option>
+                </select>
+                <button type="submit" class="py-2 px-4 rounded-xl bg-slate-800 hover:bg-slate-700 text-white text-xs font-semibold border border-slate-700 transition-colors">
+                    Filter
+                </button>
+                @if (!string.IsNullOrEmpty(ViewBag.SearchTerm) || !string.IsNullOrEmpty(ViewBag.SelectedCategory))
+                {
+                    <a asp-action="Index" class="py-2 px-3 rounded-xl bg-slate-800/60 hover:bg-slate-800 text-slate-400 hover:text-white text-xs transition-colors">
+                        Clear
+                    </a>
+                }
+            </div>
+        </form>
+    </div>
+
+    <!-- FAQ Cards List -->
+    @if (Model == null || !Model.Any())
+    {
+        <div class="bg-slate-900/60 border border-slate-800 rounded-3xl p-12 text-center">
+            <div class="w-12 h-12 rounded-2xl bg-slate-800 flex items-center justify-center text-slate-500 mx-auto mb-3">
+                <i data-lucide="help-circle" class="w-6 h-6"></i>
+            </div>
+            <h3 class="font-bold text-white text-sm">No FAQs Found</h3>
+            <p class="text-xs text-slate-400 mt-1">Get started by creating your first FAQ in English.</p>
+            <button onclick="openCreateModal()" type="button" class="mt-4 py-2 px-4 rounded-xl bg-red-600 hover:bg-red-500 text-white text-xs font-bold transition-all">
+                Add FAQ Now
+            </button>
+        </div>
+    }
+    else
+    {
+        <div class="space-y-3.5">
+            @foreach (var faq in Model)
+            {
+                <div class="bg-slate-900/90 border border-slate-800/90 hover:border-slate-700 rounded-2xl p-5 transition-all shadow-sm">
+                    <div class="flex flex-col lg:flex-row lg:items-start justify-between gap-4">
+                        <div class="flex-1 space-y-2">
+                            <div class="flex items-center gap-2 text-[10px]">
+                                <span class="px-2 py-0.5 rounded-lg bg-slate-800 border border-slate-700 text-slate-300 font-bold">
+                                    #@faq.DisplayOrder
+                                </span>
+                                <span class="px-2.5 py-0.5 rounded-lg bg-red-500/10 border border-red-500/20 text-red-400 font-semibold uppercase tracking-wider">
+                                    @faq.Category
+                                </span>
+                                @if (!faq.IsActive)
+                                {
+                                    <span class="px-2 py-0.5 rounded bg-amber-500/10 text-amber-400 border border-amber-500/20 font-bold">Hidden</span>
+                                }
+                            </div>
+
+                            <div>
+                                <h3 class="font-heading font-bold text-sm sm:text-base text-white">@faq.Question</h3>
+                                <p class="text-xs text-slate-400 mt-1 leading-relaxed">@faq.Answer</p>
+                            </div>
+                        </div>
+
+                        <!-- Actions -->
+                        <div class="flex items-center gap-2 self-end lg:self-start pt-2 lg:pt-0">
+                            <!-- Toggle Status Form -->
+                            <form asp-action="ToggleStatus" asp-route-id="@faq.FaqId" method="post" class="inline">
+                                @Html.AntiForgeryToken()
+                                <button type="submit" class="py-1.5 px-3 rounded-xl @(faq.IsActive ? "bg-emerald-500/10 text-emerald-400 border border-emerald-500/30 hover:bg-emerald-500/20" : "bg-slate-800 text-slate-400 border border-slate-700 hover:text-white") text-xs font-semibold transition-all">
+                                    @(faq.IsActive ? "Active" : "Disabled")
+                                </button>
+                            </form>
+
+                            <!-- Edit Button -->
+                            <button type="button" onclick='openEditModal(@Html.Raw(System.Text.Json.JsonSerializer.Serialize(faq)))' class="p-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white border border-slate-700 transition-colors" title="Edit FAQ">
+                                <i data-lucide="edit-3" class="w-4 h-4"></i>
+                            </button>
+
+                            <!-- Delete Form -->
+                            <form asp-action="Delete" asp-route-id="@faq.FaqId" method="post" onsubmit="return confirm('Are you sure you want to permanently delete this FAQ?');" class="inline">
+                                @Html.AntiForgeryToken()
+                                <button type="submit" class="p-2 rounded-xl bg-slate-800 hover:bg-red-500/20 text-slate-400 hover:text-red-400 border border-slate-700 hover:border-red-500/30 transition-colors" title="Delete FAQ">
+                                    <i data-lucide="trash-2" class="w-4 h-4"></i>
+                                </button>
+                            </form>
+                        </div>
+                    </div>
+                </div>
+            }
+        </div>
+    }
+</div>
+
+<!-- ===================== FAQ MODAL (ADD / EDIT) ===================== -->
+<div id="faqModal" class="fixed inset-0 z-50 hidden flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm">
+    <div class="bg-slate-900 border border-slate-800 w-full max-w-xl rounded-3xl shadow-2xl p-6 sm:p-8 space-y-6">
+        <div class="flex items-center justify-between border-b border-slate-800 pb-4">
+            <div>
+                <h3 id="modalTitle" class="font-heading font-black text-xl text-white">Add New FAQ</h3>
+                <p class="text-xs text-slate-400">Create or update FAQ questions and answers.</p>
+            </div>
+            <button onclick="closeModal()" type="button" class="p-2 text-slate-400 hover:text-white rounded-xl bg-slate-800/80">
+                <i data-lucide="x" class="w-5 h-5"></i>
+            </button>
+        </div>
+
+        <form asp-action="Save" method="post" id="faqForm" class="space-y-4">
+            @Html.AntiForgeryToken()
+            <input type="hidden" id="faqId" name="FaqId" value="0" />
+
+            <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                <div class="sm:col-span-2 space-y-1">
+                    <label class="text-xs font-semibold text-slate-300">Category</label>
+                    <select id="faqCategory" name="Category" class="w-full py-2 px-3 bg-slate-950 border border-slate-800 rounded-xl text-xs text-white focus:outline-none focus:border-red-500">
+                        <option value="General">General Questions</option>
+                        <option value="Appointments">Appointments & Visits</option>
+                        <option value="Consultation">Doctor Consultation</option>
+                        <option value="Emergency">Emergency & Cardiac</option>
+                        <option value="Telemedicine">Telemedicine & Video Call</option>
+                        <option value="Live Doctor">LIVE Doctor Reels</option>
+                        <option value="AI Triage">AI Clinical Triage</option>
+                        <option value="Wallet">Wallet & Payments</option>
+                    </select>
+                </div>
+                <div class="space-y-1">
+                    <label class="text-xs font-semibold text-slate-300">Display Order</label>
+                    <input type="number" id="faqOrder" name="DisplayOrder" value="1" min="0" class="w-full py-2 px-3 bg-slate-950 border border-slate-800 rounded-xl text-xs text-white focus:outline-none focus:border-red-500" />
+                </div>
+            </div>
+
+            <div class="space-y-1">
+                <label class="text-xs font-medium text-slate-300">Question <span class="text-red-500">*</span></label>
+                <input type="text" id="faqQuestion" name="Question" required placeholder="e.g. How can I book an appointment?"
+                       class="w-full py-2.5 px-3.5 bg-slate-950 border border-slate-800 rounded-xl text-xs text-white placeholder-slate-500 focus:outline-none focus:border-red-500" />
+            </div>
+
+            <div class="space-y-1">
+                <label class="text-xs font-medium text-slate-300">Answer <span class="text-red-500">*</span></label>
+                <textarea id="faqAnswer" name="Answer" rows="4" required placeholder="Write the answer in English..."
+                          class="w-full py-2.5 px-3.5 bg-slate-950 border border-slate-800 rounded-xl text-xs text-white placeholder-slate-500 focus:outline-none focus:border-red-500"></textarea>
+            </div>
+
+            <div class="flex items-center justify-between pt-4 border-t border-slate-800">
+                <label class="flex items-center gap-2 cursor-pointer select-none">
+                    <input type="checkbox" id="faqIsActive" name="IsActive" value="true" checked class="rounded bg-slate-950 border-slate-800 text-red-600 focus:ring-0" />
+                    <span class="text-xs text-slate-300 font-medium">Publish live</span>
+                </label>
+
+                <div class="flex items-center gap-2">
+                    <button type="button" onclick="closeModal()" class="py-2 px-4 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-semibold">
+                        Cancel
+                    </button>
+                    <button type="submit" class="py-2.5 px-5 rounded-xl bg-red-600 hover:bg-red-500 text-white text-xs font-bold shadow-lg shadow-red-600/30 flex items-center gap-1.5">
+                        <i data-lucide="check" class="w-4 h-4"></i>
+                        <span>Save FAQ</span>
+                    </button>
+                </div>
+            </div>
+        </form>
+    </div>
+</div>
+
+@section Scripts {
+    <script>
+        function openCreateModal() {
+            document.getElementById('modalTitle').textContent = 'Add New FAQ';
+            document.getElementById('faqId').value = '0';
+            document.getElementById('faqQuestion').value = '';
+            document.getElementById('faqAnswer').value = '';
+            document.getElementById('faqOrder').value = '1';
+            document.getElementById('faqCategory').value = 'General';
+            document.getElementById('faqIsActive').checked = true;
+            document.getElementById('faqModal').classList.remove('hidden');
+            if (window.lucide) lucide.createIcons();
+        }
+
+        function openEditModal(faq) {
+            document.getElementById('modalTitle').textContent = 'Edit FAQ #' + faq.FaqId;
+            document.getElementById('faqId').value = faq.FaqId;
+            document.getElementById('faqQuestion').value = faq.Question || '';
+            document.getElementById('faqAnswer').value = faq.Answer || '';
+            document.getElementById('faqOrder').value = faq.DisplayOrder || 1;
+            document.getElementById('faqCategory').value = faq.Category || 'General';
+            document.getElementById('faqIsActive').checked = faq.IsActive;
+            document.getElementById('faqModal').classList.remove('hidden');
+            if (window.lucide) lucide.createIcons();
+        }
+
+        function closeModal() {
+            document.getElementById('faqModal').classList.add('hidden');
+        }
+    </script>
+}

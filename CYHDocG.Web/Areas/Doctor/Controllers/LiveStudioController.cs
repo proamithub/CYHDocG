@@ -30,6 +30,12 @@ public class LiveStudioController : Controller
     {
         long.TryParse(User.FindFirstValue(ClaimTypes.NameIdentifier), out long userId);
         var metrics = await _doctorRepo.GetDoctorStudioMetricsAsync(userId);
+
+        if (metrics == null || !metrics.IsApproved)
+        {
+            TempData["ErrorMessage"] = "Your doctor account is pending Admin verification. Go Live Studio is currently locked.";
+            return RedirectToAction("Index", "Dashboard");
+        }
         
         string doctorName = metrics?.DoctorName ?? (User.Identity?.Name ?? "Doctor Specialist");
         long docId = metrics?.DoctorId > 0 ? metrics.DoctorId : userId;
@@ -51,6 +57,11 @@ public class LiveStudioController : Controller
     {
         long.TryParse(User.FindFirstValue(ClaimTypes.NameIdentifier), out long userId);
         var metrics = await _doctorRepo.GetDoctorStudioMetricsAsync(userId);
+        if (metrics == null || !metrics.IsApproved)
+        {
+            return BadRequest(new { success = false, message = "Doctor account is pending Admin approval." });
+        }
+
         long docId = metrics?.DoctorId > 0 ? metrics.DoctorId : userId;
         string doctorName = metrics?.DoctorName ?? (User.Identity?.Name ?? "Doctor Specialist");
 

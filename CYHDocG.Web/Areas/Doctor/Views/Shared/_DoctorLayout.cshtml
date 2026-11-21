@@ -1,3 +1,13 @@
+@inject IDoctorRepository DoctorRepo
+@{
+    var userIdClaim = User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value;
+    bool isDoctorApproved = false;
+    if (long.TryParse(userIdClaim, out long docUserId))
+    {
+        var docMetrics = await DoctorRepo.GetDoctorStudioMetricsAsync(docUserId);
+        isDoctorApproved = docMetrics?.IsApproved ?? false;
+    }
+}
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -58,7 +68,6 @@
             </div>
             <div>
                 <span class="font-heading font-extrabold text-base text-white">CYHDOC <span class="text-blue-500">Guru</span></span>
-                <span class="block text-[10px] text-blue-400 font-bold tracking-widest uppercase">Doctor Studio</span>
             </div>
         </div>
 
@@ -67,22 +76,57 @@
                 <i data-lucide="layout-dashboard" class="w-4 h-4"></i>
                 Dashboard
             </a>
-            <a asp-area="Doctor" asp-controller="LiveStudio" asp-action="Index" class="flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-sm font-medium transition-all @(ViewContext.RouteData.Values["controller"]?.ToString() == "LiveStudio" ? "bg-blue-600 text-white shadow-lg shadow-blue-600/20" : "text-slate-400 hover:text-white hover:bg-slate-800/60")">
-                <i data-lucide="radio" class="w-4 h-4"></i>
-                Go Live Studio
-            </a>
-            <a asp-area="Doctor" asp-controller="Consultations" asp-action="Index" class="flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-sm font-medium transition-all @(ViewContext.RouteData.Values["controller"]?.ToString() == "Consultations" ? "bg-blue-600 text-white shadow-lg shadow-blue-600/20" : "text-slate-400 hover:text-white hover:bg-slate-800/60")">
-                <i data-lucide="messages-square" class="w-4 h-4"></i>
-                1-to-1 Chat Queue
-            </a>
-            <a asp-area="Doctor" asp-controller="Prescriptions" asp-action="Create" class="flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-sm font-medium transition-all @(ViewContext.RouteData.Values["controller"]?.ToString() == "Prescriptions" ? "bg-blue-600 text-white shadow-lg shadow-blue-600/20" : "text-slate-400 hover:text-white hover:bg-slate-800/60")">
-                <i data-lucide="file-plus" class="w-4 h-4"></i>
-                Smart Rx Creator
-            </a>
-            <a asp-area="Doctor" asp-controller="Earnings" asp-action="Index" class="flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-sm font-medium transition-all @(ViewContext.RouteData.Values["controller"]?.ToString() == "Earnings" ? "bg-blue-600 text-white shadow-lg shadow-blue-600/20" : "text-slate-400 hover:text-white hover:bg-slate-800/60")">
-                <i data-lucide="wallet" class="w-4 h-4"></i>
-                Earnings & Wallet
-            </a>
+
+            @if (isDoctorApproved)
+            {
+                <a asp-area="Doctor" asp-controller="LiveStudio" asp-action="Index" class="flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-sm font-medium transition-all @(ViewContext.RouteData.Values["controller"]?.ToString() == "LiveStudio" ? "bg-blue-600 text-white shadow-lg shadow-blue-600/20" : "text-slate-400 hover:text-white hover:bg-slate-800/60")">
+                    <i data-lucide="radio" class="w-4 h-4"></i>
+                    Go Live Studio
+                </a>
+                <a asp-area="Doctor" asp-controller="Consultations" asp-action="Index" class="flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-sm font-medium transition-all @(ViewContext.RouteData.Values["controller"]?.ToString() == "Consultations" ? "bg-blue-600 text-white shadow-lg shadow-blue-600/20" : "text-slate-400 hover:text-white hover:bg-slate-800/60")">
+                    <i data-lucide="messages-square" class="w-4 h-4"></i>
+                    1-to-1 Chat Queue
+                </a>
+                <a asp-area="Doctor" asp-controller="Prescriptions" asp-action="Create" class="flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-sm font-medium transition-all @(ViewContext.RouteData.Values["controller"]?.ToString() == "Prescriptions" ? "bg-blue-600 text-white shadow-lg shadow-blue-600/20" : "text-slate-400 hover:text-white hover:bg-slate-800/60")">
+                    <i data-lucide="file-plus" class="w-4 h-4"></i>
+                    Smart Rx Creator
+                </a>
+                <a asp-area="Doctor" asp-controller="Earnings" asp-action="Index" class="flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-sm font-medium transition-all @(ViewContext.RouteData.Values["controller"]?.ToString() == "Earnings" ? "bg-blue-600 text-white shadow-lg shadow-blue-600/20" : "text-slate-400 hover:text-white hover:bg-slate-800/60")">
+                    <i data-lucide="wallet" class="w-4 h-4"></i>
+                    Earnings & Wallet
+                </a>
+            }
+            else
+            {
+                <div class="flex items-center justify-between px-3.5 py-2.5 rounded-xl text-sm font-medium text-slate-500 bg-slate-900/40 border border-slate-800/40 cursor-not-allowed select-none" title="Pending Admin Approval">
+                    <div class="flex items-center gap-3">
+                        <i data-lucide="radio" class="w-4 h-4 text-slate-600"></i>
+                        <span>Go Live Studio</span>
+                    </div>
+                    <i data-lucide="lock" class="w-3.5 h-3.5 text-amber-500/70"></i>
+                </div>
+                <div class="flex items-center justify-between px-3.5 py-2.5 rounded-xl text-sm font-medium text-slate-500 bg-slate-900/40 border border-slate-800/40 cursor-not-allowed select-none" title="Pending Admin Approval">
+                    <div class="flex items-center gap-3">
+                        <i data-lucide="messages-square" class="w-4 h-4 text-slate-600"></i>
+                        <span>1-to-1 Chat Queue</span>
+                    </div>
+                    <i data-lucide="lock" class="w-3.5 h-3.5 text-amber-500/70"></i>
+                </div>
+                <div class="flex items-center justify-between px-3.5 py-2.5 rounded-xl text-sm font-medium text-slate-500 bg-slate-900/40 border border-slate-800/40 cursor-not-allowed select-none" title="Pending Admin Approval">
+                    <div class="flex items-center gap-3">
+                        <i data-lucide="file-plus" class="w-4 h-4 text-slate-600"></i>
+                        <span>Smart Rx Creator</span>
+                    </div>
+                    <i data-lucide="lock" class="w-3.5 h-3.5 text-amber-500/70"></i>
+                </div>
+                <div class="flex items-center justify-between px-3.5 py-2.5 rounded-xl text-sm font-medium text-slate-500 bg-slate-900/40 border border-slate-800/40 cursor-not-allowed select-none" title="Pending Admin Approval">
+                    <div class="flex items-center gap-3">
+                        <i data-lucide="wallet" class="w-4 h-4 text-slate-600"></i>
+                        <span>Earnings & Wallet</span>
+                    </div>
+                    <i data-lucide="lock" class="w-3.5 h-3.5 text-amber-500/70"></i>
+                </div>
+            }
         </nav>
 
         <div class="p-4 border-t border-slate-800">
@@ -93,7 +137,18 @@
                     </div>
                     <div class="min-w-0">
                         <p class="text-xs font-semibold text-white truncate">@(User.Identity?.Name ?? "Doctor")</p>
-                        <span class="text-[10px] text-blue-400">Verified Practitioner</span>
+                        @if (isDoctorApproved)
+                        {
+                            <span class="text-[10px] text-emerald-400 font-medium flex items-center gap-1 mt-0.5">
+                                <span class="w-1.5 h-1.5 rounded-full bg-emerald-400"></span> Verified Doctor
+                            </span>
+                        }
+                        else
+                        {
+                            <span class="text-[10px] text-amber-400 font-medium flex items-center gap-1 mt-0.5">
+                                <span class="w-1.5 h-1.5 rounded-full bg-amber-400 animate-pulse"></span> Pending Verification
+                            </span>
+                        }
                     </div>
                 </div>
                 <form asp-area="" asp-controller="Account" asp-action="Logout" method="post">
@@ -115,10 +170,6 @@
                 @ViewData["Title"]
             </div>
             <div class="flex items-center gap-4">
-                <a asp-area="" asp-controller="Home" asp-action="Index" class="text-xs text-slate-400 hover:text-white flex items-center gap-1.5 transition-colors">
-                    <i data-lucide="globe" class="w-3.5 h-3.5"></i>
-                    View Public Site
-                </a>
             </div>
         </header>
 

@@ -61,4 +61,16 @@ public class AuthRepository : BaseRepository, IAuthRepository
         }
         return ApiResponse.Fail(result != null ? (string)result.Message : "Password change failed");
     }
+
+    public async Task<IEnumerable<AdminUserListDto>> GetAllUsersForAdminAsync(string? search = null)
+    {
+        return await QuerySPAsync<AdminUserListDto>("dbo.usp_Admin_GetUsers", new { Search = search });
+    }
+
+    public async Task<ApiResponse> ToggleUserActiveStatusAsync(long userId)
+    {
+        var result = await QueryFirstOrDefaultSPAsync<bool?>("dbo.usp_Admin_ToggleUserStatus", new { UserId = userId });
+        bool isActive = result ?? true;
+        return ApiResponse.Ok(isActive ? "User activated successfully" : "User deactivated successfully");
+    }
 }

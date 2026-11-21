@@ -24,10 +24,14 @@ public class DoctorsController : Controller
 
     [HttpPost]
     [ValidateAntiForgeryToken]
-    public async Task<IActionResult> ToggleApproval(long doctorId, bool isApproved)
+    public async Task<IActionResult> ToggleApproval(long doctorId, bool isApproved, string? returnUrl = null)
     {
         var result = await _doctorRepo.ToggleDoctorApprovalAsync(doctorId, isApproved);
         TempData["SuccessMessage"] = result.Message;
+        if (!string.IsNullOrEmpty(returnUrl) && Url.IsLocalUrl(returnUrl))
+        {
+            return Redirect(returnUrl);
+        }
         return RedirectToAction(nameof(Index));
     }
 

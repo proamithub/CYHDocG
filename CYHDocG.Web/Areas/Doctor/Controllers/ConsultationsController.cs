@@ -26,6 +26,13 @@ public class ConsultationsController : Controller
     {
         long.TryParse(User.FindFirstValue(ClaimTypes.NameIdentifier), out long userId);
         var metrics = await _doctorRepo.GetDoctorStudioMetricsAsync(userId);
+        
+        if (metrics == null || !metrics.IsApproved)
+        {
+            TempData["ErrorMessage"] = "Your doctor account is pending Admin verification. Patient Queue is currently locked.";
+            return RedirectToAction("Index", "Dashboard");
+        }
+
         long doctorId = metrics?.DoctorId ?? userId;
 
         using var conn = _baseRepo.CreateConnection();

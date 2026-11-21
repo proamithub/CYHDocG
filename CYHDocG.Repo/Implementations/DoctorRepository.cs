@@ -58,8 +58,8 @@ public class DoctorRepository : BaseRepository, IDoctorRepository
             LEFT JOIN dbo.LiveStreams ls ON d.DoctorId = ls.DoctorId AND ls.IsActive = 1
             LEFT JOIN dbo.DoctorFollowers df ON d.DoctorId = df.DoctorId AND df.UserId = @CurrentUserId
             LEFT JOIN dbo.LiveStreamLikes ll ON ls.StreamId = ll.StreamId AND ll.UserId = @CurrentUserId
-            WHERE d.IsApproved = 1
-            ORDER BY d.IsLive DESC, d.ScheduledLiveAt ASC, d.Rating DESC
+            WHERE d.IsApproved = 1 AND d.IsLive = 1 AND u.IsActive = 1
+            ORDER BY ISNULL(ls.CurrentViewers, 0) DESC, d.Rating DESC
             OFFSET @Offset ROWS
             FETCH NEXT @PageSize ROWS ONLY;";
 
@@ -312,6 +312,7 @@ public class DoctorRepository : BaseRepository, IDoctorRepository
                     ISNULL(d.ConsultationFeePerMinute, 30.00) AS ConsultationFeePerMinute,
                     ISNULL(d.IsFreeConsultation, 0) AS IsFreeConsultation,
                     ISNULL(d.IsLive, 0) AS IsLive,
+                    ISNULL(d.IsApproved, 0) AS IsApproved,
                     ISNULL(dw.Balance, 0.00) AS WalletBalance,
                     (SELECT COUNT(*) FROM dbo.Consultations c WHERE c.DoctorId = d.DoctorId AND c.CreatedAt >= CAST(SYSUTCDATETIME() AS DATE)) AS ConsultationsToday
                 FROM dbo.Users u

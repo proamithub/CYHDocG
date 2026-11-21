@@ -1,13 +1,30 @@
 using System.Diagnostics;
 using Microsoft.AspNetCore.Mvc;
 using CYHDocG.Web.Models;
+using CYHDocG.Repo.Interfaces;
 
 namespace CYHDocG.Web.Controllers;
 
 public class HomeController : Controller
 {
-    public IActionResult Index()
+    private readonly IFaqRepository _faqRepo;
+
+    public HomeController(IFaqRepository faqRepo)
     {
+        _faqRepo = faqRepo;
+    }
+
+    public async Task<IActionResult> Index()
+    {
+        try
+        {
+            var faqs = await _faqRepo.GetActiveFaqsAsync();
+            ViewBag.Faqs = faqs.ToList();
+        }
+        catch
+        {
+            ViewBag.Faqs = new List<CYHDocG.Repo.DTOs.FaqDto>();
+        }
         return View();
     }
 
@@ -16,9 +33,17 @@ public class HomeController : Controller
         return View();
     }
 
-    public IActionResult Faq()
+    public async Task<IActionResult> Faq()
     {
-        return View();
+        try
+        {
+            var faqs = await _faqRepo.GetActiveFaqsAsync();
+            return View(faqs.ToList());
+        }
+        catch
+        {
+            return View(new List<CYHDocG.Repo.DTOs.FaqDto>());
+        }
     }
 
     public IActionResult Emergency()

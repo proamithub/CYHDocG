@@ -27,6 +27,9 @@ public class LiveDoctorController : Controller
 
         var reels = (await _doctorRepo.GetReelsFeedAsync(currentUserId, pageNumber: 1, pageSize: 15)).ToList();
 
+        // Strictly show ONLY doctors who are currently live
+        reels = reels.Where(r => r.IsLive).ToList();
+
         // If a search query is passed, filter doctors
         if (!string.IsNullOrWhiteSpace(q))
         {

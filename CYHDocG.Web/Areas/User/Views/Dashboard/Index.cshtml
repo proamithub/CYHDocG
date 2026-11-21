@@ -1,6 +1,9 @@
 @{
     ViewData["Title"] = "Patient Dashboard";
     decimal walletBal = ViewBag.WalletBalance ?? 0.00m;
+    int activeRx = ViewBag.ActivePrescriptionsCount ?? 0;
+    int dosesCount = ViewBag.DosesDueCount ?? 0;
+    int refillCount = ViewBag.RefillAlertsCount ?? 0;
 }
 
 <div class="space-y-6">
@@ -11,9 +14,6 @@
                 <span class="w-2 h-2 rounded-full bg-red-500 animate-pulse"></span> Care 24/7 Active
             </span>
             <h1 class="font-heading font-extrabold text-2xl sm:text-3xl text-white">Welcome back, @(User.Identity?.Name ?? "Patient")</h1>
-            <p class="text-xs sm:text-sm text-slate-400 mt-1 max-w-xl">
-                Connect with live specialists, start AI symptom triage, check active prescriptions and refill reminders.
-            </p>
         </div>
 
         <div class="flex items-center gap-3">
@@ -47,27 +47,27 @@
         <!-- Prescriptions -->
         <div class="bg-slate-900/60 border border-slate-800/80 rounded-2xl p-5">
             <div class="text-xs font-medium text-slate-400 uppercase tracking-wider mb-2">Active Prescriptions</div>
-            <div class="font-heading font-bold text-2xl text-white">2</div>
+            <div class="font-heading font-bold text-2xl text-white">@activeRx</div>
             <span class="text-xs text-purple-400 flex items-center gap-1 mt-1">
-                <i data-lucide="check-circle" class="w-3.5 h-3.5"></i> Dosage schedules active
+                <i data-lucide="check-circle" class="w-3.5 h-3.5"></i> @(activeRx > 0 ? "Prescriptions on record" : "No active prescriptions")
             </span>
         </div>
 
         <!-- Today Reminders -->
         <div class="bg-slate-900/60 border border-slate-800/80 rounded-2xl p-5">
             <div class="text-xs font-medium text-slate-400 uppercase tracking-wider mb-2">Doses Due Today</div>
-            <div class="font-heading font-bold text-2xl text-amber-400">3</div>
+            <div class="font-heading font-bold text-2xl text-amber-400">@dosesCount</div>
             <span class="text-xs text-slate-400 flex items-center gap-1 mt-1">
-                <i data-lucide="clock" class="w-3.5 h-3.5"></i> Next dose: 08:30 PM (After meal)
+                <i data-lucide="clock" class="w-3.5 h-3.5"></i> @(dosesCount > 0 ? "Active dosage reminders" : "All doses clear")
             </span>
         </div>
 
         <!-- Refill Alerts -->
         <div class="bg-slate-900/60 border border-slate-800/80 rounded-2xl p-5">
             <div class="text-xs font-medium text-slate-400 uppercase tracking-wider mb-2">Refill Alerts</div>
-            <div class="font-heading font-bold text-2xl text-red-400">1</div>
+            <div class="font-heading font-bold text-2xl text-red-400">@refillCount</div>
             <span class="text-xs text-red-400 flex items-center gap-1 mt-1">
-                <i data-lucide="alert-triangle" class="w-3.5 h-3.5"></i> Pan-D ends in 2 days
+                <i data-lucide="alert-triangle" class="w-3.5 h-3.5"></i> @(refillCount > 0 ? "Refills pending" : "No refills due")
             </span>
         </div>
     </div>

@@ -1222,7 +1222,9 @@ IF NOT EXISTS (SELECT 1 FROM dbo.AppSettings WHERE SettingKey = 'PlatformFeePerc
 
 IF NOT EXISTS (SELECT 1 FROM dbo.AppSettings WHERE SettingKey = 'DefaultLanguage')
     INSERT INTO dbo.AppSettings (SettingKey, SettingValue, Description, IsActive)
-    VALUES ('DefaultLanguage', 'Hindi', 'Default UI language for public portal', 1);
+    VALUES ('DefaultLanguage', 'English', 'Default UI language for public portal', 1);
+ELSE
+    UPDATE dbo.AppSettings SET SettingValue = 'English' WHERE SettingKey = 'DefaultLanguage';
 
 -- AI & Auth Dynamic Configurations
 IF NOT EXISTS (SELECT 1 FROM dbo.AppSettings WHERE SettingKey = 'GoogleClientId')

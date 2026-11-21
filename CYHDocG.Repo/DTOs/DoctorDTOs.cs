@@ -97,6 +97,7 @@ public class DoctorStudioMetricsDto
     public bool IsFreeConsultation { get; set; }
     public bool IsLive { get; set; }
     public decimal WalletBalance { get; set; }
+    public bool IsApproved { get; set; }
 }
 
 public class PinnedBannerDto
