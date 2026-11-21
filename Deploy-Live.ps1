@@ -1,11 +1,13 @@
 # ==============================================================================
-# CYHDocGuru 1-Click Live Deployment Script
+# CYHDocGuru Fast Incremental Live Deployment Script
+# Only uploads modified / new files based on MD5 content hashes
 # Target: patnaorthoclinic.com (Host: 208.91.198.227)
 # ==============================================================================
 
 param(
     [switch]$WebOnly,
-    [switch]$ApiOnly
+    [switch]$ApiOnly,
+    [switch]$Force
 )
 
 $ftpHost = "208.91.198.227"
@@ -17,6 +19,40 @@ $apiLocalPath = Join-Path $PSScriptRoot "publish\api"
 
 $webRemoteBase = "ftp://$ftpHost/cyhdocg.patnaorthoclinic.com"
 $apiRemoteBase = "ftp://$ftpHost/cyhdocgapi.patnaorthoclinic.com"
+
+$manifestPath = Join-Path $PSScriptRoot ".deploy_manifest.json"
+
+# Load previous deployment manifest
+$global:manifest = @{
+    web = @{}
+    api = @{}
+}
+
+if (Test-Path $manifestPath) {
+    try {
+        $json = Get-Content -Path $manifestPath -Raw | ConvertFrom-Json
+        if ($json.web) {
+            foreach ($prop in $json.web.PSObject.Properties) {
+                $global:manifest.web[$prop.Name] = $prop.Value
+            }
+        }
+        if ($json.api) {
+            foreach ($prop in $json.api.PSObject.Properties) {
+                $global:manifest.api[$prop.Name] = $prop.Value
+            }
+        }
+    } catch {
+        Write-Host "Notice: Initializing fresh deployment manifest." -ForegroundColor Yellow
+    }
+}
+
+function Save-Manifest {
+    try {
+        $global:manifest | ConvertTo-Json -Depth 5 | Set-Content -Path $manifestPath -Encoding UTF8
+    } catch {
+        Write-Host "Warning: Could not save deploy manifest: $($_.Exception.Message)" -ForegroundColor Yellow
+    }
+}
 
 $global:createdDirs = @{}
 
@@ -47,7 +83,7 @@ function Enable-AppOffline($remoteUri) {
         $req.UseBinary = $true
         $req.KeepAlive = $false
         $req.Timeout = 10000
-        $html = "<html><body><h1>Site Under Maintenance - Deploying Update...</h1></body></html>"
+        $html = "<html><body><h1>Site Under Maintenance - Deploying Fast Update...</h1></body></html>"
         $bytes = [System.Text.Encoding]::UTF8.GetBytes($html)
         $req.ContentLength = $bytes.Length
         $stream = $req.GetRequestStream()
@@ -56,7 +92,7 @@ function Enable-AppOffline($remoteUri) {
         $res = $req.GetResponse()
         $res.Close()
         Write-Host ">>> App offline mode activated: $remoteUri" -ForegroundColor Yellow
-        Start-Sleep -Seconds 2
+        Start-Sleep -Seconds 1
     } catch {
         Write-Host "Notice: Offline mode trigger skipped: $($_.Exception.Message)" -ForegroundColor Gray
     }
@@ -78,21 +114,56 @@ function Disable-AppOffline($remoteUri) {
     }
 }
 
-function Upload-FtpFolder($localDir, $remoteUri) {
-    Write-Host "`n>>> Starting Upload from: $localDir" -ForegroundColor Cyan
+function Upload-FtpFolder($localDir, $remoteUri, $targetKey) {
+    Write-Host "`n>>> Scanning files in: $localDir" -ForegroundColor Cyan
     Write-Host ">>> Target Destination: $remoteUri" -ForegroundColor Cyan
 
-    Enable-AppOffline $remoteUri
-
     $allFiles = Get-ChildItem -Path $localDir -Recurse -File
-    $total = $allFiles.Count
+    $totalCount = $allFiles.Count
+    $targetManifest = $global:manifest[$targetKey]
+
+    # Find modified / new files based on MD5 hash
+    $filesToUpload = @()
+    foreach ($file in $allFiles) {
+        $relative = $file.FullName.Substring($localDir.Length).TrimStart("\", "/")
+        
+        # Skip unnecessary .exe files if locked on shared hosting
+        if ($file.Extension -eq ".exe") {
+            continue
+        }
+
+        $hash = (Get-FileHash -Path $file.FullName -Algorithm MD5).Hash
+        $storedHash = $targetManifest[$relative]
+
+        if ($Force -or (-not $storedHash) -or ($storedHash -ne $hash)) {
+            $filesToUpload += @{
+                File = $file
+                Relative = $relative
+                Hash = $hash
+            }
+        }
+    }
+
+    if ($filesToUpload.Count -eq 0) {
+        Write-Host "[OK] All $totalCount files are already up-to-date on live server. No upload needed!" -ForegroundColor Green
+        return
+    }
+
+    Write-Host ">>> Incremental Sync: Uploading $($filesToUpload.Count) changed/new file(s) out of $totalCount total files..." -ForegroundColor Yellow
+
+    # If DLLs or critical files are changing, toggle app_offline
+    $hasBinaries = $filesToUpload | Where-Object { $_.File.Extension -in @(".dll", ".config", ".json") }
+    if ($hasBinaries) {
+        Enable-AppOffline $remoteUri
+    }
+
     $current = 0
     $success = 0
     $failed = 0
 
-    foreach ($file in $allFiles) {
+    foreach ($item in $filesToUpload) {
         $current++
-        $relative = $file.FullName.Substring($localDir.Length).TrimStart("\", "/")
+        $relative = $item.Relative
         $remoteFileUri = "$remoteUri/" + ($relative -replace "\\", "/")
         
         # Ensure parent remote directories exist
@@ -113,7 +184,7 @@ function Upload-FtpFolder($localDir, $remoteUri) {
             $req.KeepAlive = $false
             $req.Timeout = 25000
 
-            $fileBytes = [System.IO.File]::ReadAllBytes($file.FullName)
+            $fileBytes = [System.IO.File]::ReadAllBytes($item.File.FullName)
             $req.ContentLength = $fileBytes.Length
 
             $stream = $req.GetRequestStream()
@@ -124,26 +195,33 @@ function Upload-FtpFolder($localDir, $remoteUri) {
             $res.Close()
 
             $success++
-            Write-Host "[$current/$total] Uploaded: $relative" -ForegroundColor Green
+            # Update manifest entry
+            $targetManifest[$relative] = $item.Hash
+            Write-Host "[$current/$($filesToUpload.Count)] Uploaded: $relative" -ForegroundColor Green
         } catch {
             $failed++
-            Write-Host "[$current/$total] Failed: $relative - $($_.Exception.Message)" -ForegroundColor Red
+            Write-Host "[$current/$($filesToUpload.Count)] Failed: $relative - $($_.Exception.Message)" -ForegroundColor Red
         }
     }
 
-    Disable-AppOffline $remoteUri
+    if ($hasBinaries) {
+        Disable-AppOffline $remoteUri
+    }
 
-    Write-Host "`n>>> Destination Upload Summary: Success=$success, Failed=$failed for $remoteUri`n" -ForegroundColor Yellow
+    Save-Manifest
+
+    Write-Host "`n>>> Destination Upload Summary: Uploaded=$success, Failed=$failed (Total untouched=$($totalCount - $filesToUpload.Count))`n" -ForegroundColor Yellow
 }
 
 Write-Host "==================================================" -ForegroundColor Magenta
-Write-Host " CYHDocGuru Automated FTP Deployment Tool" -ForegroundColor Magenta
+Write-Host " CYHDocGuru Fast Incremental FTP Deployment Tool" -ForegroundColor Magenta
 Write-Host " Host: $ftpHost | User: $ftpUser" -ForegroundColor Magenta
+Write-Host " Mode: $(if ($Force) { 'FORCE ALL' } else { 'ONLY CHANGED FILES (Delta Sync)' })" -ForegroundColor Magenta
 Write-Host "==================================================" -ForegroundColor Magenta
 
 if (-not $ApiOnly) {
     if (Test-Path $webLocalPath) {
-        Upload-FtpFolder $webLocalPath $webRemoteBase
+        Upload-FtpFolder $webLocalPath $webRemoteBase "web"
     } else {
         Write-Host "Web publish folder not found at: $webLocalPath" -ForegroundColor Red
     }
@@ -151,7 +229,7 @@ if (-not $ApiOnly) {
 
 if (-not $WebOnly) {
     if (Test-Path $apiLocalPath) {
-        Upload-FtpFolder $apiLocalPath $apiRemoteBase
+        Upload-FtpFolder $apiLocalPath $apiRemoteBase "api"
     } else {
         Write-Host "Api publish folder not found at: $apiLocalPath" -ForegroundColor Red
     }
