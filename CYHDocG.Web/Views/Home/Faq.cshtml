@@ -1,0 +1,106 @@
+@{
+    ViewData["Title"] = "Frequently Asked Questions (FAQ) - CYHDocGuru";
+}
+
+<!-- Hero -->
+<section class="relative py-16 bg-gradient-to-br from-slate-950 via-slate-900 to-slate-950 border-b border-slate-800 text-white overflow-hidden">
+    <div class="absolute top-10 right-16 w-80 h-80 bg-red-600/15 rounded-full blur-3xl pointer-events-none"></div>
+    <div class="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 text-center relative z-10">
+        <span class="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-red-500/10 border border-red-500/20 text-red-400 text-xs font-semibold uppercase tracking-wider mb-4">
+            <i data-lucide="help-circle" class="w-3.5 h-3.5"></i> Patient Support & FAQs
+        </span>
+        <h1 class="font-heading font-extrabold text-3xl sm:text-4xl lg:text-5xl text-white mb-4">
+            Frequently Asked Questions
+        </h1>
+        <p class="text-sm sm:text-base text-slate-400 max-w-xl mx-auto mb-8">
+            Find immediate answers regarding live doctor video consultations, AI symptom triage, digital prescriptions, and wallet billing.
+        </p>
+
+        <!-- Search input -->
+        <div class="max-w-md mx-auto relative">
+            <i data-lucide="search" class="w-4 h-4 absolute left-4 top-1/2 -translate-y-1/2 text-slate-400"></i>
+            <input type="text" id="faqSearch" oninput="filterFaqs(this.value)" placeholder="Search any question or keyword..." 
+                   class="w-full pl-11 pr-4 py-3 rounded-2xl bg-slate-900/90 border border-slate-800 text-white text-xs sm:text-sm placeholder-slate-400 outline-none focus:border-red-500 shadow-xl" />
+        </div>
+    </div>
+</section>
+
+<!-- FAQs Content -->
+<section class="py-12 bg-slate-950 min-h-[60vh]">
+    <div class="max-w-3xl mx-auto px-4 sm:px-6 lg:px-8 space-y-4" id="faqAccordion">
+        <!-- Item 1 -->
+        <div class="faq-card bg-slate-900/80 border border-slate-800/80 rounded-2xl p-5 hover:border-slate-700 transition-all cursor-pointer" onclick="toggleFaq(this)">
+            <div class="flex items-center justify-between gap-4">
+                <h3 class="font-heading font-bold text-sm sm:text-base text-white">How does 1-to-1 live doctor consultation work?</h3>
+                <i data-lucide="chevron-down" class="w-4 h-4 text-red-400 transform transition-transform faq-arrow"></i>
+            </div>
+            <p class="faq-body hidden text-xs sm:text-sm text-slate-400 mt-3 leading-relaxed border-t border-slate-800/60 pt-3">
+                You can browse active doctors on our platform, view their per-minute fee (or free consultation tag), and click "Connect". A live WebRTC video room opens up with an active dual-timer. Charges are deducted second-by-second from your wallet only for the exact duration of your call.
+            </p>
+        </div>
+
+        <!-- Item 2 -->
+        <div class="faq-card bg-slate-900/80 border border-slate-800/80 rounded-2xl p-5 hover:border-slate-700 transition-all cursor-pointer" onclick="toggleFaq(this)">
+            <div class="flex items-center justify-between gap-4">
+                <h3 class="font-heading font-bold text-sm sm:text-base text-white">What is AI Clinical Triage & Symptom Search?</h3>
+                <i data-lucide="chevron-down" class="w-4 h-4 text-red-400 transform transition-transform faq-arrow"></i>
+            </div>
+            <p class="faq-body hidden text-xs sm:text-sm text-slate-400 mt-3 leading-relaxed border-t border-slate-800/60 pt-3">
+                Our AI clinical engine analyzes your reported health symptoms (such as fever, chest pain, rash, hypertension) in English, Hindi, or Hinglish, determines the department and urgency level, and instantly recommends matching verified specialists.
+            </p>
+        </div>
+
+        <!-- Item 3 -->
+        <div class="faq-card bg-slate-900/80 border border-slate-800/80 rounded-2xl p-5 hover:border-slate-700 transition-all cursor-pointer" onclick="toggleFaq(this)">
+            <div class="flex items-center justify-between gap-4">
+                <h3 class="font-heading font-bold text-sm sm:text-base text-white">How do digital prescriptions and dose reminders work?</h3>
+                <i data-lucide="chevron-down" class="w-4 h-4 text-red-400 transform transition-transform faq-arrow"></i>
+            </div>
+            <p class="faq-body hidden text-xs sm:text-sm text-slate-400 mt-3 leading-relaxed border-t border-slate-800/60 pt-3">
+                During or after a consultation, the doctor can write a digital prescription or upload a handwritten slip that is automatically compressed and parsed. Medicines with schedules (e.g. 1-0-1 After Meal) are automatically scheduled on your Patient Dashboard with refill warnings before pills run out.
+            </p>
+        </div>
+
+        <!-- Item 4 -->
+        <div class="faq-card bg-slate-900/80 border border-slate-800/80 rounded-2xl p-5 hover:border-slate-700 transition-all cursor-pointer" onclick="toggleFaq(this)">
+            <div class="flex items-center justify-between gap-4">
+                <h3 class="font-heading font-bold text-sm sm:text-base text-white">What are LIVE Doctor Reels?</h3>
+                <i data-lucide="chevron-down" class="w-4 h-4 text-red-400 transform transition-transform faq-arrow"></i>
+            </div>
+            <p class="faq-body hidden text-xs sm:text-sm text-slate-400 mt-3 leading-relaxed border-t border-slate-800/60 pt-3">
+                LIVE Doctor Reels allow certified medical specialists to broadcast interactive health awareness video streams. You can scroll through doctor streams, ask live questions in chat, and follow your favorite doctors. Guests can scroll up to 5 reels before being prompted to sign in for free.
+            </p>
+        </div>
+
+        <!-- Item 5 -->
+        <div class="faq-card bg-slate-900/80 border border-slate-800/80 rounded-2xl p-5 hover:border-slate-700 transition-all cursor-pointer" onclick="toggleFaq(this)">
+            <div class="flex items-center justify-between gap-4">
+                <h3 class="font-heading font-bold text-sm sm:text-base text-white">How do I top up my consultation wallet?</h3>
+                <i data-lucide="chevron-down" class="w-4 h-4 text-red-400 transform transition-transform faq-arrow"></i>
+            </div>
+            <p class="faq-body hidden text-xs sm:text-sm text-slate-400 mt-3 leading-relaxed border-t border-slate-800/60 pt-3">
+                Visit your Patient Dashboard or Wallet & Passbook tab, select a quick amount (+₹200, +₹500, +₹1000) or enter a custom amount. Unused balances remain permanently in your account and never expire.
+            </p>
+        </div>
+    </div>
+</section>
+
+@section Scripts {
+    <script>
+        function toggleFaq(card) {
+            const body = card.querySelector('.faq-body');
+            const arrow = card.querySelector('.faq-arrow');
+            const isHidden = body.classList.contains('hidden');
+            body.classList.toggle('hidden');
+            arrow.style.transform = isHidden ? 'rotate(180deg)' : 'rotate(0deg)';
+        }
+
+        function filterFaqs(q) {
+            const query = q.toLowerCase();
+            document.querySelectorAll('.faq-card').forEach(card => {
+                const text = card.textContent.toLowerCase();
+                card.style.display = text.includes(query) ? 'block' : 'none';
+            });
+        }
+    </script>
+}

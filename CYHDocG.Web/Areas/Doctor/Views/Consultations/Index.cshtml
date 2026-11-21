@@ -1,0 +1,117 @@
+@model List<CYHDocG.Web.Areas.Doctor.Controllers.DoctorConsultationQueueItemDto>
+@{
+    ViewData["Title"] = "1-to-1 Patient Consultations Queue";
+}
+
+<div class="space-y-6">
+    <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+        <div>
+            <h1 class="font-heading font-extrabold text-2xl text-white">Patient Consultation Queue</h1>
+            <p class="text-xs text-slate-400 mt-1">Accept waiting requests, launch 1-to-1 live video sessions with real-time billing timer, and write prescriptions.</p>
+        </div>
+        <div class="flex items-center gap-2">
+            <span class="px-3.5 py-1.5 rounded-xl bg-purple-600/10 border border-purple-500/20 text-purple-400 text-xs font-bold">
+                @Model.Count(c => c.Status == "Pending" || c.Status == "Active") Active in Queue
+            </span>
+        </div>
+    </div>
+
+    <!-- Queue Table -->
+    <div class="bg-slate-900 border border-slate-800 rounded-3xl overflow-hidden shadow-xl">
+        <div class="p-5 border-b border-slate-800 flex items-center justify-between">
+            <h3 class="font-heading font-bold text-sm text-white">Incoming Patient Queue</h3>
+            <span class="text-xs text-slate-400">Total @Model.Count consultations logged</span>
+        </div>
+
+        <div class="overflow-x-auto no-scrollbar">
+            <table class="w-full text-left text-xs">
+                <thead>
+                    <tr class="text-slate-400 border-b border-slate-800/80 bg-slate-950/40">
+                        <th class="py-3.5 px-4 font-semibold">Patient Name</th>
+                        <th class="py-3.5 px-4 font-semibold">Request Time</th>
+                        <th class="py-3.5 px-4 font-semibold">Wallet Balance</th>
+                        <th class="py-3.5 px-4 font-semibold">Rate / Min</th>
+                        <th class="py-3.5 px-4 font-semibold">Session Status</th>
+                        <th class="py-3.5 px-4 font-semibold text-right">Connect / Prescription</th>
+                    </tr>
+                </thead>
+                <tbody class="divide-y divide-slate-800/60 text-slate-200">
+                    @if (Model.Any())
+                    {
+                        foreach (var item in Model)
+                        {
+                            <tr class="hover:bg-slate-950/40 transition-colors">
+                                <td class="py-4 px-4">
+                                    <div class="flex items-center gap-3">
+                                        <div class="w-9 h-9 rounded-xl bg-purple-600/20 text-purple-400 border border-purple-500/20 flex items-center justify-center font-bold text-xs flex-shrink-0">
+                                            @(item.PatientName.Substring(0, 1).ToUpper())
+                                        </div>
+                                        <div>
+                                            <div class="font-bold text-white text-sm">@item.PatientName</div>
+                                            <div class="text-slate-400 text-[11px]">@item.PatientEmail</div>
+                                        </div>
+                                    </div>
+                                </td>
+                                <td class="py-4 px-4 text-slate-400">
+                                    @item.CreatedAt.ToString("dd MMM yyyy, hh:mm tt")
+                                </td>
+                                <td class="py-4 px-4">
+                                    <span class="font-mono font-bold @(item.PatientWalletBalance > 0 ? "text-emerald-400" : "text-amber-400")">
+                                        ₹@item.PatientWalletBalance.ToString("N2")
+                                    </span>
+                                </td>
+                                <td class="py-4 px-4 font-mono text-white">
+                                    ₹@item.RatePerMinute.ToString("N2")/min
+                                </td>
+                                <td class="py-4 px-4">
+                                    @if (item.Status == "Active")
+                                    {
+                                        <span class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[10px] font-bold bg-emerald-500/20 text-emerald-400 border border-emerald-500/30">
+                                            <span class="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-ping"></span>
+                                            Active Call
+                                        </span>
+                                    }
+                                    else if (item.Status == "Pending")
+                                    {
+                                        <span class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[10px] font-bold bg-amber-500/20 text-amber-400 border border-amber-500/30">
+                                            Waiting in Queue
+                                        </span>
+                                    }
+                                    else
+                                    {
+                                        <span class="px-2.5 py-1 rounded-full text-[10px] font-medium text-slate-400 bg-slate-800">
+                                            @item.Status (@item.DurationSeconds s)
+                                        </span>
+                                    }
+                                </td>
+                                <td class="py-4 px-4 text-right">
+                                    <div class="flex items-center justify-end gap-2">
+                                        @if (item.Status == "Pending" || item.Status == "Active")
+                                        {
+                                            <a href="/LiveChat?doctorId=@ViewBag.DoctorId&consultationId=@item.ConsultationId" class="px-3.5 py-1.5 rounded-xl bg-purple-600 hover:bg-purple-700 text-white font-semibold text-xs flex items-center gap-1.5 shadow-md shadow-purple-600/20 transition-all">
+                                                <i data-lucide="video" class="w-3.5 h-3.5"></i>
+                                                <span>Join Session</span>
+                                            </a>
+                                        }
+                                        <a asp-area="Doctor" asp-controller="Prescriptions" asp-action="Create" asp-route-consultationId="@item.ConsultationId" asp-route-userId="@item.UserId" class="px-3 py-1.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white border border-slate-700 text-xs font-medium transition-all" title="Write Prescription">
+                                            <i data-lucide="file-plus" class="w-3.5 h-3.5 inline mr-1"></i> Rx
+                                        </a>
+                                    </div>
+                                </td>
+                            </tr>
+                        }
+                    }
+                    else
+                    {
+                        <tr>
+                            <td colspan="6" class="py-12 text-center text-slate-500">
+                                <i data-lucide="inbox" class="w-10 h-10 text-slate-600 mx-auto mb-2"></i>
+                                <p>No patient requests in queue right now.</p>
+                            </td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>

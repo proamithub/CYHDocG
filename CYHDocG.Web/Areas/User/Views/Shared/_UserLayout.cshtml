@@ -93,15 +93,15 @@
                 <i data-lucide="bot" class="w-4 h-4"></i>
                 LIVE Chat & AI Triage
             </a>
-            <a href="javascript:void(0)" onclick="openWalletTopUpModal()" class="flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-sm font-medium text-slate-400 hover:text-white hover:bg-slate-800/60 transition-all">
+            <a asp-area="User" asp-controller="Wallet" asp-action="Index" class="flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-sm font-medium transition-all @(ViewContext.RouteData.Values["controller"]?.ToString() == "Wallet" ? "bg-red-600 text-white shadow-lg shadow-red-600/20" : "text-slate-400 hover:text-white hover:bg-slate-800/60")">
                 <i data-lucide="wallet" class="w-4 h-4"></i>
                 Wallet & Passbook
             </a>
-            <a href="javascript:void(0)" class="flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-sm font-medium text-slate-400 hover:text-white hover:bg-slate-800/60 transition-all">
+            <a asp-area="User" asp-controller="Prescriptions" asp-action="Index" class="flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-sm font-medium transition-all @(ViewContext.RouteData.Values["controller"]?.ToString() == "Prescriptions" ? "bg-red-600 text-white shadow-lg shadow-red-600/20" : "text-slate-400 hover:text-white hover:bg-slate-800/60")">
                 <i data-lucide="file-text" class="w-4 h-4"></i>
                 My Prescriptions
             </a>
-            <a href="javascript:void(0)" class="flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-sm font-medium text-slate-400 hover:text-white hover:bg-slate-800/60 transition-all">
+            <a asp-area="User" asp-controller="Prescriptions" asp-action="Index" class="flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-sm font-medium text-slate-400 hover:text-white hover:bg-slate-800/60 transition-all">
                 <i data-lucide="clock" class="w-4 h-4"></i>
                 Dose Reminders
             </a>

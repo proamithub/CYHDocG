@@ -1,0 +1,94 @@
+@{
+    ViewData["Title"] = "24/7 Emergency & Critical Cardiac Care - CYHDocGuru";
+}
+
+<!-- Emergency Hero -->
+<section class="relative py-16 bg-gradient-to-br from-red-950 via-slate-950 to-slate-950 border-b border-red-500/20 text-white overflow-hidden">
+    <div class="absolute top-10 right-10 w-96 h-96 bg-red-600/20 rounded-full blur-3xl pointer-events-none"></div>
+
+    <div class="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 relative z-10">
+        <div class="max-w-3xl">
+            <span class="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-red-500/20 border border-red-500/30 text-red-400 text-xs font-bold uppercase tracking-wider mb-4 animate-pulse">
+                <i data-lucide="siren" class="w-4 h-4"></i> 24/7 Emergency Response
+            </span>
+            <h1 class="font-heading font-black text-3xl sm:text-5xl lg:text-6xl text-white leading-tight mb-4">
+                Emergency & <span class="text-transparent bg-clip-text bg-gradient-to-r from-red-500 to-rose-400">Critical Care Support</span>
+            </h1>
+            <p class="text-sm sm:text-base text-slate-300 mb-8 max-w-xl leading-relaxed">
+                If you or a loved one is experiencing severe chest pain, shortness of breath, sudden numbness, or acute distress, seek emergency assistance immediately. Every second counts.
+            </p>
+
+            <div class="flex flex-wrap items-center gap-4">
+                <a href="tel:+18003624878" class="px-6 py-3.5 rounded-2xl bg-red-600 hover:bg-red-700 text-white font-extrabold text-sm sm:text-base flex items-center gap-2.5 shadow-2xl shadow-red-600/40 active:scale-95 transition-all">
+                    <i data-lucide="phone-call" class="w-5 h-5 animate-bounce"></i>
+                    <span>Call Emergency: +1 (800) DOC-GURU</span>
+                </a>
+                <a asp-controller="LiveChat" asp-action="Index" class="px-6 py-3.5 rounded-2xl bg-slate-900 hover:bg-slate-800 text-slate-200 border border-slate-700 font-bold text-sm sm:text-base flex items-center gap-2 transition-all">
+                    <i data-lucide="bot" class="w-5 h-5 text-red-400"></i>
+                    <span>Instant AI Symptom Triage</span>
+                </a>
+            </div>
+        </div>
+    </div>
+</section>
+
+<!-- Warning Signs Grid -->
+<section class="py-12 bg-slate-950">
+    <div class="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 space-y-8">
+        <div>
+            <span class="text-xs font-bold text-red-400 uppercase tracking-wider block mb-1">Critical Recognition</span>
+            <h2 class="font-heading font-extrabold text-2xl sm:text-3xl text-white">When to Seek Emergency Help</h2>
+            <p class="text-xs sm:text-sm text-slate-400 mt-1">Never ignore these acute symptoms. Call emergency helpline immediately if experiencing:</p>
+        </div>
+
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+            <!-- Warning 1 -->
+            <div class="bg-slate-900/80 border border-red-500/30 rounded-3xl p-6 relative overflow-hidden shadow-xl">
+                <div class="w-12 h-12 rounded-2xl bg-red-600/20 text-red-500 flex items-center justify-center mb-4">
+                    <i data-lucide="heart-pulse" class="w-6 h-6"></i>
+                </div>
+                <h3 class="font-heading font-bold text-base text-white mb-2">Severe Chest Pain</h3>
+                <p class="text-xs text-slate-400 leading-relaxed">
+                    Crushing tightness, pressure, or burning sensation in the center of the chest that may radiate to the left arm, neck, jaw, or back.
+                </p>
+            </div>
+
+            <!-- Warning 2 -->
+            <div class="bg-slate-900/80 border border-red-500/30 rounded-3xl p-6 relative overflow-hidden shadow-xl">
+                <div class="w-12 h-12 rounded-2xl bg-red-600/20 text-red-500 flex items-center justify-center mb-4">
+                    <i data-lucide="wind" class="w-6 h-6"></i>
+                </div>
+                <h3 class="font-heading font-bold text-base text-white mb-2">Sudden Breathlessness</h3>
+                <p class="text-xs text-slate-400 leading-relaxed">
+                    Inability to catch breath, gasping, or feeling smothered, especially when resting or lying down flat, coupled with dizziness or cold sweats.
+                </p>
+            </div>
+
+            <!-- Warning 3 -->
+            <div class="bg-slate-900/80 border border-red-500/30 rounded-3xl p-6 relative overflow-hidden shadow-xl">
+                <div class="w-12 h-12 rounded-2xl bg-red-600/20 text-red-500 flex items-center justify-center mb-4">
+                    <i data-lucide="activity" class="w-6 h-6"></i>
+                </div>
+                <h3 class="font-heading font-bold text-base text-white mb-2">Rapid Arrhythmia</h3>
+                <p class="text-xs text-slate-400 leading-relaxed">
+                    Heart fluttering, skipped beats, sudden fainting (syncope), or irregular pulse exceeding 130 bpm without exertion.
+                </p>
+            </div>
+        </div>
+
+        <!-- FAST Action Protocol Banner -->
+        <div class="bg-gradient-to-r from-slate-900 to-red-950/40 border border-red-500/20 rounded-3xl p-6 sm:p-8 flex flex-col md:flex-row items-center justify-between gap-6">
+            <div>
+                <span class="text-xs font-bold text-red-400 uppercase tracking-widest block mb-1">Stroke Warning Protocol</span>
+                <h3 class="font-heading font-extrabold text-xl sm:text-2xl text-white">Remember the F.A.S.T. Check</h3>
+                <p class="text-xs sm:text-sm text-slate-300 mt-2 max-w-xl">
+                    <strong>Face:</strong> Facial drooping on one side. <strong>Arms:</strong> Arm weakness or numbness. <strong>Speech:</strong> Slurred or strange speech. <strong>Time:</strong> Call emergency medical services immediately!
+                </p>
+            </div>
+            <a href="tel:+18003624878" class="px-6 py-3 rounded-2xl bg-red-600 hover:bg-red-700 text-white font-bold text-xs sm:text-sm shadow-lg shadow-red-600/30 whitespace-nowrap flex items-center gap-2 active:scale-95 transition-all">
+                <i data-lucide="phone" class="w-4 h-4"></i>
+                <span>Direct Dispatch Helpline</span>
+            </a>
+        </div>
+    </div>
+</section>

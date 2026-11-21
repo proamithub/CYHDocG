@@ -62,20 +62,20 @@
                 <i data-lucide="layout-dashboard" class="w-4 h-4"></i>
                 Dashboard
             </a>
-            <a href="javascript:void(0)" class="flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-sm font-medium text-slate-400 hover:text-white hover:bg-slate-800/60 transition-all">
-                <i data-lucide="video" class="w-4 h-4"></i>
-                Go Live / Schedule
+            <a asp-area="Doctor" asp-controller="LiveStudio" asp-action="Index" class="flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-sm font-medium transition-all @(ViewContext.RouteData.Values["controller"]?.ToString() == "LiveStudio" ? "bg-blue-600 text-white shadow-lg shadow-blue-600/20" : "text-slate-400 hover:text-white hover:bg-slate-800/60")">
+                <i data-lucide="radio" class="w-4 h-4"></i>
+                Go Live Studio
             </a>
-            <a href="javascript:void(0)" class="flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-sm font-medium text-slate-400 hover:text-white hover:bg-slate-800/60 transition-all">
+            <a asp-area="Doctor" asp-controller="Consultations" asp-action="Index" class="flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-sm font-medium transition-all @(ViewContext.RouteData.Values["controller"]?.ToString() == "Consultations" ? "bg-blue-600 text-white shadow-lg shadow-blue-600/20" : "text-slate-400 hover:text-white hover:bg-slate-800/60")">
                 <i data-lucide="messages-square" class="w-4 h-4"></i>
                 1-to-1 Chat Queue
             </a>
-            <a href="javascript:void(0)" class="flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-sm font-medium text-slate-400 hover:text-white hover:bg-slate-800/60 transition-all">
+            <a asp-area="Doctor" asp-controller="Prescriptions" asp-action="Create" class="flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-sm font-medium transition-all @(ViewContext.RouteData.Values["controller"]?.ToString() == "Prescriptions" ? "bg-blue-600 text-white shadow-lg shadow-blue-600/20" : "text-slate-400 hover:text-white hover:bg-slate-800/60")">
                 <i data-lucide="file-plus" class="w-4 h-4"></i>
-                Prescription Creator
+                Smart Rx Creator
             </a>
-            <a href="javascript:void(0)" class="flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-sm font-medium text-slate-400 hover:text-white hover:bg-slate-800/60 transition-all">
-                <i data-lucide="credit-card" class="w-4 h-4"></i>
+            <a asp-area="Doctor" asp-controller="Earnings" asp-action="Index" class="flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-sm font-medium transition-all @(ViewContext.RouteData.Values["controller"]?.ToString() == "Earnings" ? "bg-blue-600 text-white shadow-lg shadow-blue-600/20" : "text-slate-400 hover:text-white hover:bg-slate-800/60")">
+                <i data-lucide="wallet" class="w-4 h-4"></i>
                 Earnings & Wallet
             </a>
         </nav>

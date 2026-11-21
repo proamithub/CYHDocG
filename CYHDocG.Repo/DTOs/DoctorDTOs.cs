@@ -55,3 +55,46 @@ public class AddCommentDto
     public long UserId { get; set; }
     public string Message { get; set; } = string.Empty;
 }
+
+public class DoctorAdminListDto
+{
+    public long DoctorId { get; set; }
+    public long UserId { get; set; }
+    public string FullName { get; set; } = string.Empty;
+    public string Email { get; set; } = string.Empty;
+    public string Phone { get; set; } = string.Empty;
+    public string Specialty { get; set; } = string.Empty;
+    public string Department { get; set; } = string.Empty;
+    public string Qualification { get; set; } = string.Empty;
+    public int ExperienceYears { get; set; }
+    public decimal ConsultationFeePerMinute { get; set; }
+    public bool IsFreeConsultation { get; set; }
+    public bool IsLive { get; set; }
+    public bool IsApproved { get; set; }
+    public decimal Rating { get; set; }
+    public int FollowerCount { get; set; }
+    public DateTime CreatedAt { get; set; }
+}
+
+public class AdminDashboardMetricsDto
+{
+    public int TotalDoctors { get; set; }
+    public int LiveDoctors { get; set; }
+    public int ConsultationsToday { get; set; }
+    public decimal PlatformRevenue { get; set; }
+    public int PrescriptionsIssued { get; set; }
+    public int RemindersDue { get; set; }
+}
+
+public class DoctorStudioMetricsDto
+{
+    public long DoctorId { get; set; }
+    public string DoctorName { get; set; } = string.Empty;
+    public string Specialty { get; set; } = string.Empty;
+    public int FollowerCount { get; set; }
+    public int ConsultationsToday { get; set; }
+    public decimal ConsultationFeePerMinute { get; set; }
+    public bool IsFreeConsultation { get; set; }
+    public bool IsLive { get; set; }
+    public decimal WalletBalance { get; set; }
+}

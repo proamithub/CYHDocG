@@ -46,13 +46,14 @@ public class PrescriptionsController : ControllerBase
             return BadRequest(new { Success = false, Message = "Please select a valid image file" });
         }
 
-        using var stream = file.OpenReadStream();
+        using var memoryStream = new MemoryStream();
+        await file.CopyToAsync(memoryStream);
+        var fileBytes = memoryStream.ToArray();
+
+        using var stream = new MemoryStream(fileBytes);
         var (relativePath, originalSize, compressedSize) = await _compressionService.CompressPrescriptionImageAsync(stream, file.FileName, _env.WebRootPath);
 
-        // Simulated intelligent OCR text extraction from prescription slip
-        string simulatedOcrText = "Pantop 40 1-0-0 Before Meal 10 days\nAzithral 500 0-0-1 After Meal 5 days\nParacetamol 650 1-0-1 After Meal 3 days";
-
-        var extractedDto = await _ocrService.ParsePrescriptionTextAsync(simulatedOcrText, doctorId ?? 1, userId ?? 1);
+        var extractedDto = await _ocrService.ExtractAndParsePrescriptionAsync(fileBytes, file.ContentType, doctorId ?? 1, userId ?? 1);
         extractedDto.CompressedFileUrl = relativePath;
         extractedDto.OriginalFileUrl = relativePath;
 

@@ -14,4 +14,9 @@ public interface IDoctorRepository
     Task<IEnumerable<LiveCommentDto>> GetRecentCommentsAsync(long streamId);
     Task<ApiResponse<bool>> ToggleStreamLikeAsync(long streamId, long userId);
     Task<ApiResponse> UpdateDoctorPricingAsync(long doctorId, bool isFree, decimal feePerMinute);
+    Task<IEnumerable<DoctorAdminListDto>> GetAllDoctorsForAdminAsync();
+    Task<ApiResponse> ToggleDoctorApprovalAsync(long doctorId, bool isApproved);
+    Task<AdminDashboardMetricsDto> GetAdminDashboardMetricsAsync();
+    Task<DoctorStudioMetricsDto?> GetDoctorStudioMetricsAsync(long doctorUserId);
+    Task<ApiResponse> SetDoctorLiveStatusAsync(long doctorId, bool isLive, string? liveStreamUrl);
 }

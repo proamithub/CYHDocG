@@ -17,6 +17,30 @@ public class PrescriptionRepository : BaseRepository, IPrescriptionRepository
         return await QuerySPAsync<MasterMedicineDto>("dbo.usp_MasterMedicine_Search", new { Query = query });
     }
 
+    public async Task<IEnumerable<MasterMedicineDto>> GetAllMasterMedicinesAsync(int limit = 100)
+    {
+        using var connection = CreateConnection();
+        string sql = "SELECT TOP (@Limit) MedicineId AS MasterMedicineId, BrandName, GenericName, DosageForm, Strength, Manufacturer FROM dbo.MasterMedicines ORDER BY BrandName ASC";
+        return await connection.QueryAsync<MasterMedicineDto>(sql, new { Limit = limit });
+    }
+
+    public async Task<ApiResponse> AddMasterMedicineAsync(MasterMedicineDto dto)
+    {
+        using var connection = CreateConnection();
+        string sql = @"
+            INSERT INTO dbo.MasterMedicines (BrandName, GenericName, DosageForm, Strength, Manufacturer, CreatedAt)
+            VALUES (@BrandName, @GenericName, @DosageForm, @Strength, @Manufacturer, SYSUTCDATETIME());";
+        await connection.ExecuteAsync(sql, new
+        {
+            BrandName = dto.BrandName.Trim(),
+            GenericName = dto.GenericName?.Trim(),
+            DosageForm = string.IsNullOrWhiteSpace(dto.DosageForm) ? "Tablet" : dto.DosageForm.Trim(),
+            Strength = dto.Strength?.Trim(),
+            Manufacturer = dto.Manufacturer?.Trim()
+        });
+        return ApiResponse.Ok("Medicine added to catalog successfully");
+    }
+
     public async Task<ApiResponse<long>> CreatePrescriptionAsync(PrescriptionCreateDto request)
     {
         // 1. Create Prescription Master
