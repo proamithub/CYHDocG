@@ -81,6 +81,81 @@
                     Consultation rate: <strong class="text-emerald-400">@(Model?.IsFreeConsultation == true ? "FREE" : "₹" + (Model?.ConsultationFeePerMinute ?? 30) + "/min")</strong>
                 </div>
             </div>
+
+            <!-- Live Pinned Health Tip & Medicine Advisory Banner Control -->
+            <div class="bg-slate-900 border border-slate-800 rounded-3xl p-5 shadow-xl space-y-4">
+                <div class="flex items-center justify-between">
+                    <div class="flex items-center gap-2">
+                        <div class="w-8 h-8 rounded-xl bg-amber-500/20 text-amber-400 border border-amber-500/30 flex items-center justify-center">
+                            <i data-lucide="pin" class="w-4 h-4"></i>
+                        </div>
+                        <div>
+                            <h3 class="font-heading font-bold text-sm text-white">Live Stream Pinned Banner</h3>
+                            <p class="text-[11px] text-slate-400">Pin a clinical advisory, medicine recommendation, or diet tip for all viewers</p>
+                        </div>
+                    </div>
+                    <!-- Active Status Tag -->
+                    <div id="pinnedBannerStatus" class="hidden px-2.5 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 flex items-center gap-1.5 animate-pulse">
+                        <span class="w-1.5 h-1.5 rounded-full bg-emerald-400"></span> Active on Patient Reels
+                    </div>
+                </div>
+
+                <!-- Active Banner Display (When pinned) -->
+                <div id="activePinnedBannerContainer" class="hidden p-3.5 rounded-2xl bg-slate-950 border border-amber-500/40 flex items-start justify-between gap-3 shadow-inner">
+                    <div class="flex items-start gap-2.5">
+                        <span id="activeBannerIcon" class="mt-0.5 text-amber-400 text-lg">💡</span>
+                        <div>
+                            <div class="flex items-center gap-2">
+                                <span id="activeBannerTypeLabel" class="text-[10px] font-extrabold uppercase px-2 py-0.5 rounded-md bg-amber-500/20 text-amber-300">Health Tip</span>
+                                <span id="activeBannerMedTag" class="hidden text-[10px] font-bold px-2 py-0.5 rounded-md bg-red-500/20 text-red-300 border border-red-500/30"></span>
+                            </div>
+                            <p id="activeBannerText" class="text-xs text-white font-medium mt-1 leading-snug"></p>
+                        </div>
+                    </div>
+                    <button type="button" onclick="handleUnpinBanner()" class="px-3 py-1.5 rounded-xl bg-slate-800 hover:bg-red-500/20 text-slate-300 hover:text-red-400 border border-slate-700 text-xs font-semibold transition-all flex items-center gap-1">
+                        <i data-lucide="x" class="w-3.5 h-3.5"></i>
+                        <span>Unpin</span>
+                    </button>
+                </div>
+
+                <!-- Banner Creation Form -->
+                <div id="pinnedBannerForm" class="space-y-3">
+                    <!-- Quick Presets -->
+                    <div class="flex items-center gap-1.5 flex-wrap">
+                        <span class="text-[11px] text-slate-400 mr-1">Quick Presets:</span>
+                        <button type="button" onclick="applyPreset('tip', '💧 Hydration Advisory: Drink 2.5-3 Litres of clean water daily to prevent kidney stones & dehydration.', '')" class="px-2.5 py-1 rounded-lg bg-slate-800 hover:bg-slate-700 text-[11px] text-slate-300 transition-all border border-slate-700">
+                            💧 Hydration
+                        </button>
+                        <button type="button" onclick="applyPreset('medicine', 'Take Tab Pan-D 40mg 30 minutes before breakfast for severe acidity & reflux relief.', 'Tab Pan-D 40mg')" class="px-2.5 py-1 rounded-lg bg-slate-800 hover:bg-slate-700 text-[11px] text-slate-300 transition-all border border-slate-700">
+                            💊 Acidity (Pan-D)
+                        </button>
+                        <button type="button" onclick="applyPreset('diet', '🥗 Diabetic Care: Avoid high-glycemic fruits like mango/banana on an empty stomach.', '')" class="px-2.5 py-1 rounded-lg bg-slate-800 hover:bg-slate-700 text-[11px] text-slate-300 transition-all border border-slate-700">
+                            🥗 Sugar Spikes
+                        </button>
+                        <button type="button" onclick="applyPreset('warning', '⚠️ Urgent Warning: Persistent chest pain radiating to left arm requires immediate ER visit. Call 112/108.', '')" class="px-2.5 py-1 rounded-lg bg-slate-800 hover:bg-slate-700 text-[11px] text-red-400 transition-all border border-red-500/30">
+                            ⚠️ Chest Pain Alert
+                        </button>
+                    </div>
+
+                    <div class="grid grid-cols-1 sm:grid-cols-4 gap-2.5">
+                        <select id="bannerTypeSelect" class="bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-xs text-white outline-none focus:border-red-500">
+                            <option value="tip">💡 Clinical Tip</option>
+                            <option value="medicine">💊 Medicine Rx</option>
+                            <option value="diet">🥗 Diet & Nutrition</option>
+                            <option value="warning">⚠️ Emergency / Warning</option>
+                        </select>
+                        <input type="text" id="bannerMedInput" placeholder="Medicine name (optional)..." class="bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-xs text-white placeholder-slate-400 outline-none focus:border-red-500" />
+                        <input type="text" id="bannerTextInput" placeholder="Type clinical advice or recommendation (max 180 chars)..." maxlength="180" class="sm:col-span-2 bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-xs text-white placeholder-slate-400 outline-none focus:border-red-500" />
+                    </div>
+
+                    <div class="flex justify-end gap-2">
+                        <button type="button" onclick="handlePinBannerSubmit()" class="px-5 py-2.5 rounded-xl bg-amber-500 hover:bg-amber-600 text-slate-950 font-bold text-xs flex items-center gap-1.5 shadow-lg shadow-amber-500/20 transition-all active:scale-95">
+                            <i data-lucide="pin" class="w-3.5 h-3.5"></i>
+                            <span>Pin to Live Stream</span>
+                        </button>
+                    </div>
+                </div>
+            </div>
         </div>
 
         <!-- Right Side: Real-Time Patient Comments & Interactions -->
@@ -145,6 +220,19 @@
                             viewerEl.classList.add("text-emerald-400", "scale-125");
                             setTimeout(() => viewerEl.classList.remove("text-emerald-400", "scale-125"), 400);
                         }
+                    }
+                });
+
+                // Listen for Pinned Banner sync
+                signalrConn.on("ReceivePinnedBanner", (streamKey, banner) => {
+                    if (streamKey == doctorId.toString()) {
+                        renderStudioPinnedBanner(banner);
+                    }
+                });
+
+                signalrConn.on("ClearPinnedBanner", (streamKey) => {
+                    if (streamKey == doctorId.toString()) {
+                        clearStudioPinnedBanner();
                     }
                 });
 
@@ -257,6 +345,79 @@
             item.innerHTML = `<span class="font-bold text-white text-[11px]">${user}</span><span class="text-slate-300 text-xs">${text}</span>`;
             box.appendChild(item);
             box.scrollTop = box.scrollHeight;
+        }
+
+        // Pinned Banner Handlers
+        function applyPreset(type, text, medName) {
+            document.getElementById('bannerTypeSelect').value = type;
+            document.getElementById('bannerTextInput').value = text;
+            document.getElementById('bannerMedInput').value = medName || '';
+        }
+
+        async function handlePinBannerSubmit() {
+            const text = document.getElementById('bannerTextInput').value.trim();
+            if (!text) {
+                alert('Please enter a clinical advice or recommendation to pin.');
+                return;
+            }
+            const type = document.getElementById('bannerTypeSelect').value;
+            const medName = document.getElementById('bannerMedInput').value.trim();
+
+            if (signalrConn && signalrConn.state === "Connected") {
+                try {
+                    await signalrConn.invoke("PinStreamBanner", doctorId, text, type, medName);
+                    appendComment("System", `📌 Pinned to live stream: "${text}"`);
+                } catch (err) {
+                    console.error("Failed to pin banner:", err);
+                }
+            }
+        }
+
+        async function handleUnpinBanner() {
+            if (signalrConn && signalrConn.state === "Connected") {
+                try {
+                    await signalrConn.invoke("UnpinStreamBanner", doctorId);
+                    appendComment("System", `📌 Banner unpinned from live stream.`);
+                } catch (err) {
+                    console.error("Failed to unpin banner:", err);
+                }
+            }
+        }
+
+        function renderStudioPinnedBanner(banner) {
+            if (!banner) return;
+            const container = document.getElementById('activePinnedBannerContainer');
+            const statusTag = document.getElementById('pinnedBannerStatus');
+            const textEl = document.getElementById('activeBannerText');
+            const typeLabel = document.getElementById('activeBannerTypeLabel');
+            const iconEl = document.getElementById('activeBannerIcon');
+            const medTag = document.getElementById('activeBannerMedTag');
+
+            const icons = { tip: '💡', medicine: '💊', diet: '🥗', warning: '⚠️' };
+            const labels = { tip: 'Clinical Tip', medicine: 'Medicine Rx', diet: 'Diet & Nutrition', warning: 'Urgent Advisory' };
+
+            iconEl.textContent = icons[banner.bannerType] || '💡';
+            typeLabel.textContent = labels[banner.bannerType] || 'Health Advisory';
+            textEl.textContent = banner.bannerText;
+
+            if (banner.medicineName) {
+                medTag.textContent = 'Rx: ' + banner.medicineName;
+                medTag.classList.remove('hidden');
+            } else {
+                medTag.classList.add('hidden');
+            }
+
+            container.classList.remove('hidden');
+            statusTag.classList.remove('hidden');
+        }
+
+        function clearStudioPinnedBanner() {
+            const container = document.getElementById('activePinnedBannerContainer');
+            const statusTag = document.getElementById('pinnedBannerStatus');
+            if (container) container.classList.add('hidden');
+            if (statusTag) statusTag.classList.add('hidden');
+            document.getElementById('bannerTextInput').value = '';
+            document.getElementById('bannerMedInput').value = '';
         }
 
         function handleSendDoctorStudioComment(e) {

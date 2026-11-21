@@ -44,6 +44,17 @@
             });
         });
 
+        // Real-Time Pinned Banner Listener
+        connection.on('ReceivePinnedBanner', function (streamKey, banner) {
+            console.log('[LiveReel] Pinned banner received for stream:', streamKey, banner);
+            renderPatientPinnedBanner(streamKey, banner);
+        });
+
+        connection.on('ClearPinnedBanner', function (streamKey) {
+            console.log('[LiveReel] Pinned banner cleared for stream:', streamKey);
+            clearPatientPinnedBanner(streamKey);
+        });
+
         // Real-Time Doctor Live Broadcast Status Change
         connection.on('DoctorLiveStatusChanged', function (status) {
             console.log('[LiveReel] DoctorLiveStatusChanged received:', status);
@@ -234,6 +245,47 @@
             if (window.lucide) window.lucide.createIcons();
         }
     };
+
+    // 4.5. Render & Clear Pinned Health Tip / Medicine Banner
+    function renderPatientPinnedBanner(streamKey, banner) {
+        if (!banner) return;
+        const card = document.querySelector(`.reel-card[data-doctor-id="${streamKey}"]`);
+        if (!card) return;
+
+        const box = card.querySelector('.pinned-banner-box');
+        if (!box) return;
+
+        const iconEl = box.querySelector('.pinned-banner-icon');
+        const typeEl = box.querySelector('.pinned-banner-type');
+        const medEl = box.querySelector('.pinned-banner-med');
+        const textEl = box.querySelector('.pinned-banner-text');
+
+        const icons = { tip: '💡', medicine: '💊', diet: '🥗', warning: '⚠️' };
+        const labels = { tip: 'PINNED ADVISORY', medicine: 'MEDICINE RX', diet: 'DIET & NUTRITION', warning: 'URGENT WARNING' };
+
+        if (iconEl) iconEl.textContent = icons[banner.bannerType] || '💡';
+        if (typeEl) typeEl.textContent = labels[banner.bannerType] || 'PINNED ADVISORY';
+        if (textEl) textEl.textContent = banner.bannerText;
+
+        if (medEl) {
+            if (banner.medicineName) {
+                medEl.textContent = 'Rx: ' + banner.medicineName;
+                medEl.classList.remove('hidden');
+            } else {
+                medEl.classList.add('hidden');
+            }
+        }
+
+        box.classList.remove('hidden');
+        if (window.lucide) window.lucide.createIcons();
+    }
+
+    function clearPatientPinnedBanner(streamKey) {
+        const card = document.querySelector(`.reel-card[data-doctor-id="${streamKey}"]`);
+        if (!card) return;
+        const box = card.querySelector('.pinned-banner-box');
+        if (box) box.classList.add('hidden');
+    }
 
     // 5. Append Floating Real-Time Comment (Maintain Latest 5)
     function appendFloatingComment(streamId, comment) {

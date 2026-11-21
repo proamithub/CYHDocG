@@ -98,3 +98,12 @@ public class DoctorStudioMetricsDto
     public bool IsLive { get; set; }
     public decimal WalletBalance { get; set; }
 }
+
+public class PinnedBannerDto
+{
+    public long DoctorId { get; set; }
+    public string BannerText { get; set; } = string.Empty;
+    public string BannerType { get; set; } = "tip"; // tip, medicine, diet, warning
+    public string? MedicineName { get; set; }
+    public DateTime PinnedAt { get; set; } = DateTime.UtcNow;
+}

@@ -126,7 +126,26 @@
                     </div>
 
                     <!-- ===================== BOTTOM: FLOATING COMMENTS & INPUT BAR ===================== -->
-                    <div class="relative z-10 space-y-3 w-[84%]">
+                    <div class="relative z-10 space-y-2.5 w-[84%]">
+                        <!-- Floating Live Pinned Health Tip / Medicine Advisory Banner -->
+                        <div class="pinned-banner-box hidden relative z-20 p-2.5 rounded-2xl bg-black/85 backdrop-blur-md border border-amber-500/50 text-white shadow-2xl transition-all duration-300">
+                            <div class="flex items-start justify-between gap-2">
+                                <div class="flex items-start gap-2 min-w-0 flex-1">
+                                    <span class="pinned-banner-icon text-amber-400 text-base mt-0.5">💡</span>
+                                    <div class="min-w-0 flex-1">
+                                        <div class="flex items-center gap-1.5 flex-wrap">
+                                            <span class="pinned-banner-type text-[9px] font-black uppercase tracking-wider px-1.5 py-0.5 rounded bg-amber-500/20 text-amber-300 border border-amber-500/30">PINNED ADVISORY</span>
+                                            <span class="pinned-banner-med hidden text-[9px] font-bold px-1.5 py-0.5 rounded bg-red-500/20 text-red-300 border border-red-500/30"></span>
+                                        </div>
+                                        <p class="pinned-banner-text text-[11px] sm:text-xs text-slate-100 font-medium mt-1 leading-snug line-clamp-2"></p>
+                                    </div>
+                                </div>
+                                <button type="button" onclick="dismissPinnedBannerLocally(this)" class="text-slate-400 hover:text-white p-1 transition-colors" title="Dismiss banner">
+                                    <i data-lucide="x" class="w-3.5 h-3.5"></i>
+                                </button>
+                            </div>
+                        </div>
+
                         <!-- Floating Live Comments Container (Latest 5 streamed real-time) -->
                         <div class="floating-comments-box flex flex-col gap-1.5 max-h-36 overflow-hidden">
                             <div class="flex items-center gap-1.5 text-xs text-white bg-black/40 backdrop-blur-md px-2.5 py-1 rounded-xl border border-white/10">
@@ -218,6 +237,11 @@
             } catch (err) {
                 console.error(err);
             }
+        }
+
+        function dismissPinnedBannerLocally(btn) {
+            const box = btn.closest('.pinned-banner-box');
+            if (box) box.classList.add('hidden');
         }
 
         function handleShareReel(encryptedId) {

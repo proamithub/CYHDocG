@@ -16,6 +16,9 @@ public class LiveReelHub : Hub
     // Connection to room mapping: connectionId -> roomKey
     private static readonly ConcurrentDictionary<string, string> _connectionRooms = new();
 
+    // Pinned Banner cache: streamKey -> PinnedBannerDto
+    private static readonly ConcurrentDictionary<string, PinnedBannerDto> _roomPinnedBanners = new();
+
     public LiveReelHub(IDoctorRepository doctorRepo)
     {
         _doctorRepo = doctorRepo;
@@ -56,6 +59,12 @@ public class LiveReelHub : Hub
         // Broadcast to all viewers and doctor in this stream room
         await Clients.Group($"Stream_{key}").SendAsync("UpdateViewerCount", key, currentCount);
         await Clients.Caller.SendAsync("UpdateViewerCount", key, currentCount);
+
+        // If there is an active pinned banner for this room, send to the joining viewer
+        if (_roomPinnedBanners.TryGetValue(key, out var activeBanner))
+        {
+            await Clients.Caller.SendAsync("ReceivePinnedBanner", key, activeBanner);
+        }
 
         NotifyViewerCountDb(key, currentCount);
     }
@@ -163,5 +172,32 @@ public class LiveReelHub : Hub
 
         await _doctorRepo.BlockUserAsync(doctorId, targetUserId, reason);
         await Clients.User(targetUserId.ToString()).SendAsync("UserBlockedFromChat", "You have been restricted from this stream by the doctor.");
+    }
+
+    public async Task PinStreamBanner(long doctorId, string bannerText, string bannerType, string? medicineName)
+    {
+        if (string.IsNullOrWhiteSpace(bannerText)) return;
+
+        string key = NormalizeKey(doctorId.ToString());
+        var banner = new PinnedBannerDto
+        {
+            DoctorId = doctorId,
+            BannerText = bannerText.Trim(),
+            BannerType = string.IsNullOrWhiteSpace(bannerType) ? "tip" : bannerType.Trim(),
+            MedicineName = string.IsNullOrWhiteSpace(medicineName) ? null : medicineName.Trim(),
+            PinnedAt = DateTime.UtcNow
+        };
+
+        _roomPinnedBanners[key] = banner;
+
+        // Broadcast to everyone currently watching this doctor's stream (both doctor and all patients)
+        await Clients.Group($"Stream_{key}").SendAsync("ReceivePinnedBanner", key, banner);
+    }
+
+    public async Task UnpinStreamBanner(long doctorId)
+    {
+        string key = NormalizeKey(doctorId.ToString());
+        _roomPinnedBanners.TryRemove(key, out _);
+        await Clients.Group($"Stream_{key}").SendAsync("ClearPinnedBanner", key);
     }
 }
