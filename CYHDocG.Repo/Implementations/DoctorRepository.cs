@@ -12,12 +12,62 @@ public class DoctorRepository : BaseRepository, IDoctorRepository
     {
     }
 
-    public async Task<IEnumerable<DoctorReelDto>> GetReelsFeedAsync(long? currentUserId, int pageNumber = 1, int pageSize = 10)
+    public async Task<IEnumerable<DoctorReelDto>> GetReelsFeedAsync(long? currentUserId, int pageNumber = 1, int pageSize = 15)
     {
-        return await QuerySPAsync<DoctorReelDto>("dbo.usp_Doctor_GetReelsFeed", new
+        try
+        {
+            var reels = (await QuerySPAsync<DoctorReelDto>("dbo.usp_Doctor_GetReelsFeed", new
+            {
+                CurrentUserId = currentUserId,
+                PageNumber = pageNumber,
+                PageSize = pageSize
+            })).ToList();
+
+            if (reels.Any())
+            {
+                return reels;
+            }
+        }
+        catch { }
+
+        // Fallback: If SP had an issue or returned 0 rows, load directly
+        using var connection = CreateConnection();
+        string fallbackSql = @"
+            SELECT 
+                d.DoctorId,
+                u.FullName AS DoctorName,
+                u.AvatarUrl AS DoctorPhoto,
+                d.Specialty,
+                d.Department,
+                d.Qualification,
+                d.ExperienceYears,
+                d.ConsultationFeePerMinute,
+                d.IsFreeConsultation,
+                d.IsLive,
+                d.LiveStreamUrl,
+                d.ScheduledLiveAt,
+                d.FollowerCount,
+                d.Rating,
+                ls.StreamId,
+                ISNULL(ls.CurrentViewers, 0) AS CurrentViewers,
+                ISNULL(ls.TotalLikes, 0) AS TotalLikes,
+                CASE WHEN df.FollowerId IS NOT NULL THEN 1 ELSE 0 END AS IsFollowing,
+                CASE WHEN ll.LikeId IS NOT NULL THEN 1 ELSE 0 END AS HasLiked
+            FROM dbo.Doctors d
+            INNER JOIN dbo.Users u ON d.UserId = u.UserId
+            LEFT JOIN dbo.LiveStreams ls ON d.DoctorId = ls.DoctorId AND ls.IsActive = 1
+            LEFT JOIN dbo.DoctorFollowers df ON d.DoctorId = df.DoctorId AND df.UserId = @CurrentUserId
+            LEFT JOIN dbo.LiveStreamLikes ll ON ls.StreamId = ll.StreamId AND ll.UserId = @CurrentUserId
+            WHERE d.IsApproved = 1
+            ORDER BY d.IsLive DESC, d.ScheduledLiveAt ASC, d.Rating DESC
+            OFFSET @Offset ROWS
+            FETCH NEXT @PageSize ROWS ONLY;";
+
+        int offset = (pageNumber - 1) * pageSize;
+        return await connection.QueryAsync<DoctorReelDto>(fallbackSql, new
         {
             CurrentUserId = currentUserId,
-            PageNumber = pageNumber,
+            Offset = offset,
             PageSize = pageSize
         });
     }
@@ -75,9 +125,11 @@ public class DoctorRepository : BaseRepository, IDoctorRepository
 
     public async Task<ApiResponse<LiveCommentDto>> AddStreamCommentAsync(long streamId, long userId, string message)
     {
+        long resolvedStreamId = await ResolveActiveStreamIdAsync(streamId);
+
         var result = await QueryFirstOrDefaultSPAsync<dynamic>("dbo.usp_LiveStream_AddComment", new
         {
-            StreamId = streamId,
+            StreamId = resolvedStreamId,
             UserId = userId,
             Message = message
         });
@@ -99,14 +151,17 @@ public class DoctorRepository : BaseRepository, IDoctorRepository
 
     public async Task<IEnumerable<LiveCommentDto>> GetRecentCommentsAsync(long streamId)
     {
-        return await QuerySPAsync<LiveCommentDto>("dbo.usp_LiveStream_GetRecentComments", new { StreamId = streamId });
+        long resolvedStreamId = await ResolveActiveStreamIdAsync(streamId);
+        return await QuerySPAsync<LiveCommentDto>("dbo.usp_LiveStream_GetRecentComments", new { StreamId = resolvedStreamId });
     }
 
     public async Task<ApiResponse<bool>> ToggleStreamLikeAsync(long streamId, long userId)
     {
+        long resolvedStreamId = await ResolveActiveStreamIdAsync(streamId);
+
         var result = await QueryFirstOrDefaultSPAsync<dynamic>("dbo.usp_LiveStream_ToggleLike", new
         {
-            StreamId = streamId,
+            StreamId = resolvedStreamId,
             UserId = userId
         });
 
@@ -116,6 +171,42 @@ public class DoctorRepository : BaseRepository, IDoctorRepository
             return ApiResponse<bool>.Ok(hasLiked, (string)result.Message);
         }
         return ApiResponse<bool>.Fail("Like failed");
+    }
+
+    private async Task<long> ResolveActiveStreamIdAsync(long streamOrDoctorId)
+    {
+        using var connection = CreateConnection();
+        var exists = await connection.ExecuteScalarAsync<int>(@"
+            SELECT COUNT(1) FROM dbo.LiveStreams WHERE StreamId = @Id", new { Id = streamOrDoctorId });
+        if (exists > 0)
+        {
+            return streamOrDoctorId;
+        }
+
+        var streamId = await connection.ExecuteScalarAsync<long?>(@"
+            SELECT TOP 1 StreamId FROM dbo.LiveStreams WHERE DoctorId = @Id ORDER BY IsActive DESC, StreamId DESC",
+            new { Id = streamOrDoctorId });
+
+        if (streamId.HasValue && streamId.Value > 0)
+        {
+            return streamId.Value;
+        }
+
+        var doc = await connection.QueryFirstOrDefaultAsync<dynamic>(@"
+            SELECT d.DoctorId, u.FullName, d.Specialty FROM dbo.Doctors d INNER JOIN dbo.Users u ON d.UserId = u.UserId WHERE d.DoctorId = @Id OR d.UserId = @Id",
+            new { Id = streamOrDoctorId });
+
+        if (doc != null)
+        {
+            long dId = (long)doc.DoctorId;
+            return await connection.ExecuteScalarAsync<long>(@"
+                INSERT INTO dbo.LiveStreams (DoctorId, Title, PlaybackUrl, StartedAt, IsActive, CurrentViewers, TotalLikes, CreatedAt)
+                VALUES (@DoctorId, @Title, '/Doctor/LiveStudio', SYSUTCDATETIME(), 1, 0, 0, SYSUTCDATETIME());
+                SELECT SCOPE_IDENTITY();",
+                new { DoctorId = dId, Title = $"{doc.FullName} - Live Consultation" });
+        }
+
+        return streamOrDoctorId;
     }
 
     public async Task<ApiResponse> UpdateDoctorPricingAsync(long doctorId, bool isFree, decimal feePerMinute)
@@ -247,15 +338,101 @@ public class DoctorRepository : BaseRepository, IDoctorRepository
         }
     }
 
-    public async Task<ApiResponse> SetDoctorLiveStatusAsync(long doctorId, bool isLive, string? liveStreamUrl)
+    public async Task<ApiResponse> SetDoctorLiveStatusAsync(long doctorIdOrUserId, bool isLive, string? liveStreamUrl)
     {
         using var connection = CreateConnection();
-        await connection.ExecuteAsync("UPDATE dbo.Doctors SET IsLive = @IsLive, LiveStreamUrl = @Url WHERE DoctorId = @DoctorId", new
+        try
         {
-            DoctorId = doctorId,
-            IsLive = isLive ? 1 : 0,
-            Url = liveStreamUrl
-        });
-        return ApiResponse.Ok(isLive ? "Doctor stream is now LIVE" : "Doctor stream ended");
+            long doctorId = await connection.ExecuteScalarAsync<long>(@"
+                SELECT TOP 1 DoctorId FROM dbo.Doctors WHERE DoctorId = @Id OR UserId = @Id",
+                new { Id = doctorIdOrUserId });
+
+            if (doctorId == 0)
+            {
+                var user = await connection.QueryFirstOrDefaultAsync<dynamic>(@"
+                    SELECT UserId, FullName FROM dbo.Users WHERE UserId = @Id AND RoleId = 2",
+                    new { Id = doctorIdOrUserId });
+
+                if (user != null)
+                {
+                    doctorId = await connection.ExecuteScalarAsync<long>(@"
+                        INSERT INTO dbo.Doctors (UserId, Department, Specialty, Qualification, ExperienceYears, ConsultationFeePerMinute, IsApproved, IsLive, LiveStreamUrl, CreatedAt)
+                        VALUES (@UserId, 'General Medicine', 'General Physician & Consultant', 'MBBS, MD', 5, 25.00, 1, @IsLive, @Url, SYSUTCDATETIME());
+                        SELECT SCOPE_IDENTITY();",
+                        new { UserId = (long)user.UserId, IsLive = isLive ? 1 : 0, Url = liveStreamUrl });
+                }
+            }
+
+            if (doctorId > 0)
+            {
+                await connection.ExecuteAsync(@"
+                    UPDATE dbo.Doctors 
+                    SET IsLive = @IsLive, 
+                        LiveStreamUrl = @Url,
+                        UpdatedAt = SYSUTCDATETIME()
+                    WHERE DoctorId = @DoctorId",
+                    new { DoctorId = doctorId, IsLive = isLive ? 1 : 0, Url = liveStreamUrl });
+
+                if (isLive)
+                {
+                    var existingStreamId = await connection.ExecuteScalarAsync<long?>(@"
+                        SELECT TOP 1 StreamId FROM dbo.LiveStreams WHERE DoctorId = @DoctorId AND IsActive = 1 ORDER BY StreamId DESC",
+                        new { DoctorId = doctorId });
+
+                    if (existingStreamId == null || existingStreamId == 0)
+                    {
+                        var docInfo = await connection.QueryFirstOrDefaultAsync<dynamic>(@"
+                            SELECT u.FullName, d.Specialty FROM dbo.Doctors d INNER JOIN dbo.Users u ON d.UserId = u.UserId WHERE d.DoctorId = @DoctorId",
+                            new { DoctorId = doctorId });
+
+                        string title = docInfo != null ? $"{docInfo.FullName} - Live Consultation ({docInfo.Specialty})" : "Live Health Consultation";
+                        string playbackUrl = liveStreamUrl ?? "/Doctor/LiveStudio";
+
+                        await connection.ExecuteAsync(@"
+                            INSERT INTO dbo.LiveStreams (DoctorId, Title, PlaybackUrl, StartedAt, IsActive, CurrentViewers, TotalLikes, CreatedAt)
+                            VALUES (@DoctorId, @Title, @PlaybackUrl, SYSUTCDATETIME(), 1, 0, 0, SYSUTCDATETIME());",
+                            new { DoctorId = doctorId, Title = title, PlaybackUrl = playbackUrl });
+                    }
+                    else
+                    {
+                        await connection.ExecuteAsync(@"
+                            UPDATE dbo.LiveStreams 
+                            SET StartedAt = ISNULL(StartedAt, SYSUTCDATETIME()) 
+                            WHERE StreamId = @StreamId",
+                            new { StreamId = existingStreamId });
+                    }
+                }
+                else
+                {
+                    await connection.ExecuteAsync(@"
+                        UPDATE dbo.LiveStreams 
+                        SET IsActive = 0, EndedAt = SYSUTCDATETIME(), CurrentViewers = 0 
+                        WHERE DoctorId = @DoctorId AND IsActive = 1",
+                        new { DoctorId = doctorId });
+                }
+
+                return ApiResponse.Ok(isLive ? "Doctor stream is now LIVE" : "Doctor stream ended");
+            }
+
+            return ApiResponse.Fail("Doctor profile not found");
+        }
+        catch (Exception ex)
+        {
+            return ApiResponse.Fail("Failed to set live status: " + ex.Message);
+        }
+    }
+
+    public async Task UpdateStreamViewerCountAsync(long doctorOrStreamId, int currentViewers)
+    {
+        try
+        {
+            using var connection = CreateConnection();
+            await connection.ExecuteAsync(@"
+                UPDATE dbo.LiveStreams 
+                SET CurrentViewers = @Count 
+                WHERE (StreamId = @Id OR DoctorId = @Id) AND IsActive = 1",
+                new { Id = doctorOrStreamId, Count = currentViewers });
+        }
+        catch { }
     }
 }

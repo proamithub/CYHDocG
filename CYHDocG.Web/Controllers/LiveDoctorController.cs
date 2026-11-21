@@ -7,10 +7,12 @@ namespace CYHDocG.Web.Controllers;
 public class LiveDoctorController : Controller
 {
     private readonly IDoctorRepository _doctorRepo;
+    private readonly ILiveKitTokenService _liveKitTokenService;
 
-    public LiveDoctorController(IDoctorRepository doctorRepo)
+    public LiveDoctorController(IDoctorRepository doctorRepo, ILiveKitTokenService liveKitTokenService)
     {
         _doctorRepo = doctorRepo;
+        _liveKitTokenService = liveKitTokenService;
     }
 
     [HttpGet("/LiveDoctor")]
@@ -35,8 +37,41 @@ public class LiveDoctorController : Controller
 
         ViewBag.IsAuthenticated = User.Identity?.IsAuthenticated == true;
         ViewBag.CurrentUserId = currentUserId;
+        ViewBag.ServerUrl = _liveKitTokenService.GetServerUrl();
 
         return View(reels);
+    }
+
+    [HttpGet("/api/livedoctor/subscriber-token")]
+    public IActionResult GetSubscriberToken([FromQuery] long doctorId)
+    {
+        string roomName = $"stream_doc_{doctorId}";
+        string participantId = User.Identity?.IsAuthenticated == true
+            ? $"user_{User.FindFirstValue(ClaimTypes.NameIdentifier)}"
+            : $"guest_{Guid.NewGuid().ToString("N")[..8]}";
+        string participantName = User.Identity?.Name ?? "ReelViewer";
+
+        try
+        {
+            string token = _liveKitTokenService.GenerateAccessToken(
+                roomName,
+                participantId,
+                participantName,
+                canPublish: false,
+                canSubscribe: true);
+
+            return Ok(new
+            {
+                success = true,
+                roomName,
+                serverUrl = _liveKitTokenService.GetServerUrl(),
+                token
+            });
+        }
+        catch (Exception ex)
+        {
+            return StatusCode(500, new { success = false, message = ex.Message });
+        }
     }
 
     [HttpPost("/api/livedoctor/toggle-follow")]

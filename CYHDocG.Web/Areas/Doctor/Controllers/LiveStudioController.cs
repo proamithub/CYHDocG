@@ -1,7 +1,9 @@
 using System.Security.Claims;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.SignalR;
 using CYHDocG.Repo.Interfaces;
+using CYHDocG.Web.Hubs;
 
 namespace CYHDocG.Web.Areas.Doctor.Controllers;
 
@@ -11,11 +13,16 @@ public class LiveStudioController : Controller
 {
     private readonly IDoctorRepository _doctorRepo;
     private readonly ILiveKitTokenService _liveKitTokenService;
+    private readonly IHubContext<LiveReelHub> _hubContext;
 
-    public LiveStudioController(IDoctorRepository doctorRepo, ILiveKitTokenService liveKitTokenService)
+    public LiveStudioController(
+        IDoctorRepository doctorRepo, 
+        ILiveKitTokenService liveKitTokenService,
+        IHubContext<LiveReelHub> hubContext)
     {
         _doctorRepo = doctorRepo;
         _liveKitTokenService = liveKitTokenService;
+        _hubContext = hubContext;
     }
 
     [HttpGet]
@@ -24,15 +31,16 @@ public class LiveStudioController : Controller
         long.TryParse(User.FindFirstValue(ClaimTypes.NameIdentifier), out long userId);
         var metrics = await _doctorRepo.GetDoctorStudioMetricsAsync(userId);
         
-        string doctorName = User.Identity?.Name ?? "Doctor Specialist";
-        string roomName = $"stream_doc_{metrics?.DoctorId ?? userId}";
-        string token = _liveKitTokenService.GenerateAccessToken(roomName, $"doc_{userId}", doctorName);
+        string doctorName = metrics?.DoctorName ?? (User.Identity?.Name ?? "Doctor Specialist");
+        long docId = metrics?.DoctorId > 0 ? metrics.DoctorId : userId;
+        string roomName = $"stream_doc_{docId}";
+        string token = _liveKitTokenService.GenerateAccessToken(roomName, $"doc_{userId}", doctorName, canPublish: true, canSubscribe: true);
         string serverUrl = _liveKitTokenService.GetServerUrl();
 
         ViewBag.RoomName = roomName;
         ViewBag.Token = token;
         ViewBag.ServerUrl = serverUrl;
-        ViewBag.DoctorId = metrics?.DoctorId ?? userId;
+        ViewBag.DoctorId = docId;
         ViewBag.DoctorName = doctorName;
 
         return View(metrics);
@@ -43,9 +51,20 @@ public class LiveStudioController : Controller
     {
         long.TryParse(User.FindFirstValue(ClaimTypes.NameIdentifier), out long userId);
         var metrics = await _doctorRepo.GetDoctorStudioMetricsAsync(userId);
-        long docId = metrics?.DoctorId ?? userId;
+        long docId = metrics?.DoctorId > 0 ? metrics.DoctorId : userId;
+        string doctorName = metrics?.DoctorName ?? (User.Identity?.Name ?? "Doctor Specialist");
 
         var result = await _doctorRepo.SetDoctorLiveStatusAsync(docId, request.IsLive, request.StreamUrl);
+
+        // Notify all viewers and reels feed of doctor's live state change in real time
+        await _hubContext.Clients.All.SendAsync("DoctorLiveStatusChanged", new
+        {
+            doctorId = docId,
+            isLive = request.IsLive,
+            doctorName = doctorName,
+            streamUrl = request.StreamUrl ?? ""
+        });
+
         return Ok(new { success = result.Success, message = result.Message });
     }
 }

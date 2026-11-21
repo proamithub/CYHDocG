@@ -43,8 +43,8 @@ BEGIN
     LEFT JOIN dbo.LiveStreams ls ON d.DoctorId = ls.DoctorId AND ls.IsActive = 1
     LEFT JOIN dbo.DoctorFollowers df ON d.DoctorId = df.DoctorId AND df.UserId = @CurrentUserId
     LEFT JOIN dbo.LiveStreamLikes ll ON ls.StreamId = ll.StreamId AND ll.UserId = @CurrentUserId
-    WHERE d.IsApproved = 1 AND (d.IsLive = 1 OR d.ScheduledLiveAt IS NOT NULL)
-    ORDER BY d.IsLive DESC, d.ScheduledLiveAt ASC
+    WHERE d.IsApproved = 1
+    ORDER BY d.IsLive DESC, d.ScheduledLiveAt ASC, d.Rating DESC
     OFFSET @Offset ROWS
     FETCH NEXT @PageSize ROWS ONLY;
 END

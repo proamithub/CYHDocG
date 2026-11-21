@@ -1,19 +1,21 @@
 /**
  * CYHDocGuru Live Reel Player Engine
- * SignalR Real-Time Streaming, Floating Overlay Comments, Guest Limitations & Mobile Reel Gestures
+ * Real-Time LiveKit WebRTC Video Streaming, SignalR Live Hub, Real-Time Active Viewer Counts & Guest Barriers
  */
 (function () {
     'use strict';
 
     let connection = null;
+    let activeDoctorId = null;
     let activeStreamId = null;
+    let activeLiveKitRoom = null;
     let guestReelScrolls = 0;
     const MAX_GUEST_SCROLLS = 5;
 
     // 1. Initialize SignalR Connection
     function initSignalR() {
         if (typeof signalR === 'undefined') {
-            console.warn('[LiveReel] SignalR library not loaded yet.');
+            console.warn('[LiveReel] SignalR library not loaded.');
             return;
         }
 
@@ -32,6 +34,44 @@
             updateStreamLikeUI(streamId, isLiked);
         });
 
+        // Real-Time Active Viewer Count Listener
+        connection.on('UpdateViewerCount', function (streamKey, count) {
+            console.log('[LiveReel] Real-time viewer count update:', streamKey, count);
+            document.querySelectorAll(`.viewer-count[data-doctor-id="${streamKey}"]`).forEach(el => {
+                el.textContent = count;
+                el.classList.add('text-red-400', 'font-black');
+                setTimeout(() => el.classList.remove('text-red-400', 'font-black'), 400);
+            });
+        });
+
+        // Real-Time Doctor Live Broadcast Status Change
+        connection.on('DoctorLiveStatusChanged', function (status) {
+            console.log('[LiveReel] DoctorLiveStatusChanged received:', status);
+            const card = document.querySelector(`.reel-card[data-doctor-id="${status.doctorId}"]`);
+            if (card) {
+                const liveBadge = card.querySelector('.doctor-live-badge');
+                const videoEl = card.querySelector('video.live-stream-video');
+                const placeholder = card.querySelector('.live-stream-placeholder');
+                
+                card.setAttribute('data-is-live', status.isLive ? 'true' : 'false');
+
+                if (status.isLive) {
+                    if (liveBadge) liveBadge.classList.remove('hidden');
+                    // If currently active reel, connect live video stream immediately!
+                    if (card.classList.contains('active-reel')) {
+                        connectLiveKitStream(status.doctorId, card);
+                    }
+                } else {
+                    if (liveBadge) liveBadge.classList.add('hidden');
+                    if (card.classList.contains('active-reel')) {
+                        disconnectLiveKitStream();
+                    }
+                    if (videoEl) videoEl.classList.add('hidden');
+                    if (placeholder) placeholder.classList.remove('hidden');
+                }
+            }
+        });
+
         // Auth Restriction Listener
         connection.on('AuthRequired', function (msg) {
             openGuestLoginModal(msg);
@@ -44,29 +84,160 @@
         });
 
         connection.start().then(() => {
-            console.log('[LiveReel] Connected to SignalR Live Hub');
-            joinActiveStreamRoom();
-        }).catch(err => console.error('[LiveReel] SignalR error:', err));
+            console.log('[LiveReel] Connected to SignalR Live Hub successfully');
+            syncActiveReel();
+        }).catch(err => console.error('[LiveReel] SignalR connect error:', err));
     }
 
-    function joinActiveStreamRoom() {
-        if (!connection || connection.state !== signalR.HubConnectionState.Connected) return;
+    // 2. Sync Active Reel Room & Video Stream
+    function syncActiveReel() {
         const activeCard = document.querySelector('.reel-card.active-reel');
-        if (activeCard) {
-            const streamId = activeCard.getAttribute('data-stream-id');
-            if (streamId && streamId !== activeStreamId) {
-                if (activeStreamId) {
-                    connection.invoke('LeaveStreamRoom', activeStreamId.toString());
+        if (!activeCard) return;
+
+        const doctorId = activeCard.getAttribute('data-doctor-id') || activeCard.getAttribute('data-stream-id');
+        const isLive = activeCard.getAttribute('data-is-live') === 'true';
+
+        if (doctorId && doctorId !== activeDoctorId) {
+            if (connection && connection.state === signalR.HubConnectionState.Connected) {
+                if (activeDoctorId) {
+                    connection.invoke('LeaveStreamRoom', activeDoctorId.toString()).catch(() => {});
                 }
-                activeStreamId = streamId;
-                connection.invoke('JoinStreamRoom', streamId.toString());
+                activeDoctorId = doctorId;
+                activeStreamId = activeCard.getAttribute('data-stream-id') || doctorId;
+                connection.invoke('JoinStreamRoom', doctorId.toString()).catch(console.error);
+            } else {
+                activeDoctorId = doctorId;
+                activeStreamId = activeCard.getAttribute('data-stream-id') || doctorId;
+            }
+
+            // Manage Live Video Streaming
+            if (isLive) {
+                connectLiveKitStream(doctorId, activeCard);
+            } else {
+                disconnectLiveKitStream();
             }
         }
     }
 
-    // 2. Append Floating Real-Time Comment (Maintain Latest 5)
+    // 3. Connect LiveKit WebRTC Live Stream
+    async function connectLiveKitStream(doctorId, card) {
+        disconnectLiveKitStream();
+
+        const videoEl = card.querySelector('video.live-stream-video');
+        const placeholder = card.querySelector('.live-stream-placeholder');
+
+        try {
+            console.log('[LiveReel] Requesting LiveKit subscriber token for doctor:', doctorId);
+            const res = await fetch(`/api/livedoctor/subscriber-token?doctorId=${doctorId}`);
+            const data = await res.json();
+
+            if (!data.success || !data.token) {
+                console.warn('[LiveReel] Subscriber token not available:', data.message);
+                return;
+            }
+
+            if (!window.LivekitClient) {
+                console.warn('[LiveReel] LiveKit client SDK not loaded');
+                return;
+            }
+
+            activeLiveKitRoom = new LivekitClient.Room({
+                adaptiveStream: true,
+                dynacast: true
+            });
+
+            activeLiveKitRoom.on(LivekitClient.RoomEvent.TrackSubscribed, (track, publication, participant) => {
+                console.log('[LiveReel] Track subscribed from doctor studio:', track.kind);
+                if (track.kind === 'video') {
+                    if (videoEl) {
+                        track.attach(videoEl);
+                        videoEl.classList.remove('hidden');
+                        if (placeholder) placeholder.classList.add('hidden');
+                        videoEl.play().catch(e => console.warn('[LiveReel] Video play suppressed by browser policy:', e));
+                    }
+                } else if (track.kind === 'audio') {
+                    let audioEl = document.getElementById('liveReelAudioTrack');
+                    if (!audioEl) {
+                        audioEl = document.createElement('audio');
+                        audioEl.id = 'liveReelAudioTrack';
+                        audioEl.autoplay = true;
+                        card.appendChild(audioEl);
+                    }
+                    track.attach(audioEl);
+                    audioEl.play().catch(e => console.warn('[LiveReel] Audio play suppressed:', e));
+                }
+            });
+
+            activeLiveKitRoom.on(LivekitClient.RoomEvent.TrackUnsubscribed, (track) => {
+                track.detach();
+            });
+
+            activeLiveKitRoom.on(LivekitClient.RoomEvent.Disconnected, () => {
+                console.log('[LiveReel] LiveKit room disconnected');
+            });
+
+            await activeLiveKitRoom.connect(data.serverUrl, data.token);
+            console.log('[LiveReel] Connected to LiveKit room:', data.roomName);
+        } catch (err) {
+            console.warn('[LiveReel] LiveKit subscriber error:', err);
+        }
+    }
+
+    function disconnectLiveKitStream() {
+        if (activeLiveKitRoom) {
+            try {
+                activeLiveKitRoom.disconnect();
+            } catch (e) {}
+            activeLiveKitRoom = null;
+        }
+
+        const audioEl = document.getElementById('liveReelAudioTrack');
+        if (audioEl) audioEl.remove();
+
+        const activeCard = document.querySelector('.reel-card.active-reel');
+        if (activeCard) {
+            const videoEl = activeCard.querySelector('video.live-stream-video');
+            const placeholder = activeCard.querySelector('.live-stream-placeholder');
+            if (videoEl && activeCard.getAttribute('data-is-live') !== 'true') {
+                videoEl.classList.add('hidden');
+                videoEl.srcObject = null;
+                if (placeholder) placeholder.classList.remove('hidden');
+            }
+        }
+    }
+
+    // 4. Audio Mute / Unmute Toggle
+    window.toggleReelAudio = function (btn) {
+        const activeCard = document.querySelector('.reel-card.active-reel');
+        if (!activeCard) return;
+
+        const video = activeCard.querySelector('video.live-stream-video');
+        const audioEl = document.getElementById('liveReelAudioTrack');
+
+        let isMuted = true;
+        if (video) {
+            video.muted = !video.muted;
+            isMuted = video.muted;
+        }
+        if (audioEl) {
+            audioEl.muted = isMuted;
+        }
+
+        if (btn) {
+            if (isMuted) {
+                btn.innerHTML = '<i data-lucide="volume-x" class="w-4 h-4"></i>';
+                btn.title = "Unmute Audio";
+            } else {
+                btn.innerHTML = '<i data-lucide="volume-2" class="w-4 h-4 text-emerald-400"></i>';
+                btn.title = "Mute Audio";
+            }
+            if (window.lucide) window.lucide.createIcons();
+        }
+    };
+
+    // 5. Append Floating Real-Time Comment (Maintain Latest 5)
     function appendFloatingComment(streamId, comment) {
-        const streamContainer = document.querySelector(`.reel-card[data-stream-id="${streamId}"] .floating-comments-box`);
+        const streamContainer = document.querySelector(`.reel-card[data-stream-id="${streamId}"] .floating-comments-box, .reel-card[data-doctor-id="${streamId}"] .floating-comments-box`);
         if (!streamContainer) return;
 
         const commentEl = document.createElement('div');
@@ -78,18 +249,16 @@
 
         streamContainer.appendChild(commentEl);
 
-        // Keep maximum 5 comments in view
         while (streamContainer.children.length > 5) {
             streamContainer.removeChild(streamContainer.firstChild);
         }
 
-        // Auto scroll to bottom
         streamContainer.scrollTop = streamContainer.scrollHeight;
     }
 
-    // 3. Like UI Update
+    // 6. Like UI Update
     function updateStreamLikeUI(streamId, isLiked) {
-        const likeBtn = document.querySelector(`.reel-card[data-stream-id="${streamId}"] .reel-like-btn`);
+        const likeBtn = document.querySelector(`.reel-card[data-stream-id="${streamId}"] .reel-like-btn, .reel-card[data-doctor-id="${streamId}"] .reel-like-btn`);
         if (!likeBtn) return;
 
         const icon = likeBtn.querySelector('svg') || likeBtn.querySelector('i');
@@ -107,7 +276,7 @@
         }
     }
 
-    // 4. Guest Click Interception
+    // 7. Guest Interception
     window.checkGuestInteraction = function (e, actionName) {
         if (!window.isUserLoggedIn) {
             if (e) {
@@ -132,7 +301,7 @@
         if (modal) modal.classList.add('hidden');
     };
 
-    // 5. Scroll Intersection Observer (Snap Reel Detection & Guest Scroll Wall)
+    // 8. Snap Reel Observer
     function initReelObserver() {
         const reels = document.querySelectorAll('.reel-card');
         if (!reels.length) return;
@@ -142,13 +311,12 @@
                 if (entry.isIntersecting) {
                     reels.forEach(r => r.classList.remove('active-reel'));
                     entry.target.classList.add('active-reel');
-                    joinActiveStreamRoom();
+                    syncActiveReel();
 
                     // Guest Scroll Tracker
                     if (!window.isUserLoggedIn) {
                         const index = parseInt(entry.target.getAttribute('data-index') || '0');
                         if (index >= MAX_GUEST_SCROLLS - 1) {
-                            // Lock feed & trigger login popup
                             document.getElementById('reelsContainer').style.overflowY = 'hidden';
                             openGuestLoginModal('You have watched 5 live doctor reels. Please sign in to continue uninterrupted healthcare streaming.');
                         }
@@ -160,7 +328,7 @@
         reels.forEach(reel => observer.observe(reel));
     }
 
-    // 6. Countdown Timer for Scheduled Doctors
+    // 9. Countdown Timer for Scheduled Doctors
     function initCountdownTimers() {
         setInterval(() => {
             document.querySelectorAll('[data-scheduled-time]').forEach(el => {
@@ -199,9 +367,9 @@
         const message = input.value.trim();
         input.value = '';
 
-        if (connection && activeStreamId) {
+        if (connection && activeDoctorId) {
             try {
-                await connection.invoke('SendLiveComment', parseInt(activeStreamId), message);
+                await connection.invoke('SendLiveComment', parseInt(activeDoctorId), message);
             } catch (err) {
                 console.error(err);
             }
@@ -209,18 +377,19 @@
     };
 
     // Toggle Stream Like Handler
-    window.handleToggleReelLike = async function (streamId) {
+    window.handleToggleReelLike = async function (streamOrDoctorId) {
         if (!checkGuestInteraction(null, 'like')) return;
         if (connection) {
             try {
-                await connection.invoke('SendLike', parseInt(streamId));
+                const id = activeDoctorId ? parseInt(activeDoctorId) : parseInt(streamOrDoctorId);
+                await connection.invoke('SendLike', id);
             } catch (err) {
                 console.error(err);
             }
         }
     };
 
-    // DOM Ready Initialization
+    // DOM Ready
     document.addEventListener('DOMContentLoaded', function () {
         initSignalR();
         initReelObserver();

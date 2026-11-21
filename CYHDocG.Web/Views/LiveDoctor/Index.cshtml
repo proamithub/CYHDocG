@@ -4,7 +4,8 @@
     bool isAuth = ViewBag.IsAuthenticated ?? false;
 }
 
-<!-- SignalR Client Script -->
+<!-- LiveKit Real-Time WebRTC SDK & SignalR Client Script -->
+<script src="https://cdn.jsdelivr.net/npm/livekit-client/dist/livekit-client.umd.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/microsoft-signalr/8.0.0/signalr.min.js"></script>
 
 <div class="bg-black text-white min-h-[calc(100vh-80px)] flex justify-center items-center py-2 relative overflow-hidden">
@@ -19,39 +20,48 @@
             {
                 <div class="reel-card @(index == 0 ? "active-reel" : "") h-full w-full snap-start relative flex flex-col justify-between p-4 overflow-hidden" 
                      data-stream-id="@(reel.StreamId ?? reel.DoctorId)" 
+                     data-doctor-id="@reel.DoctorId"
+                     data-is-live="@(reel.IsLive ? "true" : "false")"
                      data-index="@index">
 
-                    <!-- Background: Live Stream Simulation / Video Element -->
-                    <div class="absolute inset-0 z-0 bg-gradient-to-b from-slate-900 via-slate-950 to-black flex items-center justify-center">
-                        @if (!string.IsNullOrEmpty(reel.LiveStreamUrl))
-                        {
-                            <video src="@reel.LiveStreamUrl" autoplay loop muted playsinline class="w-full h-full object-cover opacity-80"></video>
-                        }
-                        else
-                        {
-                            <!-- Fallback Animated Healthcare Wave -->
-                            <div class="flex flex-col items-center justify-center text-center p-6 space-y-4">
-                                <div class="w-20 h-20 rounded-3xl bg-red-600/20 text-red-500 border border-red-500/30 flex items-center justify-center shadow-2xl animate-pulse">
-                                    <i data-lucide="stethoscope" class="w-10 h-10"></i>
-                                </div>
-                                <div>
-                                    <h3 class="font-heading font-extrabold text-xl text-white">@reel.DoctorName</h3>
-                                    <p class="text-xs text-slate-400 mt-1">@reel.Specialty • @reel.Department</p>
-                                </div>
-                                @if (reel.ScheduledLiveAt.HasValue && !reel.IsLive)
-                                {
-                                    <div class="px-4 py-2 rounded-2xl bg-slate-900 border border-amber-500/40 text-amber-400 text-xs font-bold tracking-wider" 
-                                         data-scheduled-time="@reel.ScheduledLiveAt.Value.ToString("o")">
-                                        Calculating countdown...
-                                    </div>
-                                }
+                    <!-- Background: Live Stream Video Element / Doctor Poster -->
+                    <div class="absolute inset-0 z-0 bg-gradient-to-b from-slate-900 via-slate-950 to-black flex items-center justify-center overflow-hidden">
+                        <!-- Video Element for WebRTC Live Stream -->
+                        <video class="live-stream-video w-full h-full object-cover @(reel.IsLive ? "" : "hidden")" autoplay playsinline muted loop></video>
+                        
+                        <!-- Fallback / Waiting Animated Card -->
+                        <div class="live-stream-placeholder flex flex-col items-center justify-center text-center p-6 space-y-4 @(reel.IsLive ? "hidden" : "")">
+                            <div class="w-20 h-20 rounded-3xl bg-red-600/20 text-red-500 border border-red-500/30 flex items-center justify-center shadow-2xl animate-pulse">
+                                <i data-lucide="stethoscope" class="w-10 h-10"></i>
                             </div>
-                        }
+                            <div>
+                                <h3 class="font-heading font-extrabold text-xl text-white">@reel.DoctorName</h3>
+                                <p class="text-xs text-slate-400 mt-1">@reel.Specialty • @reel.Department</p>
+                            </div>
+                            @if (reel.ScheduledLiveAt.HasValue && !reel.IsLive)
+                            {
+                                <div class="px-4 py-2 rounded-2xl bg-slate-900 border border-amber-500/40 text-amber-400 text-xs font-bold tracking-wider" 
+                                     data-scheduled-time="@reel.ScheduledLiveAt.Value.ToString("o")">
+                                    Calculating countdown...
+                                </div>
+                            }
+                            else
+                            {
+                                <div class="px-3 py-1.5 rounded-xl bg-slate-900/80 border border-slate-700/60 text-slate-400 text-xs flex items-center gap-1.5">
+                                    <span class="w-2 h-2 rounded-full bg-slate-500"></span> Doctor currently offline
+                                </div>
+                            }
+                        </div>
                         <div class="absolute inset-0 bg-gradient-to-t from-black via-transparent to-black/60 pointer-events-none"></div>
                     </div>
 
+                    <!-- Floating Audio Toggle Button (Top Right) -->
+                    <button type="button" onclick="toggleReelAudio(this)" class="btn-toggle-audio absolute top-3 right-3 z-30 w-8 h-8 rounded-full bg-black/60 backdrop-blur-md border border-white/20 text-white flex items-center justify-center hover:bg-black/80 transition-all shadow-md" title="Mute/Unmute Audio">
+                        <i data-lucide="volume-x" class="w-4 h-4"></i>
+                    </button>
+
                     <!-- ===================== TOP OVERLAY ===================== -->
-                    <div class="relative z-10 flex items-start justify-between pt-2">
+                    <div class="relative z-10 flex items-start justify-between pt-2 pr-10">
                         <div class="flex items-center gap-2.5">
                             <div class="w-10 h-10 rounded-full bg-red-600 border-2 border-white flex items-center justify-center font-bold text-xs text-white shadow">
                                 @(reel.DoctorPhoto != null ? "" : "Dr")
@@ -59,12 +69,9 @@
                             <div>
                                 <div class="flex items-center gap-2">
                                     <h4 class="text-sm font-bold text-white">@reel.DoctorName</h4>
-                                    @if (reel.IsLive)
-                                    {
-                                        <span class="px-2 py-0.5 rounded-full bg-red-600 text-[10px] font-black uppercase tracking-wider flex items-center gap-1 shadow animate-pulse">
-                                            <span class="w-1.5 h-1.5 rounded-full bg-white"></span> LIVE
-                                        </span>
-                                    }
+                                    <span class="doctor-live-badge px-2 py-0.5 rounded-full bg-red-600 text-[10px] font-black uppercase tracking-wider flex items-center gap-1 shadow animate-pulse @(reel.IsLive ? "" : "hidden")">
+                                        <span class="w-1.5 h-1.5 rounded-full bg-white"></span> LIVE
+                                    </span>
                                 </div>
                                 <span class="text-[11px] text-slate-300">@reel.Specialty • @reel.ExperienceYears yrs exp</span>
                             </div>
@@ -72,9 +79,10 @@
 
                         <!-- Live Viewers Counter & Follow Button -->
                         <div class="flex flex-col items-end gap-1.5">
-                            <span class="px-2.5 py-1 rounded-full bg-black/50 backdrop-blur-md text-white text-[11px] font-medium flex items-center gap-1.5 border border-white/10">
+                            <span class="px-2.5 py-1 rounded-full bg-black/50 backdrop-blur-md text-white text-[11px] font-medium flex items-center gap-1.5 border border-white/10 shadow-lg">
+                                <span class="w-2 h-2 rounded-full bg-red-500 animate-pulse"></span>
                                 <i data-lucide="eye" class="w-3.5 h-3.5 text-red-400"></i>
-                                <span>@(reel.CurrentViewers > 0 ? reel.CurrentViewers : 842)</span>
+                                <span class="viewer-count" data-doctor-id="@reel.DoctorId">@(reel.CurrentViewers > 0 ? reel.CurrentViewers : 1)</span>
                             </span>
                             <button type="button" onclick="handleFollowToggle(@reel.DoctorId, this)" class="px-2.5 py-0.5 rounded-full bg-red-600 hover:bg-red-700 text-white text-[10px] font-bold tracking-wider uppercase transition-all shadow">
                                 @(reel.IsFollowing ? "Following" : "+ Follow")
@@ -186,6 +194,7 @@
 @section Scripts {
     <script>
         window.isUserLoggedIn = @(isAuth ? "true" : "false");
+        window.livekitServerUrl = "@ViewBag.ServerUrl";
 
         function focusChatInput() {
             if (checkGuestInteraction(null, 'chat')) {

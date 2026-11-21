@@ -19,4 +19,5 @@ public interface IDoctorRepository
     Task<AdminDashboardMetricsDto> GetAdminDashboardMetricsAsync();
     Task<DoctorStudioMetricsDto?> GetDoctorStudioMetricsAsync(long doctorUserId);
     Task<ApiResponse> SetDoctorLiveStatusAsync(long doctorId, bool isLive, string? liveStreamUrl);
+    Task UpdateStreamViewerCountAsync(long doctorOrStreamId, int currentViewers);
 }

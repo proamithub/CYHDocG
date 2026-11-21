@@ -1,3 +1,4 @@
+using System.Collections.Concurrent;
 using System.Security.Claims;
 using Microsoft.AspNetCore.SignalR;
 using CYHDocG.Repo.DTOs;
@@ -9,19 +10,103 @@ public class LiveReelHub : Hub
 {
     private readonly IDoctorRepository _doctorRepo;
 
+    // Room viewers: roomKey -> Set of ConnectionIds
+    private static readonly ConcurrentDictionary<string, ConcurrentDictionary<string, bool>> _roomViewers = new();
+
+    // Connection to room mapping: connectionId -> roomKey
+    private static readonly ConcurrentDictionary<string, string> _connectionRooms = new();
+
     public LiveReelHub(IDoctorRepository doctorRepo)
     {
         _doctorRepo = doctorRepo;
     }
 
+    private static string NormalizeKey(string streamId)
+    {
+        if (string.IsNullOrWhiteSpace(streamId)) return "1";
+        return streamId.Replace("stream_doc_", "").Replace("doc_", "").Trim();
+    }
+
     public async Task JoinStreamRoom(string streamId)
     {
-        await Groups.AddToGroupAsync(Context.ConnectionId, $"Stream_{streamId}");
+        string key = NormalizeKey(streamId);
+        string connId = Context.ConnectionId;
+
+        // Leave previous room if any
+        if (_connectionRooms.TryRemove(connId, out var oldKey) && oldKey != key)
+        {
+            await Groups.RemoveFromGroupAsync(connId, $"Stream_{oldKey}");
+            if (_roomViewers.TryGetValue(oldKey, out var oldViewers))
+            {
+                oldViewers.TryRemove(connId, out _);
+                int count = oldViewers.Count;
+                await Clients.Group($"Stream_{oldKey}").SendAsync("UpdateViewerCount", oldKey, count);
+                NotifyViewerCountDb(oldKey, count);
+            }
+        }
+
+        // Add to new room
+        _connectionRooms[connId] = key;
+        var viewers = _roomViewers.GetOrAdd(key, _ => new ConcurrentDictionary<string, bool>());
+        viewers[connId] = true;
+
+        await Groups.AddToGroupAsync(connId, $"Stream_{key}");
+
+        int currentCount = viewers.Count;
+        // Broadcast to all viewers and doctor in this stream room
+        await Clients.Group($"Stream_{key}").SendAsync("UpdateViewerCount", key, currentCount);
+        await Clients.Caller.SendAsync("UpdateViewerCount", key, currentCount);
+
+        NotifyViewerCountDb(key, currentCount);
     }
 
     public async Task LeaveStreamRoom(string streamId)
     {
-        await Groups.RemoveFromGroupAsync(Context.ConnectionId, $"Stream_{streamId}");
+        string key = NormalizeKey(streamId);
+        string connId = Context.ConnectionId;
+
+        _connectionRooms.TryRemove(connId, out _);
+        await Groups.RemoveFromGroupAsync(connId, $"Stream_{key}");
+
+        if (_roomViewers.TryGetValue(key, out var viewers))
+        {
+            viewers.TryRemove(connId, out _);
+            int count = viewers.Count;
+            await Clients.Group($"Stream_{key}").SendAsync("UpdateViewerCount", key, count);
+            NotifyViewerCountDb(key, count);
+        }
+    }
+
+    public override async Task OnDisconnectedAsync(Exception? exception)
+    {
+        string connId = Context.ConnectionId;
+        if (_connectionRooms.TryRemove(connId, out var key))
+        {
+            if (_roomViewers.TryGetValue(key, out var viewers))
+            {
+                viewers.TryRemove(connId, out _);
+                int count = viewers.Count;
+                await Clients.Group($"Stream_{key}").SendAsync("UpdateViewerCount", key, count);
+                NotifyViewerCountDb(key, count);
+            }
+        }
+
+        await base.OnDisconnectedAsync(exception);
+    }
+
+    private void NotifyViewerCountDb(string key, int count)
+    {
+        if (long.TryParse(key, out long id))
+        {
+            _ = Task.Run(async () =>
+            {
+                try
+                {
+                    await _doctorRepo.UpdateStreamViewerCountAsync(id, count);
+                }
+                catch { }
+            });
+        }
     }
 
     public async Task SendLiveComment(long streamId, string message)
@@ -41,8 +126,9 @@ public class LiveReelHub : Hub
         var result = await _doctorRepo.AddStreamCommentAsync(streamId, userId, message);
         if (result.Success && result.Data != null)
         {
+            string key = NormalizeKey(streamId.ToString());
             // Broadcast new comment to everyone watching this stream room
-            await Clients.Group($"Stream_{streamId}").SendAsync("ReceiveNewComment", streamId, result.Data);
+            await Clients.Group($"Stream_{key}").SendAsync("ReceiveNewComment", streamId, result.Data);
         }
         else
         {
@@ -62,7 +148,8 @@ public class LiveReelHub : Hub
         var result = await _doctorRepo.ToggleStreamLikeAsync(streamId, userId);
         if (result.Success)
         {
-            await Clients.Group($"Stream_{streamId}").SendAsync("ReceiveLikeUpdate", streamId, result.Data);
+            string key = NormalizeKey(streamId.ToString());
+            await Clients.Group($"Stream_{key}").SendAsync("ReceiveLikeUpdate", streamId, result.Data);
         }
     }
 

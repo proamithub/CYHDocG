@@ -124,19 +124,32 @@
         let signalrConn = null;
         let localMediaStream = null;
 
-        // SignalR setup for comments
+        // SignalR setup for comments and real-time viewers
         async function setupSignalR() {
             try {
                 signalrConn = new signalR.HubConnectionBuilder()
                     .withUrl("/hubs/live-reel")
-                    .withAutomaticReconnect()
+                    .withAutomaticReconnect([0, 2000, 5000, 10000])
                     .build();
 
                 signalrConn.on("ReceiveNewComment", (streamId, comment) => {
                     appendComment(comment.userName, comment.message);
                 });
 
+                signalrConn.on("UpdateViewerCount", (streamKey, count) => {
+                    console.log("[LiveStudio] Real-time viewer count updated:", streamKey, count);
+                    if (streamKey == doctorId.toString()) {
+                        const viewerEl = document.getElementById("liveViewerCount");
+                        if (viewerEl) {
+                            viewerEl.textContent = count;
+                            viewerEl.classList.add("text-emerald-400", "scale-125");
+                            setTimeout(() => viewerEl.classList.remove("text-emerald-400", "scale-125"), 400);
+                        }
+                    }
+                });
+
                 await signalrConn.start();
+                console.log("[LiveStudio] Connected to SignalR Live Hub for room:", doctorId);
                 await signalrConn.invoke("JoinStreamRoom", doctorId.toString());
             } catch (err) {
                 console.warn("SignalR live reel hub connect error:", err);
