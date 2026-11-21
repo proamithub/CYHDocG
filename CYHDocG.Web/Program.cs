@@ -1,12 +1,22 @@
 using CYHDocG.Repo.DTOs;
 using CYHDocG.Repo.Implementations;
 using CYHDocG.Repo.Interfaces;
+using Microsoft.AspNetCore.ResponseCompression;
 
 var builder = WebApplication.CreateBuilder(args);
 
 // 1. Add MVC & Controllers with Views
 builder.Services.AddControllersWithViews();
 builder.Services.AddSignalR();
+builder.Services.AddMemoryCache();
+
+// High-Speed Response Compression (Brotli + Gzip)
+builder.Services.AddResponseCompression(options =>
+{
+    options.EnableForHttps = true;
+    options.Providers.Add<BrotliCompressionProvider>();
+    options.Providers.Add<GzipCompressionProvider>();
+});
 
 // Configure LiveKit Settings from appsettings
 builder.Services.Configure<LiveKitSettings>(options =>
@@ -79,8 +89,24 @@ if (!app.Environment.IsDevelopment())
     app.UseHsts();
 }
 
+app.UseResponseCompression();
 app.UseHttpsRedirection();
-app.UseStaticFiles();
+
+// High-Performance Static Files with Browser Caching (30 Days)
+app.UseStaticFiles(new StaticFileOptions
+{
+    OnPrepareResponse = ctx =>
+    {
+        // Cache static assets (CSS, JS, images, SVG, fonts) for 30 days
+        var path = ctx.File.Name;
+        if (path.EndsWith(".css") || path.EndsWith(".js") || path.EndsWith(".svg") || 
+            path.EndsWith(".png") || path.EndsWith(".jpg") || path.EndsWith(".woff2"))
+        {
+            ctx.Context.Response.Headers.Append("Cache-Control", "public,max-age=2592000,immutable");
+        }
+    }
+});
+
 app.UseRouting();
 
 app.UseAuthentication();

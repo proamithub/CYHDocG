@@ -79,6 +79,7 @@ BEGIN
     );
     CREATE NONCLUSTERED INDEX IX_Doctors_Department ON dbo.Doctors(Department);
     CREATE NONCLUSTERED INDEX IX_Doctors_IsLive ON dbo.Doctors(IsLive);
+    CREATE NONCLUSTERED INDEX IX_Doctors_Reels_Covering ON dbo.Doctors (IsApproved, IsLive DESC, ScheduledLiveAt ASC, Rating DESC) INCLUDE (DoctorId, UserId, Specialty, Department, Qualification, ExperienceYears, ConsultationFeePerMinute, IsFreeConsultation, LiveStreamUrl, FollowerCount);
 END
 GO
 
@@ -125,6 +126,7 @@ BEGIN
         TotalLikes INT NOT NULL DEFAULT 0,
         CreatedAt DATETIME2 NOT NULL DEFAULT SYSUTCDATETIME()
     );
+    CREATE NONCLUSTERED INDEX IX_LiveStreams_Doctor_Active ON dbo.LiveStreams (DoctorId, IsActive) INCLUDE (StreamId, CurrentViewers, TotalLikes, Title, PlaybackUrl);
 END
 GO
 
@@ -197,6 +199,7 @@ BEGIN
         IsPaid BIT NOT NULL DEFAULT 0,
         CreatedAt DATETIME2 NOT NULL DEFAULT SYSUTCDATETIME()
     );
+    CREATE NONCLUSTERED INDEX IX_LiveStreams_Doctor_Active ON dbo.LiveStreams (DoctorId, IsActive) INCLUDE (StreamId, CurrentViewers, TotalLikes, Title, PlaybackUrl);
 END
 GO
 
@@ -229,6 +232,7 @@ BEGIN
         Description NVARCHAR(255) NULL,
         CreatedAt DATETIME2 NOT NULL DEFAULT SYSUTCDATETIME()
     );
+    CREATE NONCLUSTERED INDEX IX_LiveStreams_Doctor_Active ON dbo.LiveStreams (DoctorId, IsActive) INCLUDE (StreamId, CurrentViewers, TotalLikes, Title, PlaybackUrl);
 END
 GO
 
@@ -246,6 +250,7 @@ BEGIN
         Description NVARCHAR(255) NULL,
         CreatedAt DATETIME2 NOT NULL DEFAULT SYSUTCDATETIME()
     );
+    CREATE NONCLUSTERED INDEX IX_LiveStreams_Doctor_Active ON dbo.LiveStreams (DoctorId, IsActive) INCLUDE (StreamId, CurrentViewers, TotalLikes, Title, PlaybackUrl);
 END
 GO
 
@@ -279,6 +284,7 @@ BEGIN
         DoctorNotes NVARCHAR(MAX) NULL,
         CreatedAt DATETIME2 NOT NULL DEFAULT SYSUTCDATETIME()
     );
+    CREATE NONCLUSTERED INDEX IX_LiveStreams_Doctor_Active ON dbo.LiveStreams (DoctorId, IsActive) INCLUDE (StreamId, CurrentViewers, TotalLikes, Title, PlaybackUrl);
 END
 GO
 
@@ -297,6 +303,7 @@ BEGIN
         RefillAlertDate DATE NOT NULL,
         CreatedAt DATETIME2 NOT NULL DEFAULT SYSUTCDATETIME()
     );
+    CREATE NONCLUSTERED INDEX IX_LiveStreams_Doctor_Active ON dbo.LiveStreams (DoctorId, IsActive) INCLUDE (StreamId, CurrentViewers, TotalLikes, Title, PlaybackUrl);
 END
 GO
 
@@ -327,5 +334,6 @@ BEGIN
         UserAgent NVARCHAR(500) NULL,
         CreatedAt DATETIME2 NOT NULL DEFAULT SYSUTCDATETIME()
     );
+    CREATE NONCLUSTERED INDEX IX_LiveStreams_Doctor_Active ON dbo.LiveStreams (DoctorId, IsActive) INCLUDE (StreamId, CurrentViewers, TotalLikes, Title, PlaybackUrl);
 END
 GO

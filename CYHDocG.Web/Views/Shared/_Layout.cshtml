@@ -12,9 +12,15 @@
     <title>@ViewData["Title"] - CYHDocGuru | Expert Healthcare & Cardiology Services</title>
     <meta name="description" content="CYHDocGuru - Comprehensive medical consultations, cardiology specialists, diagnostics, preventive care, and personalized health treatment." />
 
-    <!-- Google Fonts -->
+    <!-- Performance Hints: Preconnect & DNS-Prefetch CDN hosts -->
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link rel="preconnect" href="https://cdn.tailwindcss.com" crossorigin />
+    <link rel="preconnect" href="https://unpkg.com" crossorigin />
+    <link rel="dns-prefetch" href="https://fonts.googleapis.com" />
+    <link rel="dns-prefetch" href="https://fonts.gstatic.com" />
+    <link rel="dns-prefetch" href="https://cdn.tailwindcss.com" />
+    <link rel="dns-prefetch" href="https://unpkg.com" />
     <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800;900&family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet" />
 
     <!-- Theme Styles -->
@@ -43,10 +49,6 @@
             }
         };
     </script>
-
-    <!-- Lucide Icons -->
-    <script src="https://unpkg.com/lucide@latest/dist/umd/lucide.min.js"></script>
-    <script src="~/theme/assets/aos.js"></script>
 </head>
 <body class="font-body text-slate-800 bg-slate-50">
 
@@ -306,7 +308,9 @@
         <span id="toast-msg">Appointment request submitted successfully!</span>
     </div>
 
-    <!-- Scripts -->
+    <!-- Scripts: Loaded at end of body to prevent render-blocking -->
+    <script src="https://unpkg.com/lucide@latest/dist/umd/lucide.min.js"></script>
+    <script src="~/theme/assets/aos.js"></script>
     <script src="~/theme/assets/script.js" asp-append-version="true"></script>
     <script src="~/js/security-guard.js" asp-append-version="true"></script>
     <script src="~/js/language-switcher.js" asp-append-version="true"></script>

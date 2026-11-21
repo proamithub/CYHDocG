@@ -270,7 +270,7 @@ public class DoctorRepository : BaseRepository, IDoctorRepository
                 SELECT 
                     (SELECT COUNT(*) FROM dbo.Users WHERE RoleId = 2) AS TotalDoctors,
                     (SELECT COUNT(*) FROM dbo.Doctors WHERE IsLive = 1) AS LiveDoctors,
-                    (SELECT COUNT(*) FROM dbo.Consultations WHERE CAST(CreatedAt AS DATE) = CAST(SYSUTCDATETIME() AS DATE)) AS ConsultationsToday,
+                    (SELECT COUNT(*) FROM dbo.Consultations WHERE CreatedAt >= CAST(SYSUTCDATETIME() AS DATE)) AS ConsultationsToday,
                     (SELECT ISNULL(SUM(PlatformFeeAmount), 0.00) FROM dbo.PlatformLedger) AS PlatformRevenue,
                     (SELECT COUNT(*) FROM dbo.Prescriptions) AS PrescriptionsIssued,
                     (SELECT COUNT(*) FROM dbo.MedicineReminders WHERE IsActive = 1) AS RemindersDue;";
@@ -313,7 +313,7 @@ public class DoctorRepository : BaseRepository, IDoctorRepository
                     ISNULL(d.IsFreeConsultation, 0) AS IsFreeConsultation,
                     ISNULL(d.IsLive, 0) AS IsLive,
                     ISNULL(dw.Balance, 0.00) AS WalletBalance,
-                    (SELECT COUNT(*) FROM dbo.Consultations c WHERE c.DoctorId = d.DoctorId AND CAST(c.CreatedAt AS DATE) = CAST(SYSUTCDATETIME() AS DATE)) AS ConsultationsToday
+                    (SELECT COUNT(*) FROM dbo.Consultations c WHERE c.DoctorId = d.DoctorId AND c.CreatedAt >= CAST(SYSUTCDATETIME() AS DATE)) AS ConsultationsToday
                 FROM dbo.Users u
                 LEFT JOIN dbo.Doctors d ON u.UserId = d.UserId
                 LEFT JOIN dbo.DoctorWallets dw ON d.DoctorId = dw.DoctorId

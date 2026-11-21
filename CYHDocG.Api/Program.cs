@@ -6,10 +6,21 @@ using CYHDocG.Repo.DTOs;
 using CYHDocG.Repo.Implementations;
 using CYHDocG.Repo.Interfaces;
 
+using Microsoft.AspNetCore.ResponseCompression;
+
 var builder = WebApplication.CreateBuilder(args);
 
 // 1. Add Controllers
 builder.Services.AddControllers();
+builder.Services.AddMemoryCache();
+
+// High-Speed Response Compression (Brotli + Gzip)
+builder.Services.AddResponseCompression(options =>
+{
+    options.EnableForHttps = true;
+    options.Providers.Add<BrotliCompressionProvider>();
+    options.Providers.Add<GzipCompressionProvider>();
+});
 
 // 2. Register Repositories (Dapper + Stored Procedures) & Services
 builder.Services.AddScoped<IBaseRepository, BaseRepository>();
@@ -135,6 +146,7 @@ app.UseSwaggerUI(c =>
     c.RoutePrefix = "swagger";
 });
 
+app.UseResponseCompression();
 app.UseHttpsRedirection();
 app.UseAuthentication();
 app.UseAuthorization();
