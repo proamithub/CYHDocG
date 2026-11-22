@@ -696,7 +696,7 @@
         const renderAiTriageCard = renderAiResponse;
 
         async function handleIncomingSearchQuery(query, isUnavailable) {
-            appendChatMessage('user', query, 'You');
+            appendChatMessage('me', query, 'You');
 
             if (isUnavailable) {
                 const stream = document.getElementById('messageStream');

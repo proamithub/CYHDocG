@@ -392,11 +392,28 @@ Respond ONLY in valid JSON matching this schema without markdown fences:
         result.IsMedical = true;
 
         // Check if query is vague (e.g. "mujhe dard hai", "dard", "pain", "tabiyat kharab")
-        bool isVague = (ContainsAny(q, "dard", "pain", "दर्द") && !ContainsAny(q, "pet", "stomach", "sir", "sar", "head", "chest", "seene", "kamar", "back", "joint", "haddi", "gala"))
-                    || q.Equals("mujhe dard hai", StringComparison.OrdinalIgnoreCase)
-                    || q.Equals("dard ho raha hai", StringComparison.OrdinalIgnoreCase)
-                    || q.Equals("tabiyat kharab hai", StringComparison.OrdinalIgnoreCase)
-                    || q.Length <= 15;
+        // ONLY if it does not specify any specific body part or known condition!
+        bool hasSpecificBodyPart = ContainsAny(q, 
+            "chest", "seene", "chhati", "heart", "dil",
+            "pet", "stomach", "abdomen", "belly", "gas", "acidity", "vomit", "ulti", "dast",
+            "sir", "sar", "head", "headache", "migraine", "chakkar",
+            "kamar", "back", "spine", "joint", "ghutna", "knee", "haddi", "bone",
+            "gala", "throat", "khansi", "cough", "cold", "zukam",
+            "skin", "khujli", "allergy", "eye", "aankh", "ear", "kaan", "teeth", "daant",
+            "fever", "bukhar");
+
+        bool isVague = !hasSpecificBodyPart && (
+            q.Equals("mujhe dard hai", StringComparison.OrdinalIgnoreCase) ||
+            q.Equals("dard ho raha hai", StringComparison.OrdinalIgnoreCase) ||
+            q.Equals("dard hai", StringComparison.OrdinalIgnoreCase) ||
+            q.Equals("dard", StringComparison.OrdinalIgnoreCase) ||
+            q.Equals("pain", StringComparison.OrdinalIgnoreCase) ||
+            q.Equals("i have pain", StringComparison.OrdinalIgnoreCase) ||
+            q.Equals("body pain", StringComparison.OrdinalIgnoreCase) ||
+            q.Equals("tabiyat kharab hai", StringComparison.OrdinalIgnoreCase) ||
+            q.Equals("bimar hu", StringComparison.OrdinalIgnoreCase) ||
+            ContainsAny(q, "dard", "pain", "दर्द")
+        );
 
         if (isVague)
         {
