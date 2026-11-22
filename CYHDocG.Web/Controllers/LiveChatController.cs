@@ -1,4 +1,5 @@
 using System.Security.Claims;
+using Dapper;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.SignalR;
 using CYHDocG.Repo.DTOs;
@@ -16,6 +17,7 @@ public class LiveChatController : Controller
     private readonly IConfiguration _config;
     private readonly IHubContext<LiveReelHub> _liveReelHub;
     private readonly IHubContext<ConsultationHub> _consultationHub;
+    private readonly IBaseRepository _baseRepo;
 
     public LiveChatController(
         IConsultationRepository consultationRepo, 
@@ -24,7 +26,8 @@ public class LiveChatController : Controller
         ILiveKitTokenService liveKitTokenService,
         IConfiguration config,
         IHubContext<LiveReelHub> liveReelHub,
-        IHubContext<ConsultationHub> consultationHub)
+        IHubContext<ConsultationHub> consultationHub,
+        IBaseRepository baseRepo)
     {
         _consultationRepo = consultationRepo;
         _doctorRepo = doctorRepo;
@@ -33,16 +36,21 @@ public class LiveChatController : Controller
         _config = config;
         _liveReelHub = liveReelHub;
         _consultationHub = consultationHub;
+        _baseRepo = baseRepo;
     }
 
     [HttpPost("/api/consultation/video-token")]
     public IActionResult GetVideoToken([FromBody] VideoTokenRequestDto request)
     {
-        string identity = User.Identity?.Name ?? $"user_{Guid.NewGuid().ToString("N")[..6]}";
-        string participantName = User.Identity?.Name ?? "Patient";
+        string role = User.FindFirstValue(ClaimTypes.Role) ?? "User";
+        string userId = User.FindFirstValue(ClaimTypes.NameIdentifier) ?? Guid.NewGuid().ToString("N")[..6];
+        string identity = role == "Doctor" ? $"doc_{userId}" : $"user_{userId}";
+        string participantName = role == "Doctor" 
+            ? $"Dr. {User.Identity?.Name ?? "Doctor"}"
+            : (User.Identity?.Name ?? "Patient");
         string roomName = !string.IsNullOrWhiteSpace(request.RoomName) ? request.RoomName : $"consultation_{request.ConsultationId}";
 
-        string token = _liveKitTokenService.GenerateAccessToken(roomName, identity, participantName);
+        string token = _liveKitTokenService.GenerateAccessToken(roomName, identity, participantName, canPublish: true, canSubscribe: true);
         string serverUrl = _liveKitTokenService.GetServerUrl();
 
         return Ok(new
@@ -56,7 +64,7 @@ public class LiveChatController : Controller
     }
 
     [HttpGet("/LiveChat")]
-    public async Task<IActionResult> Index([FromQuery] long? doctorId)
+    public async Task<IActionResult> Index([FromQuery] long? doctorId, [FromQuery] long? consultationId)
     {
         long? currentUserId = null;
         var userIdClaim = User.FindFirstValue(ClaimTypes.NameIdentifier);
@@ -65,10 +73,51 @@ public class LiveChatController : Controller
             currentUserId = uId;
         }
 
+        string userRole = User.FindFirstValue(ClaimTypes.Role) ?? "User";
         ViewBag.IsAuthenticated = User.Identity?.IsAuthenticated == true;
         ViewBag.CurrentUserId = currentUserId;
         ViewBag.CurrentUserName = User.Identity?.Name ?? "Guest";
+        ViewBag.UserRole = userRole;
         ViewBag.DoctorId = doctorId;
+        ViewBag.ConsultationId = consultationId;
+
+        // If a consultationId was provided (from Doctor Studio Accept or Patient Reel Handoff), fetch details
+        if (consultationId.HasValue && consultationId.Value > 0)
+        {
+            try
+            {
+                using var conn = _baseRepo.CreateConnection();
+                string sql = @"
+                    SELECT 
+                        c.ConsultationId,
+                        c.UserId AS PatientUserId,
+                        pu.FullName AS PatientName,
+                        c.DoctorId,
+                        du.FullName AS DoctorName,
+                        c.Status,
+                        c.StartedAt,
+                        c.RatePerMinute,
+                        c.IsPaid
+                    FROM dbo.Consultations c
+                    INNER JOIN dbo.Users pu ON c.UserId = pu.UserId
+                    INNER JOIN dbo.Doctors d ON c.DoctorId = d.DoctorId
+                    INNER JOIN dbo.Users du ON d.UserId = du.UserId
+                    WHERE c.ConsultationId = @ConsultationId;";
+
+                var activeConsultation = await conn.QueryFirstOrDefaultAsync<dynamic>(sql, new { ConsultationId = consultationId.Value });
+                if (activeConsultation != null)
+                {
+                    ViewBag.ActiveConsultation = activeConsultation;
+                    ViewBag.DoctorName = (string)activeConsultation.DoctorName;
+                    ViewBag.PatientName = (string)activeConsultation.PatientName;
+                    ViewBag.ConsultationStatus = (string)activeConsultation.Status;
+                    ViewBag.RatePerMinute = (decimal)activeConsultation.RatePerMinute;
+                    ViewBag.IsPaid = (bool)activeConsultation.IsPaid;
+                    ViewBag.StartedAt = activeConsultation.StartedAt != null ? ((DateTime)activeConsultation.StartedAt).ToString("o") : null;
+                }
+            }
+            catch { }
+        }
 
         // Fetch live doctors who can accept chats
         var liveDoctors = await _doctorRepo.SearchDoctorsAsync("");

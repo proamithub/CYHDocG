@@ -31,8 +31,8 @@ public class ConsultationHub : Hub
             CreatedAt = DateTime.UtcNow
         };
 
-        // Broadcast to both Doctor and User in the consultation room
-        await Clients.Group($"Consultation_{consultationId}").SendAsync("ReceiveConsultationMessage", payload);
+        // Broadcast to other participant in the consultation room
+        await Clients.OthersInGroup($"Consultation_{consultationId}").SendAsync("ReceiveConsultationMessage", payload);
     }
 
     public async Task BroadcastTimerStart(long consultationId, DateTime startedAt, decimal ratePerMinute, bool isPaid)

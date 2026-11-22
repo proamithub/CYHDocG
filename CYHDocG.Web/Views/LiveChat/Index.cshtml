@@ -184,7 +184,10 @@
     <script src="~/js/live-timer.js" asp-append-version="true"></script>
     <script>
         const isUserAuth = @(isAuth ? "true" : "false");
-        let activeConsultationId = null;
+        const currentUserRole = "@(ViewBag.UserRole ?? "User")";
+        let activeConsultationId = @(ViewBag.ConsultationId ?? "null");
+        let activeDoctorName = "@(ViewBag.DoctorName ?? "Specialist")";
+        let activePatientName = "@(ViewBag.PatientName ?? "Patient")";
         let consultationConnection = null;
         let livekitRoom = null;
         let isMicMuted = false;
@@ -198,8 +201,11 @@
                 .withAutomaticReconnect()
                 .build();
 
+            // Receive message from the other party in this consultation
             consultationConnection.on('ReceiveConsultationMessage', function (payload) {
-                appendChatMessage(payload.SenderRole === 'User' ? 'user' : 'doctor', payload.MessageText, payload.SenderRole);
+                const isDoc = payload.SenderRole === 'Doctor';
+                const label = isDoc ? `Dr. ${activeDoctorName}` : activePatientName;
+                appendChatMessage(isDoc ? 'doctor' : 'user', payload.MessageText, label);
             });
 
             // Timer starts ONLY when doctor accepts
@@ -209,8 +215,8 @@
                 document.getElementById('chatPartnerStatus').className = "px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-400 text-[10px] font-bold uppercase tracking-wider";
                 
                 startSynchronizedTimer(timerData.startedAt, timerData.ratePerMinute || pendingRate, timerData.isPaid !== undefined ? timerData.isPaid : pendingIsPaid);
-                startLiveKitVideoConsultation(activeConsultationId, pendingDoctorName || "Doctor");
-                appendChatMessage('doctor', `Namaste! Consultation is now active. Dr. ${pendingDoctorName || "Doctor"} has accepted and is listening to your concerns.`, pendingDoctorName || "Doctor");
+                startLiveKitVideoConsultation(activeConsultationId, activeDoctorName);
+                appendChatMessage('doctor', `Namaste! Video consultation is now active. Dr. ${activeDoctorName} is ready to consult.`, `Dr. ${activeDoctorName}`);
             });
 
             consultationConnection.on('ConsultationEnded', function (endData) {
@@ -220,13 +226,27 @@
                 window.location.reload();
             });
 
-            consultationConnection.start().then(() => {
-                const urlParams = new URLSearchParams(window.location.search);
-                const consultationIdParam = urlParams.get('consultationId');
-                if (consultationIdParam && consultationConnection) {
-                    activeConsultationId = parseInt(consultationIdParam);
-                    consultationConnection.invoke('JoinConsultation', activeConsultationId.toString());
-                    startLiveKitVideoConsultation(activeConsultationId, "Doctor");
+            consultationConnection.start().then(async () => {
+                if (activeConsultationId) {
+                    await consultationConnection.invoke('JoinConsultation', activeConsultationId.toString());
+                    @if (ViewBag.ActiveConsultation != null)
+                    {
+                        <text>
+                        const startedAtVal = "@ViewBag.StartedAt";
+                        const rateVal = @(ViewBag.RatePerMinute ?? 0);
+                        const isPaidVal = @(ViewBag.IsPaid == true ? "true" : "false");
+
+                        document.getElementById('chatPartnerName').textContent = currentUserRole === "Doctor" ? activePatientName : `Dr. ${activeDoctorName}`;
+                        document.getElementById('chatPartnerStatus').textContent = "1-to-1 Live Video Active";
+                        document.getElementById('chatPartnerStatus').className = "px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-400 text-[10px] font-bold uppercase tracking-wider";
+                        document.getElementById('escalateBtnWrapper').classList.add('hidden');
+
+                        if (startedAtVal) {
+                            startSynchronizedTimer(startedAtVal, rateVal, isPaidVal);
+                        }
+                        await startLiveKitVideoConsultation(activeConsultationId, activeDoctorName);
+                        </text>
+                    }
                 }
             }).catch(err => console.error("SignalR Connection Error: ", err));
         }
@@ -505,11 +525,11 @@
             const message = input.value.trim();
             if (!message) return;
 
-            appendChatMessage('user', message, 'You');
+            appendChatMessage('me', message, 'You');
             input.value = '';
 
             if (activeConsultationId && consultationConnection) {
-                await consultationConnection.invoke('SendMessage', activeConsultationId, message, 'User');
+                await consultationConnection.invoke('SendMessage', activeConsultationId, message, currentUserRole);
             } else {
                 const indicatorId = 'aiTyping_' + Date.now();
                 appendTypingIndicator(indicatorId);
@@ -532,16 +552,24 @@
 
         function appendChatMessage(type, text, sender) {
             const stream = document.getElementById('messageStream');
-            const isUser = type === 'user';
+            const isMe = type === 'me';
 
             const bubbleHtml = `
-            <div class="flex items-start gap-3 ${isUser ? 'justify-end' : ''}">
-                ${!isUser ? `<div class="w-8 h-8 rounded-xl ${type === 'doctor' ? 'bg-blue-600/20 text-blue-400' : 'bg-emerald-500/20 text-emerald-400'} flex items-center justify-center flex-shrink-0 text-xs font-bold font-heading">${type === 'doctor' ? 'Dr' : 'AI'}</div>` : ''}
-                <div class="${isUser ? 'bg-red-600 text-white rounded-2xl rounded-tr-sm' : 'bg-slate-800/90 border border-slate-700/60 text-slate-200 rounded-2xl rounded-tl-sm'} p-3.5 max-w-md text-xs sm:text-sm leading-relaxed shadow">
-                    <span class="block text-[10px] font-bold ${isUser ? 'text-red-200' : 'text-slate-400'} mb-1">${sender}</span>
+            <div class="flex items-start gap-3 ${isMe ? 'justify-end' : ''}">
+                ${!isMe ? `
+                    <div class="w-8 h-8 rounded-xl ${type === 'doctor' ? 'bg-blue-600/20 text-blue-400' : 'bg-emerald-500/20 text-emerald-400'} flex items-center justify-center flex-shrink-0 text-xs font-bold font-heading">
+                        ${type === 'doctor' ? 'Dr' : (type === 'ai' ? 'AI' : 'Pt')}
+                    </div>
+                ` : ''}
+                <div class="${isMe ? 'bg-red-600 text-white rounded-2xl rounded-tr-sm' : 'bg-slate-800/90 border border-slate-700/60 text-slate-200 rounded-2xl rounded-tl-sm'} p-3.5 max-w-md text-xs sm:text-sm leading-relaxed shadow">
+                    <span class="block text-[10px] font-bold ${isMe ? 'text-red-200' : 'text-slate-400'} mb-1">${sender}</span>
                     ${text.replace(/\n/g, '<br/>')}
                 </div>
             </div>`;
+
+            stream.insertAdjacentHTML('beforeend', bubbleHtml);
+            stream.scrollTop = stream.scrollHeight;
+        }
 
             stream.insertAdjacentHTML('beforeend', bubbleHtml);
             stream.scrollTop = stream.scrollHeight;
