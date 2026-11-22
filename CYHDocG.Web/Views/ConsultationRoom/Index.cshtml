@@ -301,6 +301,24 @@
                     track.detach();
                 });
 
+                // Remote Participant Disconnected
+                livekitRoom.on(LivekitClient.RoomEvent.ParticipantDisconnected, (participant) => {
+                    console.log("[ConsultationRoom] Participant disconnected:", participant.identity);
+                    const remoteVid = document.getElementById('remoteParticipantVideo');
+                    if (remoteVid) {
+                        remoteVid.classList.add('hidden');
+                        remoteVid.srcObject = null;
+                    }
+                    const placeholder = document.getElementById('remoteVideoPlaceholder');
+                    if (placeholder) {
+                        placeholder.classList.remove('hidden');
+                        const subtitleEl = document.getElementById('placeholderSubtitle');
+                        if (subtitleEl) {
+                            subtitleEl.textContent = 'Participant has disconnected or left the consultation room.';
+                        }
+                    }
+                });
+
                 await livekitRoom.connect(livekitServerUrl, livekitToken);
                 console.log("[ConsultationRoom] Connected to LiveKit room:", roomName);
 

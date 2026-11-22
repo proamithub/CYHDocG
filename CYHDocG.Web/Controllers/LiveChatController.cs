@@ -175,19 +175,20 @@ public class LiveChatController : Controller
     }
 
     [HttpPost("/api/consultation/ai-chat")]
-    public async Task<IActionResult> AiChat([FromBody] string query)
+    public async Task<IActionResult> AiChat([FromBody] System.Text.Json.JsonElement body)
     {
-        var diagnosis = await _aiSearchService.AnalyzeSymptomAsync(query);
-        
-        string reply = $"Based on your symptoms, this aligns with **{diagnosis.IdentifiedDepartment}** (Severity: {diagnosis.Severity}).\n\n{diagnosis.AiAdviceEn}\n\n*Would you like to connect directly with a certified specialist?*";
-
-        return Ok(new
+        string query = "";
+        if (body.ValueKind == System.Text.Json.JsonValueKind.String)
         {
-            Reply = reply,
-            Department = diagnosis.IdentifiedDepartment,
-            Severity = diagnosis.Severity,
-            IsEmergency = diagnosis.IsEmergency,
-            DoctorsAvailable = diagnosis.RecommendedDoctors.Count
-        });
+            query = body.GetString() ?? "";
+        }
+        else if (body.ValueKind == System.Text.Json.JsonValueKind.Object)
+        {
+            if (body.TryGetProperty("query", out var qProp)) query = qProp.GetString() ?? "";
+            else if (body.TryGetProperty("message", out var mProp)) query = mProp.GetString() ?? "";
+        }
+
+        var diagnosis = await _aiSearchService.AnalyzeSymptomAsync(query);
+        return Ok(diagnosis);
     }
 }

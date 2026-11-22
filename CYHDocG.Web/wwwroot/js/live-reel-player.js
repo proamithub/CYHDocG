@@ -24,6 +24,8 @@
             .withAutomaticReconnect([0, 2000, 5000, 10000])
             .build();
 
+        window.liveReelConnection = connection;
+
         // Real-Time Floating Comment Listener
         connection.on('ReceiveNewComment', function (streamId, comment) {
             appendFloatingComment(streamId, comment);
@@ -61,6 +63,9 @@
             const card = document.querySelector(`.reel-card[data-doctor-id="${status.doctorId}"]`);
             if (card) {
                 if (!status.isLive) {
+                    if (window.handleDoctorStreamEndedForWaiting) {
+                        window.handleDoctorStreamEndedForWaiting(status.doctorId);
+                    }
                     if (card.classList.contains('active-reel')) {
                         disconnectLiveKitStream();
                     }
@@ -112,6 +117,14 @@
             console.log('[LiveReel] ConsultationAccepted received:', payload);
             if (window.handleConsultationAcceptedByDoctor) {
                 window.handleConsultationAcceptedByDoctor(payload);
+            }
+        });
+
+        // Consultation Declined Listener (1-to-1 switch)
+        connection.on('ConsultationDeclined', function (payload) {
+            console.log('[LiveReel] ConsultationDeclined received:', payload);
+            if (window.handleConsultationDeclinedByDoctor) {
+                window.handleConsultationDeclinedByDoctor(payload);
             }
         });
 
@@ -355,13 +368,18 @@
         if (!streamContainer) return;
 
         const commentEl = document.createElement('div');
-        commentEl.className = 'floating-comment-item flex items-center gap-1.5 text-xs text-white bg-black/40 backdrop-blur-md px-2.5 py-1 rounded-xl border border-white/10 animate-fade-in transition-all';
+        commentEl.className = 'floating-comment-item inline-flex flex-wrap items-baseline gap-1.5 text-xs text-white bg-black/45 backdrop-blur-md px-3 py-1.5 rounded-2xl border border-white/10 shadow-lg max-w-[90%] break-words self-start animate-fade-in transition-all';
         if (comment.commentId) commentEl.id = `floatingComment_${comment.commentId}`;
         if (comment.userId) commentEl.setAttribute('data-user-id', comment.userId);
 
+        const isDoc = comment.isDoctor || (comment.userName && (comment.userName.toLowerCase().startsWith('dr.') || comment.userName.toLowerCase().startsWith('dr ')));
+        const nameBadge = isDoc
+            ? `<span class="font-bold text-red-400 inline-flex items-center gap-1">${escapeHtml(comment.userName)} <span class="bg-red-500/30 text-red-300 text-[10px] px-1.5 py-0.2 rounded-full border border-red-500/40">Doctor</span>:</span>`
+            : `<span class="font-bold text-sky-300">${escapeHtml(comment.userName)}:</span>`;
+
         commentEl.innerHTML = `
-            <span class="font-bold text-red-400">${escapeHtml(comment.userName)}:</span>
-            <span class="text-slate-200">${escapeHtml(comment.message)}</span>
+            ${nameBadge}
+            <span class="text-slate-100 font-medium">${escapeHtml(comment.message)}</span>
         `;
 
         streamContainer.appendChild(commentEl);

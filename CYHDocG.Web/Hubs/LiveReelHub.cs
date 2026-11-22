@@ -36,7 +36,13 @@ public class LiveReelHub : Hub
         string connId = Context.ConnectionId;
         _doctorLiveConnections[doctorId] = connId;
         _connectionToDoctors[connId] = doctorId;
-        await JoinStreamRoom(doctorId.ToString());
+
+        string key = NormalizeKey(doctorId.ToString());
+        await Groups.AddToGroupAsync(connId, $"Stream_{key}");
+
+        // Doctor is broadcaster, not viewer; send current active patient viewer count to doctor
+        int count = _roomViewers.TryGetValue(key, out var viewers) ? viewers.Count : 0;
+        await Clients.Caller.SendAsync("UpdateViewerCount", key, count);
     }
 
     private static string NormalizeKey(string streamId)
@@ -49,6 +55,7 @@ public class LiveReelHub : Hub
     {
         string key = NormalizeKey(streamId);
         string connId = Context.ConnectionId;
+        bool isDoctorBroadcaster = _connectionToDoctors.ContainsKey(connId);
 
         // Leave previous room if any
         if (_connectionRooms.TryRemove(connId, out var oldKey) && oldKey != key)
@@ -66,12 +73,17 @@ public class LiveReelHub : Hub
         // Add to new room
         _connectionRooms[connId] = key;
         var viewers = _roomViewers.GetOrAdd(key, _ => new ConcurrentDictionary<string, bool>());
-        viewers[connId] = true;
+        
+        // Count in viewer stats only if patient (not doctor broadcaster)
+        if (!isDoctorBroadcaster)
+        {
+            viewers[connId] = true;
+        }
 
         await Groups.AddToGroupAsync(connId, $"Stream_{key}");
 
         int currentCount = viewers.Count;
-        // Broadcast to all viewers and doctor in this stream room
+        // Broadcast real-time viewer count to all viewers and doctor in this stream room
         await Clients.Group($"Stream_{key}").SendAsync("UpdateViewerCount", key, currentCount);
         await Clients.Caller.SendAsync("UpdateViewerCount", key, currentCount);
 
@@ -264,5 +276,30 @@ public class LiveReelHub : Hub
         string key = NormalizeKey(doctorId.ToString());
         _roomPinnedBanners.TryRemove(key, out _);
         await Clients.Group($"Stream_{key}").SendAsync("ClearPinnedBanner", key);
+    }
+
+    public async Task DeclineConsultationRequest(long doctorId, long consultationId)
+    {
+        var currentRole = Context.User?.FindFirstValue(ClaimTypes.Role);
+        if (currentRole != "Doctor" && currentRole != "Admin") return;
+
+        string key = NormalizeKey(doctorId.ToString());
+        await Clients.Group($"Stream_{key}").SendAsync("ConsultationDeclined", new
+        {
+            doctorId,
+            consultationId,
+            message = "Doctor is currently occupied with stream advisory and unable to take private 1-to-1 calls right now."
+        });
+    }
+
+    public async Task CancelConsultationRequest(long doctorId, long consultationId)
+    {
+        string key = NormalizeKey(doctorId.ToString());
+        await Clients.Group($"Stream_{key}").SendAsync("ConsultationCancelled", new
+        {
+            doctorId,
+            consultationId,
+            message = "Patient has cancelled their consultation request."
+        });
     }
 }

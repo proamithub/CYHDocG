@@ -717,14 +717,15 @@ BEGIN
 END
 GO
 
--- 7. Get Recent 5 Floating Comments for Stream (Real-Time Overlay)
+-- 7. Get Recent Floating Comments for Stream (Real-Time Overlay & Current Studio Session)
 CREATE OR ALTER PROCEDURE dbo.usp_LiveStream_GetRecentComments
     @StreamId BIGINT
 AS
 BEGIN
     SET NOCOUNT ON;
-    SELECT TOP 5
+    SELECT TOP 100
         c.CommentId,
+        c.UserId,
         c.Message,
         c.CreatedAt,
         u.FullName AS UserName,

@@ -26,6 +26,13 @@ public class DoctorReelDto
     public string EncryptedDoctorId => Security.UrlProtector.EncryptId(DoctorId);
 }
 
+public class DoctorFollowResultDto
+{
+    public bool IsFollowing { get; set; }
+    public int FollowerCount { get; set; }
+    public string Message { get; set; } = string.Empty;
+}
+
 public class DoctorSearchDto
 {
     public long DoctorId { get; set; }
@@ -108,4 +115,71 @@ public class PinnedBannerDto
     public string BannerType { get; set; } = "tip"; // tip, medicine, diet, warning
     public string? MedicineName { get; set; }
     public DateTime PinnedAt { get; set; } = DateTime.UtcNow;
+}
+
+public class LiveStreamSessionDto
+{
+    public long StreamId { get; set; }
+    public long DoctorId { get; set; }
+    public string Title { get; set; } = string.Empty;
+    public DateTime? StartedAt { get; set; }
+    public DateTime? EndedAt { get; set; }
+    public bool IsActive { get; set; }
+    public int CurrentViewers { get; set; }
+    public int TotalLikes { get; set; }
+    public int TotalComments { get; set; }
+    public DateTime CreatedAt { get; set; }
+
+    public int DurationMinutes
+    {
+        get
+        {
+            var start = StartedAt ?? CreatedAt;
+            var end = EndedAt ?? (IsActive ? DateTime.UtcNow : start);
+            var span = end - start;
+            return span.TotalMinutes > 0 ? (int)span.TotalMinutes : 0;
+        }
+    }
+}
+
+public class DoctorEarningsSummaryDto
+{
+    public long DoctorId { get; set; }
+    public string DoctorName { get; set; } = string.Empty;
+    public decimal AvailableBalance { get; set; }
+    public decimal LifetimeWithdrawn { get; set; }
+    public decimal TotalNetEarned { get; set; }
+    public int MonthSessionsCount { get; set; }
+    public double MonthAvgDurationMinutes { get; set; }
+    public decimal MonthGrossEarnings { get; set; }
+    public decimal MonthNetEarnings { get; set; }
+    public List<DoctorConsultationSettlementDto> RecentConsultations { get; set; } = new();
+}
+
+public class DoctorConsultationSettlementDto
+{
+    public long ConsultationId { get; set; }
+    public long PatientId { get; set; }
+    public string PatientName { get; set; } = string.Empty;
+    public string? PatientAvatar { get; set; }
+    public DateTime? StartedAt { get; set; }
+    public DateTime? EndedAt { get; set; }
+    public DateTime CreatedAt { get; set; }
+    public int DurationSeconds { get; set; }
+    public decimal RatePerMinute { get; set; }
+    public decimal GrossFee { get; set; }
+    public decimal DoctorNetCut { get; set; }
+    public bool IsPaid { get; set; }
+    public string Status { get; set; } = string.Empty;
+
+    public int DurationMinutes => Math.Max(1, (int)Math.Ceiling(DurationSeconds / 60.0));
+}
+
+public class DoctorPayoutRequestDto
+{
+    public decimal Amount { get; set; }
+    public string? BankName { get; set; }
+    public string? AccountNumber { get; set; }
+    public string? IfscCode { get; set; }
+    public string? UpiId { get; set; }
 }

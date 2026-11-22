@@ -7,7 +7,7 @@ public interface IDoctorRepository
 {
     Task<IEnumerable<DoctorReelDto>> GetReelsFeedAsync(long? currentUserId, int pageNumber = 1, int pageSize = 10);
     Task<IEnumerable<DoctorSearchDto>> SearchDoctorsAsync(string searchTerm);
-    Task<ApiResponse<bool>> ToggleFollowAsync(long doctorId, long userId);
+    Task<ApiResponse<DoctorFollowResultDto>> ToggleFollowAsync(long doctorId, long userId);
     Task<ApiResponse> BlockUserAsync(long doctorId, long userId, string reason);
     Task<ApiResponse> UnblockUserAsync(long doctorId, long userId);
     Task<bool> IsUserBlockedAsync(long doctorId, long userId);
@@ -21,4 +21,9 @@ public interface IDoctorRepository
     Task<DoctorStudioMetricsDto?> GetDoctorStudioMetricsAsync(long doctorUserId);
     Task<ApiResponse> SetDoctorLiveStatusAsync(long doctorId, bool isLive, string? liveStreamUrl);
     Task UpdateStreamViewerCountAsync(long doctorOrStreamId, int currentViewers);
+    Task<IEnumerable<LiveStreamSessionDto>> GetDoctorLiveSessionsAsync(long doctorId, DateTime? startDate = null, DateTime? endDate = null, string? searchTerm = null);
+    Task<IEnumerable<LiveCommentDto>> GetSessionCommentsAsync(long streamId, string? filterTerm = null);
+    Task<LiveStreamSessionDto?> GetSessionDetailsAsync(long streamId);
+    Task<DoctorEarningsSummaryDto> GetDoctorEarningsSummaryAsync(long doctorIdOrUserId);
+    Task<ApiResponse> RequestDoctorPayoutAsync(long doctorIdOrUserId, decimal amount, string? bankName, string? accountNumber, string? ifscCode, string? upiId);
 }

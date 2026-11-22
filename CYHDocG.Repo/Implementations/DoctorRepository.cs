@@ -80,20 +80,46 @@ public class DoctorRepository : BaseRepository, IDoctorRepository
         });
     }
 
-    public async Task<ApiResponse<bool>> ToggleFollowAsync(long doctorId, long userId)
+    public async Task<ApiResponse<DoctorFollowResultDto>> ToggleFollowAsync(long doctorId, long userId)
     {
-        var result = await QueryFirstOrDefaultSPAsync<dynamic>("dbo.usp_Doctor_ToggleFollow", new
+        try
         {
-            DoctorId = doctorId,
-            UserId = userId
-        });
+            using var connection = CreateConnection();
+            var isFollowing = await connection.ExecuteScalarAsync<int>(@"
+                SELECT COUNT(1) FROM dbo.DoctorFollowers WHERE DoctorId = @DoctorId AND UserId = @UserId",
+                new { DoctorId = doctorId, UserId = userId }) > 0;
 
-        if (result != null)
-        {
-            bool isFollowing = (int)result.IsFollowing == 1;
-            return ApiResponse<bool>.Ok(isFollowing, (string)result.Message);
+            if (isFollowing)
+            {
+                await connection.ExecuteAsync(@"
+                    DELETE FROM dbo.DoctorFollowers WHERE DoctorId = @DoctorId AND UserId = @UserId;
+                    UPDATE dbo.Doctors SET FollowerCount = CASE WHEN FollowerCount > 0 THEN FollowerCount - 1 ELSE 0 END WHERE DoctorId = @DoctorId;",
+                    new { DoctorId = doctorId, UserId = userId });
+            }
+            else
+            {
+                await connection.ExecuteAsync(@"
+                    INSERT INTO dbo.DoctorFollowers (DoctorId, UserId, CreatedAt) VALUES (@DoctorId, @UserId, SYSUTCDATETIME());
+                    UPDATE dbo.Doctors SET FollowerCount = FollowerCount + 1 WHERE DoctorId = @DoctorId;",
+                    new { DoctorId = doctorId, UserId = userId });
+            }
+
+            int newCount = await connection.ExecuteScalarAsync<int>(@"
+                SELECT ISNULL(FollowerCount, 0) FROM dbo.Doctors WHERE DoctorId = @DoctorId",
+                new { DoctorId = doctorId });
+
+            var data = new DoctorFollowResultDto
+            {
+                IsFollowing = !isFollowing,
+                FollowerCount = newCount,
+                Message = !isFollowing ? "Followed doctor" : "Unfollowed doctor"
+            };
+            return ApiResponse<DoctorFollowResultDto>.Ok(data, data.Message);
         }
-        return ApiResponse<bool>.Fail("Action failed");
+        catch (Exception ex)
+        {
+            return ApiResponse<DoctorFollowResultDto>.Fail("Follow action failed: " + ex.Message);
+        }
     }
 
     public async Task<ApiResponse> BlockUserAsync(long doctorId, long userId, string reason)
@@ -141,6 +167,10 @@ public class DoctorRepository : BaseRepository, IDoctorRepository
     public async Task<ApiResponse<LiveCommentDto>> AddStreamCommentAsync(long streamId, long userId, string message)
     {
         long resolvedStreamId = await ResolveActiveStreamIdAsync(streamId);
+        if (resolvedStreamId <= 0)
+        {
+            return ApiResponse<LiveCommentDto>.Fail("Live stream is currently offline. Comments are closed.");
+        }
 
         var result = await QueryFirstOrDefaultSPAsync<dynamic>("dbo.usp_LiveStream_AddComment", new
         {
@@ -168,12 +198,20 @@ public class DoctorRepository : BaseRepository, IDoctorRepository
     public async Task<IEnumerable<LiveCommentDto>> GetRecentCommentsAsync(long streamId)
     {
         long resolvedStreamId = await ResolveActiveStreamIdAsync(streamId);
+        if (resolvedStreamId <= 0)
+        {
+            return Enumerable.Empty<LiveCommentDto>();
+        }
         return await QuerySPAsync<LiveCommentDto>("dbo.usp_LiveStream_GetRecentComments", new { StreamId = resolvedStreamId });
     }
 
     public async Task<ApiResponse<bool>> ToggleStreamLikeAsync(long streamId, long userId)
     {
         long resolvedStreamId = await ResolveActiveStreamIdAsync(streamId);
+        if (resolvedStreamId <= 0)
+        {
+            return ApiResponse<bool>.Fail("Live stream is currently offline.");
+        }
 
         var result = await QueryFirstOrDefaultSPAsync<dynamic>("dbo.usp_LiveStream_ToggleLike", new
         {
@@ -192,37 +230,21 @@ public class DoctorRepository : BaseRepository, IDoctorRepository
     private async Task<long> ResolveActiveStreamIdAsync(long streamOrDoctorId)
     {
         using var connection = CreateConnection();
-        var exists = await connection.ExecuteScalarAsync<int>(@"
-            SELECT COUNT(1) FROM dbo.LiveStreams WHERE StreamId = @Id", new { Id = streamOrDoctorId });
-        if (exists > 0)
-        {
-            return streamOrDoctorId;
-        }
-
-        var streamId = await connection.ExecuteScalarAsync<long?>(@"
-            SELECT TOP 1 StreamId FROM dbo.LiveStreams WHERE DoctorId = @Id ORDER BY IsActive DESC, StreamId DESC",
+        var activeStreamId = await connection.ExecuteScalarAsync<long?>(@"
+            SELECT TOP 1 s.StreamId 
+            FROM dbo.LiveStreams s
+            LEFT JOIN dbo.Doctors d ON s.DoctorId = d.DoctorId
+            WHERE (s.DoctorId = @Id OR s.StreamId = @Id OR d.UserId = @Id) 
+              AND s.IsActive = 1 
+            ORDER BY s.StreamId DESC",
             new { Id = streamOrDoctorId });
 
-        if (streamId.HasValue && streamId.Value > 0)
+        if (activeStreamId.HasValue && activeStreamId.Value > 0)
         {
-            return streamId.Value;
+            return activeStreamId.Value;
         }
 
-        var doc = await connection.QueryFirstOrDefaultAsync<dynamic>(@"
-            SELECT d.DoctorId, u.FullName, d.Specialty FROM dbo.Doctors d INNER JOIN dbo.Users u ON d.UserId = u.UserId WHERE d.DoctorId = @Id OR d.UserId = @Id",
-            new { Id = streamOrDoctorId });
-
-        if (doc != null)
-        {
-            long dId = (long)doc.DoctorId;
-            return await connection.ExecuteScalarAsync<long>(@"
-                INSERT INTO dbo.LiveStreams (DoctorId, Title, PlaybackUrl, StartedAt, IsActive, CurrentViewers, TotalLikes, CreatedAt)
-                VALUES (@DoctorId, @Title, '/Doctor/LiveStudio', SYSUTCDATETIME(), 1, 0, 0, SYSUTCDATETIME());
-                SELECT SCOPE_IDENTITY();",
-                new { DoctorId = dId, Title = $"{doc.FullName} - Live Consultation" });
-        }
-
-        return streamOrDoctorId;
+        return 0;
     }
 
     public async Task<ApiResponse> UpdateDoctorPricingAsync(long doctorId, bool isFree, decimal feePerMinute)
@@ -451,5 +473,248 @@ public class DoctorRepository : BaseRepository, IDoctorRepository
                 new { Id = doctorOrStreamId, Count = currentViewers });
         }
         catch { }
+    }
+
+    public async Task<IEnumerable<LiveStreamSessionDto>> GetDoctorLiveSessionsAsync(long doctorId, DateTime? startDate = null, DateTime? endDate = null, string? searchTerm = null)
+    {
+        using var connection = CreateConnection();
+        string sql = @"
+            SELECT 
+                s.StreamId,
+                s.DoctorId,
+                s.Title,
+                s.StartedAt,
+                s.EndedAt,
+                s.IsActive,
+                s.CurrentViewers,
+                s.TotalLikes,
+                s.CreatedAt,
+                (SELECT COUNT(1) FROM dbo.LiveStreamComments c WHERE c.StreamId = s.StreamId) AS TotalComments
+            FROM dbo.LiveStreams s
+            WHERE s.DoctorId = @DoctorId
+              AND (@StartDate IS NULL OR s.CreatedAt >= @StartDate)
+              AND (@EndDate IS NULL OR s.CreatedAt <= @EndDate)
+              AND (@SearchTerm IS NULL OR s.Title LIKE '%' + @SearchTerm + '%')
+            ORDER BY s.StreamId DESC;";
+
+        return await connection.QueryAsync<LiveStreamSessionDto>(sql, new
+        {
+            DoctorId = doctorId,
+            StartDate = startDate,
+            EndDate = endDate,
+            SearchTerm = string.IsNullOrWhiteSpace(searchTerm) ? null : searchTerm.Trim()
+        });
+    }
+
+    public async Task<IEnumerable<LiveCommentDto>> GetSessionCommentsAsync(long streamId, string? filterTerm = null)
+    {
+        using var connection = CreateConnection();
+        string sql = @"
+            SELECT 
+                c.CommentId,
+                c.UserId,
+                c.Message,
+                c.CreatedAt,
+                u.FullName AS UserName,
+                u.AvatarUrl
+            FROM dbo.LiveStreamComments c
+            INNER JOIN dbo.Users u ON c.UserId = u.UserId
+            WHERE c.StreamId = @StreamId
+              AND (@FilterTerm IS NULL OR u.FullName LIKE '%' + @FilterTerm + '%' OR c.Message LIKE '%' + @FilterTerm + '%')
+            ORDER BY c.CreatedAt ASC;";
+
+        return await connection.QueryAsync<LiveCommentDto>(sql, new
+        {
+            StreamId = streamId,
+            FilterTerm = string.IsNullOrWhiteSpace(filterTerm) ? null : filterTerm.Trim()
+        });
+    }
+
+    public async Task<LiveStreamSessionDto?> GetSessionDetailsAsync(long streamId)
+    {
+        using var connection = CreateConnection();
+        string sql = @"
+            SELECT 
+                s.StreamId,
+                s.DoctorId,
+                s.Title,
+                s.StartedAt,
+                s.EndedAt,
+                s.IsActive,
+                s.CurrentViewers,
+                s.TotalLikes,
+                s.CreatedAt,
+                (SELECT COUNT(1) FROM dbo.LiveStreamComments c WHERE c.StreamId = s.StreamId) AS TotalComments
+            FROM dbo.LiveStreams s
+            WHERE s.StreamId = @StreamId;";
+
+        return await connection.QueryFirstOrDefaultAsync<LiveStreamSessionDto>(sql, new { StreamId = streamId });
+    }
+
+    public async Task<DoctorEarningsSummaryDto> GetDoctorEarningsSummaryAsync(long doctorIdOrUserId)
+    {
+        using var connection = CreateConnection();
+        try
+        {
+            // Resolve DoctorId from UserId if necessary
+            long doctorId = doctorIdOrUserId;
+            string resolveSql = @"
+                SELECT TOP 1 d.DoctorId, u.FullName AS DoctorName
+                FROM dbo.Doctors d
+                INNER JOIN dbo.Users u ON d.UserId = u.UserId
+                WHERE d.DoctorId = @Id OR d.UserId = @Id;";
+
+            var docInfo = await connection.QueryFirstOrDefaultAsync<dynamic>(resolveSql, new { Id = doctorIdOrUserId });
+            if (docInfo != null)
+            {
+                doctorId = (long)docInfo.DoctorId;
+            }
+
+            string metricsSql = @"
+                SELECT 
+                    d.DoctorId,
+                    u.FullName AS DoctorName,
+                    ISNULL(dw.Balance, 0.00) AS AvailableBalance,
+                    ISNULL(dw.TotalWithdrawn, 0.00) AS LifetimeWithdrawn,
+                    ISNULL((
+                        SELECT SUM(c.TotalAmount * 0.80) 
+                        FROM dbo.Consultations c 
+                        WHERE c.DoctorId = d.DoctorId AND c.Status = 'Completed' AND c.IsPaid = 1
+                    ), 0.00) AS TotalNetEarned,
+                    ISNULL((
+                        SELECT COUNT(1) 
+                        FROM dbo.Consultations c 
+                        WHERE c.DoctorId = d.DoctorId 
+                          AND c.Status = 'Completed'
+                          AND c.CreatedAt >= DATEFROMPARTS(YEAR(SYSUTCDATETIME()), MONTH(SYSUTCDATETIME()), 1)
+                    ), 0) AS MonthSessionsCount,
+                    ISNULL((
+                        SELECT AVG(CAST(c.DurationSeconds AS FLOAT)) / 60.0 
+                        FROM dbo.Consultations c 
+                        WHERE c.DoctorId = d.DoctorId 
+                          AND c.Status = 'Completed'
+                          AND c.CreatedAt >= DATEFROMPARTS(YEAR(SYSUTCDATETIME()), MONTH(SYSUTCDATETIME()), 1)
+                    ), 0.0) AS MonthAvgDurationMinutes,
+                    ISNULL((
+                        SELECT SUM(c.TotalAmount) 
+                        FROM dbo.Consultations c 
+                        WHERE c.DoctorId = d.DoctorId 
+                          AND c.Status = 'Completed'
+                          AND c.CreatedAt >= DATEFROMPARTS(YEAR(SYSUTCDATETIME()), MONTH(SYSUTCDATETIME()), 1)
+                    ), 0.00) AS MonthGrossEarnings,
+                    ISNULL((
+                        SELECT SUM(c.TotalAmount * 0.80) 
+                        FROM dbo.Consultations c 
+                        WHERE c.DoctorId = d.DoctorId 
+                          AND c.Status = 'Completed'
+                          AND c.CreatedAt >= DATEFROMPARTS(YEAR(SYSUTCDATETIME()), MONTH(SYSUTCDATETIME()), 1)
+                    ), 0.00) AS MonthNetEarnings
+                FROM dbo.Doctors d
+                INNER JOIN dbo.Users u ON d.UserId = u.UserId
+                LEFT JOIN dbo.DoctorWallets dw ON d.DoctorId = dw.DoctorId
+                WHERE d.DoctorId = @DoctorId;";
+
+            var summary = await connection.QueryFirstOrDefaultAsync<DoctorEarningsSummaryDto>(metricsSql, new { DoctorId = doctorId })
+                          ?? new DoctorEarningsSummaryDto { DoctorId = doctorId };
+
+            string consultationsSql = @"
+                SELECT TOP 50
+                    c.ConsultationId,
+                    c.UserId AS PatientId,
+                    ISNULL(u.FullName, 'Patient') AS PatientName,
+                    u.AvatarUrl AS PatientAvatar,
+                    c.StartedAt,
+                    c.EndedAt,
+                    c.CreatedAt,
+                    ISNULL(c.DurationSeconds, 0) AS DurationSeconds,
+                    ISNULL(c.RatePerMinute, 0.00) AS RatePerMinute,
+                    ISNULL(c.TotalAmount, 0.00) AS GrossFee,
+                    CASE WHEN c.IsPaid = 1 THEN c.TotalAmount * 0.80 ELSE 0.00 END AS DoctorNetCut,
+                    c.IsPaid,
+                    c.Status
+                FROM dbo.Consultations c
+                INNER JOIN dbo.Users u ON c.UserId = u.UserId
+                WHERE c.DoctorId = @DoctorId
+                ORDER BY c.ConsultationId DESC;";
+
+            var consultations = await connection.QueryAsync<DoctorConsultationSettlementDto>(consultationsSql, new { DoctorId = doctorId });
+            summary.RecentConsultations = consultations.ToList();
+
+            return summary;
+        }
+        catch
+        {
+            return new DoctorEarningsSummaryDto();
+        }
+    }
+
+    public async Task<ApiResponse> RequestDoctorPayoutAsync(long doctorIdOrUserId, decimal amount, string? bankName, string? accountNumber, string? ifscCode, string? upiId)
+    {
+        if (amount < 100)
+        {
+            return ApiResponse.Fail("Minimum payout withdrawal amount is ₹100.00");
+        }
+
+        using var connection = CreateConnection();
+        try
+        {
+            // Resolve DoctorId
+            var doc = await connection.QueryFirstOrDefaultAsync<dynamic>(@"
+                SELECT d.DoctorId, ISNULL(dw.Balance, 0.00) AS Balance
+                FROM dbo.Doctors d
+                LEFT JOIN dbo.DoctorWallets dw ON d.DoctorId = dw.DoctorId
+                WHERE d.DoctorId = @Id OR d.UserId = @Id;", new { Id = doctorIdOrUserId });
+
+            if (doc == null)
+            {
+                return ApiResponse.Fail("Doctor account not found");
+            }
+
+            long doctorId = (long)doc.DoctorId;
+            decimal balance = (decimal)doc.Balance;
+
+            if (amount > balance)
+            {
+                return ApiResponse.Fail($"Insufficient wallet balance. Available: ₹{balance:N2}");
+            }
+
+            // Ensure table exists
+            string ensureTableSql = @"
+                IF OBJECT_ID('dbo.DoctorPayoutRequests', 'U') IS NULL
+                BEGIN
+                    CREATE TABLE dbo.DoctorPayoutRequests (
+                        PayoutRequestId BIGINT IDENTITY(1,1) PRIMARY KEY,
+                        DoctorId BIGINT NOT NULL CONSTRAINT FK_PayoutReq_Doctor REFERENCES dbo.Doctors(DoctorId),
+                        Amount DECIMAL(18,2) NOT NULL,
+                        Status NVARCHAR(50) NOT NULL DEFAULT 'Pending',
+                        BankName NVARCHAR(100) NULL,
+                        AccountNumber NVARCHAR(50) NULL,
+                        IfscCode NVARCHAR(20) NULL,
+                        UpiId NVARCHAR(100) NULL,
+                        CreatedAt DATETIME2 NOT NULL DEFAULT SYSUTCDATETIME()
+                    );
+                END";
+            await connection.ExecuteAsync(ensureTableSql);
+
+            string insertSql = @"
+                INSERT INTO dbo.DoctorPayoutRequests (DoctorId, Amount, Status, BankName, AccountNumber, IfscCode, UpiId)
+                VALUES (@DoctorId, @Amount, 'Pending', @BankName, @AccountNumber, @IfscCode, @UpiId);";
+
+            await connection.ExecuteAsync(insertSql, new
+            {
+                DoctorId = doctorId,
+                Amount = amount,
+                BankName = bankName,
+                AccountNumber = accountNumber,
+                IfscCode = ifscCode,
+                UpiId = upiId
+            });
+
+            return ApiResponse.Ok("Payout request submitted successfully to Admin accounts team. Processing time: 24-48 hours.");
+        }
+        catch (Exception ex)
+        {
+            return ApiResponse.Fail("Failed to submit payout request: " + ex.Message);
+        }
     }
 }

@@ -164,7 +164,16 @@
                     <i data-lucide="message-square" class="w-4 h-4 text-red-500"></i>
                     <h3 class="font-heading font-bold text-sm text-white">Live Patient Chat</h3>
                 </div>
-                <span class="text-[11px] text-slate-400">Real-time Stream</span>
+                <div class="flex items-center gap-1.5">
+                    <span id="chatSessionBadge" class="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-bold @(ViewBag.IsDoctorLive == true ? "bg-red-500/20 text-red-400 border border-red-500/30" : "bg-slate-800 text-slate-400 border border-slate-700")">
+                        <span id="chatSessionDot" class="w-1.5 h-1.5 rounded-full @(ViewBag.IsDoctorLive == true ? "bg-red-400 animate-ping" : "bg-slate-500")"></span>
+                        <span id="chatSessionText">@(ViewBag.IsDoctorLive == true ? "Current Live Session" : "Session Offline")</span>
+                    </span>
+                    <a asp-area="Doctor" asp-controller="ChatHistory" asp-action="Index" class="px-2 py-0.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-400 hover:text-white border border-slate-700 text-[10px] font-medium transition-all flex items-center gap-1" title="View Full Chat History & Download">
+                        <i data-lucide="history" class="w-3 h-3 text-blue-400"></i>
+                        <span>History</span>
+                    </a>
+                </div>
             </div>
 
             <!-- Comments Log -->
@@ -229,11 +238,11 @@
                                                 <span>Tag</span>
                                             </button>
                                             @if (c.UserId > 0)
-                                            {
+                                             {
                                                 <button type="button" onclick="handleBlockUser(@c.UserId, '@cleanUserName')" class="px-1.5 py-0.5 rounded-lg bg-red-500/15 hover:bg-red-500/30 text-red-400 border border-red-500/20 text-[10px] font-semibold transition-all active:scale-95" title="Block User">
                                                     Block
                                                 </button>
-                                            }
+                                             }
                                             <button type="button" onclick="handleDeleteComment(@c.CommentId)" class="px-1.5 py-0.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-400 hover:text-slate-200 border border-slate-700 text-[10px] transition-all" title="Delete Comment">
                                                 ✕
                                             </button>
@@ -249,8 +258,15 @@
                 }
                 else
                 {
-                    <div id="noCommentsYetMsg" class="p-4 rounded-2xl bg-slate-950/60 border border-slate-800 text-slate-400 text-center text-xs">
-                        No comments yet. When patients watch your stream, their questions will appear here in real-time.
+                    <div id="noCommentsYetMsg" class="p-6 rounded-2xl bg-slate-950/60 border border-slate-800 text-slate-400 text-center text-xs flex flex-col items-center justify-center h-full gap-2">
+                        <div class="w-10 h-10 rounded-2xl bg-slate-800/80 text-slate-500 flex items-center justify-center">
+                            <i data-lucide="message-square" class="w-5 h-5"></i>
+                        </div>
+                        <p id="commentsBoxStatusMsg" class="max-w-[220px] leading-relaxed">
+                            @(ViewBag.IsDoctorLive == true 
+                                ? "No patient questions yet in this live session. When patients tune in from the reels feed, their comments will appear here." 
+                                : "Studio is offline. Live patient chat will activate for the current session as soon as you click 'Start Live Broadcast'.")
+                        </p>
                     </div>
                 }
             </div>
@@ -266,9 +282,13 @@
 
             <!-- Doctor Broadcast Message Input -->
             <form onsubmit="handleSendDoctorStudioComment(event)" class="mt-2 pt-2 border-t border-slate-800 flex gap-2">
-                <input type="text" id="studioCommentInput" placeholder="Reply or tag a patient..." 
-                       class="flex-1 px-3.5 py-2.5 rounded-xl bg-slate-950 border border-slate-800 text-white text-xs placeholder-slate-400 outline-none focus:border-red-500 transition-colors" />
-                <button type="submit" class="px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded-xl text-xs font-semibold flex items-center gap-1.5 shadow-lg shadow-red-600/30 transition-all active:scale-95">
+                <input type="text" id="studioCommentInput" 
+                       placeholder="@(ViewBag.IsDoctorLive == true ? "Reply or tag a patient..." : "Start broadcast to chat with patients...")" 
+                       @(ViewBag.IsDoctorLive == true ? "" : "disabled")
+                       class="flex-1 px-3.5 py-2.5 rounded-xl bg-slate-950 border border-slate-800 text-white text-xs placeholder-slate-500 outline-none focus:border-red-500 transition-colors disabled:opacity-50 disabled:cursor-not-allowed" />
+                <button type="submit" id="btnSendStudioComment" 
+                        @(ViewBag.IsDoctorLive == true ? "" : "disabled")
+                        class="px-4 py-2 bg-red-600 hover:bg-red-700 disabled:opacity-40 disabled:cursor-not-allowed text-white rounded-xl text-xs font-semibold flex items-center gap-1.5 shadow-lg shadow-red-600/30 transition-all active:scale-95">
                     <span>Send</span>
                 </button>
             </form>
@@ -314,9 +334,10 @@
         const livekitToken = "@ViewBag.Token";
         const roomName = "@ViewBag.RoomName";
         const doctorId = @ViewBag.DoctorId;
+        const isInitiallyLive = @(ViewBag.IsDoctorLive == true ? "true" : "false");
 
         let livekitRoom = null;
-        let isBroadcasting = false;
+        let isBroadcasting = isInitiallyLive;
         let signalrConn = null;
         let localMediaStream = null;
         let pendingConsultation = null;
@@ -359,6 +380,17 @@
                 signalrConn.on("ReceiveIncomingConsultationRequest", (request) => {
                     console.log("[LiveStudio] Incoming 1-to-1 request received:", request);
                     showIncomingCallModal(request);
+                });
+
+                // Patient Cancelled 1-to-1 Consultation Request
+                signalrConn.on("ConsultationCancelled", (data) => {
+                    console.log("[LiveStudio] ConsultationCancelled received:", data);
+                    if (pendingConsultation && pendingConsultation.consultationId == data.consultationId) {
+                        const modal = document.getElementById('incomingConsultationModal');
+                        if (modal) modal.classList.add('hidden');
+                        pendingConsultation = null;
+                        console.log("[LiveStudio] Dismissed incoming call modal because patient cancelled.");
+                    }
                 });
 
                 // Listen for Pinned Banner sync
@@ -441,7 +473,31 @@
                 document.getElementById('liveStatusDot').className = "w-2 h-2 rounded-full bg-red-500 animate-ping";
                 document.getElementById('liveStatusText').textContent = "BROADCASTING LIVE";
 
-                appendComment("System", "Live stream started! Patients on the reels feed can now tune in.");
+                // Clear comments box for new live session
+                const box = document.getElementById('studioCommentsBox');
+                if (box) box.innerHTML = '';
+
+                // Update session badge
+                const sBadge = document.getElementById('chatSessionBadge');
+                if (sBadge) {
+                    sBadge.className = "inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-red-500/20 text-red-400 border border-red-500/30";
+                    const sDot = document.getElementById('chatSessionDot');
+                    if (sDot) sDot.className = "w-1.5 h-1.5 rounded-full bg-red-400 animate-ping";
+                    const sText = document.getElementById('chatSessionText');
+                    if (sText) sText.textContent = "Current Live Session";
+                }
+
+                // Enable comment input
+                const commentInput = document.getElementById('studioCommentInput');
+                const sendBtn = document.getElementById('btnSendStudioComment');
+                if (commentInput) {
+                    commentInput.disabled = false;
+                    commentInput.placeholder = "Reply or tag a patient in this session...";
+                    commentInput.focus();
+                }
+                if (sendBtn) sendBtn.disabled = false;
+
+                appendComment("System", "🟢 Live session started! Live patient chat is active for this session.");
             } catch (err) {
                 alert("Camera or Microphone permission denied: " + err.message);
             }
@@ -478,6 +534,29 @@
             badge.className = "inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold bg-slate-800 text-slate-400 border border-slate-700";
             document.getElementById('liveStatusDot').className = "w-2 h-2 rounded-full bg-slate-500";
             document.getElementById('liveStatusText').textContent = "STUDIO OFFLINE";
+
+            // Update session badge
+            const sBadge = document.getElementById('chatSessionBadge');
+            if (sBadge) {
+                sBadge.className = "inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-slate-800 text-slate-400 border border-slate-700";
+                const sDot = document.getElementById('chatSessionDot');
+                if (sDot) sDot.className = "w-1.5 h-1.5 rounded-full bg-slate-500";
+                const sText = document.getElementById('chatSessionText');
+                if (sText) sText.textContent = "Session Closed";
+            }
+
+            // Disable comment input
+            const commentInput = document.getElementById('studioCommentInput');
+            const sendBtn = document.getElementById('btnSendStudioComment');
+            if (commentInput) {
+                commentInput.disabled = true;
+                commentInput.placeholder = "Studio offline. Start broadcast to chat.";
+                commentInput.value = '';
+            }
+            if (sendBtn) sendBtn.disabled = true;
+            cancelReplyToUser();
+
+            appendComment("System", "🔴 Live broadcast ended. Current chat session closed.");
         }
 
         async function toggleMic() {
@@ -764,6 +843,9 @@
         }
 
         function handleDeclineConsultation() {
+            if (pendingConsultation && signalrConn && signalrConn.state === "Connected") {
+                signalrConn.invoke("DeclineConsultationRequest", doctorId, pendingConsultation.consultationId).catch(console.error);
+            }
             const modal = document.getElementById('incomingConsultationModal');
             if (modal) modal.classList.add('hidden');
             pendingConsultation = null;
@@ -850,6 +932,10 @@
 
         function handleSendDoctorStudioComment(e) {
             e.preventDefault();
+            if (!isBroadcasting) {
+                alert("Please click 'Start Live Broadcast' first. Live chat is only available during an active live session.");
+                return;
+            }
             const input = document.getElementById('studioCommentInput');
             const val = input.value.trim();
             if (!val) return;
@@ -862,6 +948,22 @@
 
         window.addEventListener('DOMContentLoaded', () => {
             setupSignalR();
+            if (isInitiallyLive) {
+                isBroadcasting = true;
+                const startBtn = document.getElementById('btnStartBroadcast');
+                const endBtn = document.getElementById('btnEndBroadcast');
+                const overlay = document.getElementById('studioLiveOverlay');
+                if (startBtn) startBtn.classList.add('hidden');
+                if (endBtn) endBtn.classList.remove('hidden');
+                if (overlay) overlay.classList.remove('hidden');
+
+                const badge = document.getElementById('liveStatusBadge');
+                if (badge) badge.className = "inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold bg-red-600/20 text-red-400 border border-red-500/30";
+                const dot = document.getElementById('liveStatusDot');
+                if (dot) dot.className = "w-2 h-2 rounded-full bg-red-500 animate-ping";
+                const text = document.getElementById('liveStatusText');
+                if (text) text.textContent = "BROADCASTING LIVE";
+            }
         });
     </script>
 }

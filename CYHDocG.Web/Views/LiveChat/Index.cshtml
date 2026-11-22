@@ -44,6 +44,13 @@
 
             <!-- Escalation & Video Call Buttons -->
             <div id="escalateBtnWrapper" class="flex items-center gap-2">
+                @if (Model != null && Model.Any(d => d.IsLive))
+                {
+                    <a href="/LiveDoctor" class="px-3 py-1.5 rounded-xl bg-red-600/30 hover:bg-red-600 text-red-300 hover:text-white border border-red-500/40 text-xs font-bold flex items-center gap-1.5 shadow animate-pulse transition-all">
+                        <span class="w-2 h-2 rounded-full bg-red-500"></span>
+                        <span>Doctor Live Now</span>
+                    </a>
+                }
                 <button type="button" onclick="openDoctorSelectModal()" class="px-3.5 py-2 rounded-xl bg-gradient-to-r from-red-600 to-rose-600 hover:from-red-500 hover:to-rose-500 text-white font-bold text-xs shadow-md shadow-red-600/20 flex items-center gap-1.5 active:scale-95 transition-all">
                     <i data-lucide="video" class="w-3.5 h-3.5"></i>
                     <span>Connect Live Doctor</span>
@@ -155,7 +162,15 @@
                                 Dr
                             </div>
                             <div>
-                                <h4 class="font-heading font-bold text-sm text-white">@doc.DoctorName</h4>
+                                <div class="flex items-center gap-2">
+                                    <h4 class="font-heading font-bold text-sm text-white">@doc.DoctorName</h4>
+                                    @if (doc.IsLive)
+                                    {
+                                        <span class="px-2 py-0.5 rounded-full bg-red-600 text-[10px] font-black uppercase text-white animate-pulse flex items-center gap-1">
+                                            <span class="w-1.5 h-1.5 rounded-full bg-white"></span> LIVE
+                                        </span>
+                                    }
+                                </div>
                                 <span class="text-[11px] text-slate-400">@doc.Specialty • @doc.Department</span>
                                 <div class="text-[10px] text-emerald-400 font-semibold mt-0.5">
                                     @(doc.IsFreeConsultation ? "FREE Consultation" : $"₹{doc.ConsultationFeePerMinute:N0}/min")
@@ -405,12 +420,107 @@
             if (el) el.remove();
         }
 
-        function renderAiTriageCard(data, query) {
+        function renderAiResponse(data, query) {
             const stream = document.getElementById('messageStream');
-            const primaryAdvice = data.aiAdviceEn || data.aiAdvice || "Clinical symptom analysis complete.";
-            const englishAdvice = '';
+            const primaryAdvice = data.aiAdviceEn || data.aiAdvice || "Clinical analysis complete.";
+            const isMedical = data.isMedical !== false;
             const severity = data.severity || 'Moderate';
             const isHigh = data.isEmergency || severity === 'High' || severity === 'Emergency';
+            const liveDoctors = data.liveDoctors || [];
+
+            // 1. If Non-Medical query: render polite apology + Live Doctor connect card
+            if (!isMedical) {
+                let liveDoctorCardsHtml = '';
+                if (liveDoctors.length > 0) {
+                    const doc = liveDoctors[0];
+                    liveDoctorCardsHtml = `
+                    <div class="mt-3.5 p-3.5 sm:p-4 rounded-2xl bg-gradient-to-r from-red-950/70 via-slate-900 to-slate-900 border border-red-500/40 shadow-xl space-y-3">
+                        <div class="flex items-center justify-between">
+                            <span class="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-red-600/30 text-red-400 border border-red-500/30 text-[10px] font-black uppercase tracking-wider">
+                                <span class="w-2 h-2 rounded-full bg-red-500 animate-ping"></span> Live Broadcast Now
+                            </span>
+                            <span class="text-[11px] text-slate-400 font-medium">Verified Doctor</span>
+                        </div>
+                        <div class="flex items-center gap-3">
+                            <div class="w-11 h-11 rounded-2xl bg-slate-800 border border-white/10 overflow-hidden flex-shrink-0 flex items-center justify-center font-bold text-red-400">
+                                ${doc.doctorPhoto ? `<img src="${doc.doctorPhoto}" class="w-full h-full object-cover"/>` : '<i data-lucide="stethoscope" class="w-6 h-6"></i>'}
+                            </div>
+                            <div class="flex-1 min-w-0">
+                                <h4 class="text-sm font-bold text-white truncate">Dr. ${escapeHtml(doc.doctorName)}</h4>
+                                <p class="text-xs text-slate-300 truncate">${escapeHtml(doc.specialty)} • ${doc.experienceYears} yrs exp</p>
+                                <p class="text-[11px] text-emerald-400 font-semibold mt-0.5">${doc.isFreeConsultation ? 'FREE Consultation' : '₹' + doc.consultationFeePerMinute + '/min'}</p>
+                            </div>
+                        </div>
+                        <div class="grid grid-cols-2 gap-2 pt-1">
+                            <a href="/LiveDoctor" class="py-2 px-3 rounded-xl bg-red-600 hover:bg-red-700 text-white font-bold text-xs flex items-center justify-center gap-1.5 shadow transition-all">
+                                <i data-lucide="radio" class="w-3.5 h-3.5"></i>
+                                <span>Watch Live</span>
+                            </a>
+                            <button type="button" onclick="requestDoctorConsultation(${doc.doctorId}, '${escapeHtml(doc.doctorName)}', ${doc.consultationFeePerMinute}, ${doc.isFreeConsultation ? 'false' : 'true'})" class="py-2 px-3 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs flex items-center justify-center gap-1.5 shadow transition-all">
+                                <i data-lucide="video" class="w-3.5 h-3.5"></i>
+                                <span>Call 1-to-1</span>
+                            </button>
+                        </div>
+                    </div>`;
+                } else {
+                    liveDoctorCardsHtml = `
+                    <div class="mt-3 flex flex-wrap items-center gap-2">
+                        <button type="button" onclick="openDoctorSelectModal()" class="px-3.5 py-1.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs border border-slate-700 flex items-center gap-1.5 transition-all">
+                            <i data-lucide="users" class="w-3.5 h-3.5 text-blue-400"></i>
+                            <span>Browse Verified Doctors</span>
+                        </button>
+                    </div>`;
+                }
+
+                const nonMedHtml = `
+                <div class="flex items-start gap-3 max-w-xl">
+                    <div class="w-8 h-8 rounded-xl bg-amber-500/20 text-amber-400 flex items-center justify-center flex-shrink-0 text-xs font-bold font-heading">
+                        AI
+                    </div>
+                    <div class="bg-slate-800/90 border border-amber-500/30 text-slate-200 rounded-2xl rounded-tl-sm p-4 sm:p-5 text-xs sm:text-sm leading-relaxed shadow space-y-2 w-full">
+                        <div class="flex items-center gap-2 border-b border-slate-700/60 pb-2">
+                            <span class="font-heading font-bold text-white text-xs sm:text-sm">CYHDoc Medical Assistant</span>
+                            <span class="px-2 py-0.5 rounded-full bg-amber-500/20 text-amber-400 text-[10px] font-bold">Medical Queries Only</span>
+                        </div>
+                        <div class="text-slate-200 leading-relaxed pt-1">
+                            ${primaryAdvice.replace(/\n/g, '<br/>')}
+                        </div>
+                        ${liveDoctorCardsHtml}
+                    </div>
+                </div>`;
+
+                stream.insertAdjacentHTML('beforeend', nonMedHtml);
+                stream.scrollTop = stream.scrollHeight;
+                if (window.lucide) lucide.createIcons();
+                return;
+            }
+
+            // 2. If Medical Query: render rich clinical card + live doctor option
+            let liveDocBadgeHtml = '';
+            if (liveDoctors.length > 0) {
+                const doc = liveDoctors[0];
+                liveDocBadgeHtml = `
+                <div class="mt-3 p-3 rounded-2xl bg-red-950/60 border border-red-500/40 flex items-center justify-between gap-3 shadow-lg">
+                    <div class="flex items-center gap-2.5">
+                        <span class="w-2.5 h-2.5 rounded-full bg-red-500 animate-ping"></span>
+                        <div>
+                            <div class="text-xs font-bold text-white flex items-center gap-1.5">
+                                <span>Dr. ${escapeHtml(doc.doctorName)}</span>
+                                <span class="bg-red-600 text-white text-[9px] px-1.5 py-0.2 rounded-full uppercase font-black">LIVE</span>
+                            </div>
+                            <span class="text-[11px] text-slate-300">${escapeHtml(doc.specialty)} • ${doc.isFreeConsultation ? 'FREE' : '₹' + doc.consultationFeePerMinute + '/min'}</span>
+                        </div>
+                    </div>
+                    <div class="flex items-center gap-1.5">
+                        <a href="/LiveDoctor" class="px-2.5 py-1.5 rounded-lg bg-red-600 hover:bg-red-700 text-white text-[11px] font-bold transition-all shadow">
+                            Watch Live
+                        </a>
+                        <button type="button" onclick="requestDoctorConsultation(${doc.doctorId}, '${escapeHtml(doc.doctorName)}', ${doc.consultationFeePerMinute}, ${doc.isFreeConsultation ? 'false' : 'true'})" class="px-2.5 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white text-[11px] font-bold transition-all shadow">
+                            Call 1-to-1
+                        </button>
+                    </div>
+                </div>`;
+            }
 
             const cardHtml = `
             <div class="flex items-start gap-3 max-w-2xl">
@@ -421,7 +531,7 @@
                     <!-- Header with Department & Severity -->
                     <div class="flex flex-wrap items-center justify-between gap-2 border-b border-slate-700/60 pb-3">
                         <div class="flex items-center gap-2">
-                            <span class="font-heading font-bold text-white text-sm">AI Health Guru Clinical Triage</span>
+                            <span class="font-heading font-bold text-white text-sm">AI Health Clinical Assessment</span>
                             <span class="px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-400 text-[10px] font-bold">Gemini AI</span>
                         </div>
                         <div class="flex items-center gap-1.5 flex-wrap">
@@ -447,6 +557,8 @@
                         </div>
                     </div>
 
+                    ${liveDocBadgeHtml}
+
                     <!-- Interactive Suggestion Chips -->
                     <div class="pt-2 flex flex-wrap gap-2 border-t border-slate-700/40">
                         <button onclick="sendQuickPrompt('What precautions or home care remedies should I take?')" class="px-3 py-1 rounded-xl bg-slate-900 hover:bg-slate-700 text-slate-200 text-xs border border-slate-700 transition-colors flex items-center gap-1.5">
@@ -469,6 +581,8 @@
             stream.scrollTop = stream.scrollHeight;
             if (window.lucide) lucide.createIcons();
         }
+
+        const renderAiTriageCard = renderAiResponse;
 
         async function handleIncomingSearchQuery(query, isUnavailable) {
             appendChatMessage('user', query, 'You');
@@ -511,7 +625,7 @@
                 });
                 const data = await res.json();
                 removeTypingIndicator(indicatorId);
-                renderAiTriageCard(data, query);
+                renderAiResponse(data, query);
             } catch (err) {
                 console.error(err);
                 removeTypingIndicator(indicatorId);
@@ -541,7 +655,7 @@
                     });
                     const data = await res.json();
                     removeTypingIndicator(indicatorId);
-                    renderAiTriageCard(data, message);
+                    renderAiResponse(data, message);
                 } catch (err) {
                     console.error(err);
                     removeTypingIndicator(indicatorId);
@@ -566,10 +680,6 @@
                     ${text.replace(/\n/g, '<br/>')}
                 </div>
             </div>`;
-
-            stream.insertAdjacentHTML('beforeend', bubbleHtml);
-            stream.scrollTop = stream.scrollHeight;
-        }
 
             stream.insertAdjacentHTML('beforeend', bubbleHtml);
             stream.scrollTop = stream.scrollHeight;

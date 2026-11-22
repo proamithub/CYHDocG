@@ -43,6 +43,8 @@ public class LiveStudioController : Controller
         string token = _liveKitTokenService.GenerateAccessToken(roomName, $"doc_{userId}", doctorName, canPublish: true, canSubscribe: true);
         string serverUrl = _liveKitTokenService.GetServerUrl();
 
+        bool isLive = metrics?.IsLive == true;
+        ViewBag.IsDoctorLive = isLive;
         ViewBag.RoomName = roomName;
         ViewBag.Token = token;
         ViewBag.ServerUrl = serverUrl;
@@ -51,8 +53,15 @@ public class LiveStudioController : Controller
 
         try
         {
-            var comments = (await _doctorRepo.GetRecentCommentsAsync(docId)).Reverse().ToList();
-            ViewBag.RecentComments = comments;
+            if (isLive)
+            {
+                var comments = (await _doctorRepo.GetRecentCommentsAsync(docId)).Reverse().ToList();
+                ViewBag.RecentComments = comments;
+            }
+            else
+            {
+                ViewBag.RecentComments = new List<CYHDocG.Repo.DTOs.LiveCommentDto>();
+            }
         }
         catch
         {

@@ -35,8 +35,19 @@ public class SearchController : Controller
 
     [HttpPost("/api/search/ai-analyze")]
     [HttpPost("/Search/Triage")]
-    public async Task<IActionResult> Analyze([FromBody] string query)
+    public async Task<IActionResult> Analyze([FromBody] System.Text.Json.JsonElement body)
     {
+        string query = "";
+        if (body.ValueKind == System.Text.Json.JsonValueKind.String)
+        {
+            query = body.GetString() ?? "";
+        }
+        else if (body.ValueKind == System.Text.Json.JsonValueKind.Object)
+        {
+            if (body.TryGetProperty("query", out var qProp)) query = qProp.GetString() ?? "";
+            else if (body.TryGetProperty("message", out var mProp)) query = mProp.GetString() ?? "";
+        }
+
         var result = await _aiSearchService.AnalyzeSymptomAsync(query);
         return Ok(result);
     }
