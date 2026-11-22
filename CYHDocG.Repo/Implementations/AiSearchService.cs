@@ -68,8 +68,11 @@ public class AiSearchService : IAiSearchService
                 if (llmResult != null)
                 {
                     llmResult.LiveDoctors = liveDoctors;
-                    llmResult.RecommendedDoctors = (await _doctorRepo.SearchDoctorsAsync(llmResult.IdentifiedDepartment)).ToList();
-                    AttachLiveDoctorNotice(llmResult, liveDoctors);
+                    if (llmResult.IsMedical)
+                    {
+                        llmResult.RecommendedDoctors = (await _doctorRepo.SearchDoctorsAsync(llmResult.IdentifiedDepartment)).ToList();
+                        AttachLiveDoctorNotice(llmResult, liveDoctors);
+                    }
                     return llmResult;
                 }
             }
@@ -89,44 +92,49 @@ public class AiSearchService : IAiSearchService
     {
         if (!result.IsMedical)
         {
-            if (liveDoctors != null && liveDoctors.Any())
-            {
-                var doc = liveDoctors.First();
-                result.AiAdviceEn += $"\n\n🔴 **Dr. {doc.DoctorName}** ({doc.Specialty}) is currently **LIVE NOW**! You can connect with them directly for live advice or video consultation.";
-            }
-            else
-            {
-                result.AiAdviceEn += "\n\nIf you have any health-related questions or wish to consult a specialist doctor, feel free to describe your symptoms anytime!";
-            }
+            return;
         }
-        else
+
+        if (liveDoctors != null && liveDoctors.Any())
         {
-            if (liveDoctors != null && liveDoctors.Any())
-            {
-                var matchingDoc = liveDoctors.FirstOrDefault(d => d.Department.Equals(result.IdentifiedDepartment, StringComparison.OrdinalIgnoreCase)) ?? liveDoctors.First();
-                result.AiAdviceEn += $"\n\n💡 **Live Specialist Available:** Dr. {matchingDoc.DoctorName} ({matchingDoc.Specialty}) is broadcasting live right now. You can join their stream or request a 1-to-1 video consultation.";
-            }
+            var matchingDoc = liveDoctors.FirstOrDefault(d => d.Department.Equals(result.IdentifiedDepartment, StringComparison.OrdinalIgnoreCase)) ?? liveDoctors.First();
+            result.AiAdviceEn += $"\n\n💡 **Live Specialist Available:** Dr. {matchingDoc.DoctorName} ({matchingDoc.Specialty}) is broadcasting live right now. You can join their stream or request a 1-to-1 video consultation.";
         }
     }
 
     private async Task<AiDiagnosisResultDto?> CallLlmApiAsync(string query, string provider, string apiKey, string model)
     {
-        string prompt = $@"You are CYHDocGuru's AI Clinical & Health Assistant. The user has sent this message: ""{query}"".
-Your instructions:
-1. Determine if this message is MEDICAL / HEALTH / SYMPTOM / MEDICINE / DOCTOR related.
-   - If user asks about greetings ('hi', 'hello', 'namaste'), acknowledge warmly as CYHDoc AI Health Assistant and ask how you can help with their health or symptoms today. Set isMedical to true.
-   - If user asks about NON-MEDICAL topics (e.g. politics, coding, cricket, sports, general trivia, movies, weather, jokes, finance, etc.), set isMedical to false, and in 'advice', reply with a polite apology: ""I am sorry, but as CYHDocGuru's dedicated Medical & Health AI Assistant, I can only assist with medical, symptoms, health, medicine, and doctor consultation inquiries. I cannot assist with non-health topics like '{query}'.""
-   - If user asks about MEDICAL topics (symptoms, pain, illness, medicine dosage, health precautions, first aid), set isMedical to true, and provide clear, empathetic, clinically accurate advice with precautions and guidance on when to consult a doctor.
-2. If isMedical is true, categorize department, specialty, severity (Low|Moderate|High), and isEmergency (true if chest pain/stroke/severe bleeding/unconsciousness, else false).
+        string prompt = $@"You are CYHDocGuru's dedicated Medical & Health AI Assistant.
+A patient/user has sent the following message: ""{query}"".
 
-Respond in strictly valid JSON with this schema without markdown fences:
+Strict Instructions for Clinical Triage & Intent Detection:
+1. Intent Classification:
+   - GREETING: If user says 'hi', 'hello', 'namaste', etc., classify as isMedical: true. Greet warmly as CYHDoc Medical AI and ask what health symptom or issue they are experiencing today.
+   - NON-MEDICAL: If user asks about cooking/food recipes (e.g. 'मुझे खाना बनाना है', 'खाना कैसे बनाएं', recipe), cricket/sports, movies/entertainment, coding/software, weather, jokes, politics, or any topic unrelated to human health/medicine/symptoms, classify as isMedical: false. Set advice to empty string """". Do NOT provide recipes, cooking tips, or non-medical assistance!
+   - MEDICAL: If user asks about symptoms, illness, pain, disease (e.g. 'मुझे बुखार है', 'मेरे पेट में दर्द है', headache, fever, cough, chest pain, nausea, loose motion, injury, weakness), medicines, or doctor consultations in ANY language (Hindi, Hinglish, English):
+     Classify as isMedical: true. Provide concise, caring, medically sound advice, safe home care/precautions, and recommendation to consult a doctor in the SAME LANGUAGE as the user asked (e.g. Hindi if asked in Hindi, English if asked in English).
+
+2. If isMedical is true:
+   - department: Cardiology | Dermatology | Neurology | Orthopedics | Pediatrics | Gynecology | Gastroenterology | ENT | General Medicine
+   - specialty: Doctor Specialty Title (e.g. General Physician, Gastroenterologist, Cardiologist, etc.)
+   - severity: Low | Moderate | High | Emergency
+   - isEmergency: true if chest pain, stroke, breathing emergency, severe trauma; else false.
+
+3. If isMedical is false:
+   - department: ""Non-Medical""
+   - specialty: ""General Physician""
+   - severity: ""Low""
+   - isEmergency: false
+   - advice: """" (strictly empty string)
+
+Respond ONLY in valid JSON matching this schema without markdown fences:
 {{
   ""isMedical"": true|false,
-  ""department"": ""Cardiology|Dermatology|Neurology|Orthopedics|Pediatrics|Gynecology|General Medicine"",
-  ""specialty"": ""Doctor Specialty Title"",
+  ""department"": ""Department Name"",
+  ""specialty"": ""Specialist Title"",
   ""severity"": ""Low|Moderate|High"",
   ""isEmergency"": true|false,
-  ""advice"": ""Detailed medical response or polite non-medical apology"",
+  ""advice"": ""Detailed medical response in user's language, OR empty string if non-medical"",
   ""keywords"": [""key1"", ""key2""]
 }}";
 
@@ -220,10 +228,24 @@ Respond in strictly valid JSON with this schema without markdown fences:
                 advice = advEnProp.GetString() ?? "";
             }
 
+            if (!isMedical)
+            {
+                return new AiDiagnosisResultDto
+                {
+                    QueryText = query,
+                    IsMedical = false,
+                    IdentifiedDepartment = "Non-Medical",
+                    SpecialtyNeeded = "General Physician",
+                    Severity = "Low",
+                    IsEmergency = false,
+                    AiAdviceEn = string.Empty
+                };
+            }
+
             var res = new AiDiagnosisResultDto
             {
                 QueryText = query,
-                IsMedical = isMedical,
+                IsMedical = true,
                 IdentifiedDepartment = root.TryGetProperty("department", out var dProp) ? (dProp.GetString() ?? "General Medicine") : "General Medicine",
                 SpecialtyNeeded = root.TryGetProperty("specialty", out var sProp) ? (sProp.GetString() ?? "Physician") : "Physician",
                 Severity = root.TryGetProperty("severity", out var svProp) ? (svProp.GetString() ?? "Moderate") : "Moderate",
@@ -249,28 +271,38 @@ Respond in strictly valid JSON with this schema without markdown fences:
 
     private static readonly string[] GreetingKeywords = new[]
     {
-        "hi", "hello", "hey", "namaste", "good morning", "good evening", "good afternoon", "who are you", "what can you do", "help"
+        "hi", "hello", "hey", "namaste", "good morning", "good evening", "good afternoon", "who are you", "what can you do", "help", "नमस्ते", "हेलो"
+    };
+
+    private static readonly string[] NonMedicalKeywords = new[]
+    {
+        "khana", "khana banana", "cooking", "recipe", "banaana", "banaye", "roti", "sabzi", "biryani", "dal", "chawal", "curry", "dish",
+        "cricket", "ipl", "match", "movie", "film", "cinema", "gaana", "gaane", "song", "music", "weather", "mausam", "joke", "chutkula",
+        "python", "code", "coding", "software", "program", "game", "gaming", "dance", "car", "bike", "travel", "flight", "politics", "neta",
+        "खाना", "बनाना", "रेसिपी", "फिल्म", "मूवी", "गाना", "मौसम", "क्रिकेट", "कोडिंग"
     };
 
     private static readonly string[] MedicalKeywords = new[]
     {
-        "fever", "headache", "cough", "cold", "pain", "chest", "heart", "bp", "blood pressure", "hypertension",
-        "skin", "rash", "itching", "itch", "allergy", "acne", "pimple", "eczema", "dermatology",
-        "bone", "joint", "knee", "back", "spine", "fracture", "sprain", "orthopedic", "arthritis", "ligament",
-        "child", "baby", "infant", "pediatric", "teething", "vaccine", "vaccination",
-        "pregnant", "pregnancy", "period", "periods", "menstrual", "gynecology", "pcod", "pcos", "cramp",
-        "stomach", "abdomen", "belly", "gastric", "acidity", "gas", "vomit", "vomiting", "nausea", "diarrhea", "loose motion", "constipation",
-        "dizziness", "dizzy", "vertigo", "migraine", "nerve", "neurology", "seizure", "paralysis", "stroke", "numbness",
-        "eye", "ear", "nose", "throat", "ent", "tonsil", "sinus", "hearing", "vision",
-        "teeth", "tooth", "gum", "dental", "dentist", "mouth ulcer",
-        "diabetes", "sugar", "insulin", "thyroid", "cholesterol", "uric acid", "kidney", "urine", "liver", "jaundice", "hepatitis",
-        "infection", "viral", "bacterial", "fungus", "fungal", "wound", "cut", "burn", "swelling", "bleeding", "pus",
-        "breath", "shortness of breath", "asthma", "lungs", "pneumonia", "bronchitis", "wheezing",
+        "fever", "bukhar", "bukhaar", "headache", "sar dard", "sardard", "sir dard", "cough", "khansi", "cold", "zukam", "nazla",
+        "pain", "dard", "chest", "seene me dard", "seene mein dard", "heart", "bp", "blood pressure", "hypertension",
+        "skin", "rash", "itching", "khujli", "itch", "allergy", "acne", "pimple", "eczema", "dermatology",
+        "bone", "joint", "haddi", "knee", "ghutna", "back", "kamar", "spine", "fracture", "sprain", "orthopedic", "arthritis", "ligament",
+        "child", "baccha", "baby", "infant", "pediatric", "teething", "vaccine", "vaccination",
+        "pregnant", "pregnancy", "period", "periods", "mahina", "menstrual", "gynecology", "pcod", "pcos", "cramp",
+        "stomach", "pet", "pet dard", "pet me dard", "pet mein dard", "pet kharab", "abdomen", "belly", "gastric", "acidity", "gas", "vomit", "vomiting", "ulti", "nausea", "diarrhea", "dast", "loose motion", "constipation", "kabz",
+        "dizziness", "chakkar", "dizzy", "vertigo", "migraine", "nerve", "neurology", "seizure", "paralysis", "stroke", "numbness",
+        "eye", "aankh", "ear", "kaan", "nose", "naak", "throat", "gala", "gala kharab", "ent", "tonsil", "sinus", "hearing", "vision",
+        "teeth", "tooth", "daant", "gum", "dental", "dentist", "mouth ulcer",
+        "diabetes", "sugar", "insulin", "thyroid", "cholesterol", "uric acid", "kidney", "urine", "peshab", "liver", "jaundice", "piliya", "hepatitis",
+        "infection", "viral", "bacterial", "fungus", "fungal", "wound", "cut", "chot", "burn", "swelling", "sujan", "bleeding", "khoon", "pus",
+        "breath", "saans", "saans lene me taklif", "shortness of breath", "asthma", "lungs", "pneumonia", "bronchitis", "wheezing",
         "cancer", "tumor", "lump", "biopsy", "chemotherapy",
-        "medicine", "tablet", "capsule", "syrup", "dosage", "dose", "antibiotic", "paracetamol", "prescription", "side effect",
-        "doctor", "specialist", "hospital", "clinic", "consultation", "triage", "symptom", "disease", "illness", "treatment", "therapy",
+        "medicine", "dawa", "dawai", "tablet", "goli", "capsule", "syrup", "dosage", "dose", "antibiotic", "paracetamol", "prescription", "side effect",
+        "doctor", "specialist", "hospital", "clinic", "consultation", "triage", "symptom", "disease", "illness", "treatment", "therapy", "swasthya", "ilaj", "mariz", "bimar",
         "diet", "nutrition", "weight loss", "weight gain", "obesity", "fitness", "vitamin", "calcium", "iron", "protein",
-        "anxiety", "depression", "stress", "mental health", "sleep", "insomnia", "panic", "fatigue", "weakness"
+        "anxiety", "depression", "stress", "mental health", "sleep", "insomnia", "panic", "fatigue", "weakness", "kamzori",
+        "बुखार", "दर्द", "पेट", "सिर", "खांसी", "जुकाम", "उल्टी", "दस्त", "चक्कर", "दवा", "दवाई", "डॉक्टर", "इलाज", "बीमारी", "स्वास्थ्य", "छाती", "हार्ट", "चोट", "सूजन", "खून", "कमर", "हड्डी", "आंख", "कान", "गला", "दांत", "सांस"
     };
 
     private async Task<AiDiagnosisResultDto> ExecuteRuleEngineAsync(string query, List<DoctorReelDto> liveDoctors)
@@ -292,14 +324,13 @@ Respond in strictly valid JSON with this schema without markdown fences:
         }
 
         // B. Non-Medical Query Check
-        if (!ContainsAny(q, MedicalKeywords))
+        if (ContainsAny(q, NonMedicalKeywords) || !ContainsAny(q, MedicalKeywords))
         {
             result.IsMedical = false;
             result.IdentifiedDepartment = "Non-Medical";
             result.SpecialtyNeeded = "General Physician";
             result.Severity = "Low";
-            result.AiAdviceEn = $"I am sorry, but as CYHDocGuru's dedicated Medical & Health AI Assistant, I can only assist with medical, symptoms, health, medicine, and doctor consultation inquiries. I cannot assist with non-health topics like \"{query}\".";
-            AttachLiveDoctorNotice(result, liveDoctors);
+            result.AiAdviceEn = string.Empty;
             return result;
         }
 
