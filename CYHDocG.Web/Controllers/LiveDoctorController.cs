@@ -16,6 +16,7 @@ public class LiveDoctorController : Controller
     }
 
     [HttpGet("/LiveDoctor")]
+    [ResponseCache(NoStore = true, Location = ResponseCacheLocation.None)]
     public async Task<IActionResult> Index([FromQuery] string? q)
     {
         long? currentUserId = null;

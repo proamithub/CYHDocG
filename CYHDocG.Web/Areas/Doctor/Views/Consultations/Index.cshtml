@@ -88,9 +88,9 @@
                                     <div class="flex items-center justify-end gap-2">
                                         @if (item.Status == "Pending" || item.Status == "Active")
                                         {
-                                            <a href="/LiveChat?doctorId=@ViewBag.DoctorId&consultationId=@item.ConsultationId" class="px-3.5 py-1.5 rounded-xl bg-purple-600 hover:bg-purple-700 text-white font-semibold text-xs flex items-center gap-1.5 shadow-md shadow-purple-600/20 transition-all">
+                                            <a href="/Consultation/Room/@item.ConsultationId" class="px-3.5 py-1.5 rounded-xl bg-purple-600 hover:bg-purple-700 text-white font-semibold text-xs flex items-center gap-1.5 shadow-md shadow-purple-600/20 transition-all">
                                                 <i data-lucide="video" class="w-3.5 h-3.5"></i>
-                                                <span>Join Session</span>
+                                                <span>Join Video Room</span>
                                             </a>
                                         }
                                         <a asp-area="Doctor" asp-controller="Prescriptions" asp-action="Create" asp-route-consultationId="@item.ConsultationId" asp-route-userId="@item.UserId" class="px-3 py-1.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white border border-slate-700 text-xs font-medium transition-all" title="Write Prescription">
@@ -103,7 +103,7 @@
                     }
                     else
                     {
-                        <tr>
+                        <tr id="emptyQueueRow">
                             <td colspan="6" class="py-12 text-center text-slate-500">
                                 <i data-lucide="inbox" class="w-10 h-10 text-slate-600 mx-auto mb-2"></i>
                                 <p>No patient requests in queue right now.</p>
@@ -115,3 +115,87 @@
         </div>
     </div>
 </div>
+
+@section Scripts {
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/microsoft-signalr/8.0.0/signalr.min.js"></script>
+    <script>
+        const doctorId = @(ViewBag.DoctorId ?? 0);
+
+        if (doctorId > 0 && typeof signalR !== 'undefined') {
+            const queueHubConn = new signalR.HubConnectionBuilder()
+                .withUrl('/hubs/live-reel')
+                .withAutomaticReconnect([0, 2000, 5000, 10000])
+                .build();
+
+            queueHubConn.on("ReceiveIncomingConsultationRequest", (req) => {
+                console.log("[DoctorQueue] New incoming consultation request received:", req);
+                try {
+                    // Play audible notification chime
+                    const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+                    const osc = audioCtx.createOscillator();
+                    const gain = audioCtx.createGain();
+                    osc.type = 'triangle';
+                    osc.frequency.setValueAtTime(587.33, audioCtx.currentTime); // D5
+                    osc.frequency.setValueAtTime(880, audioCtx.currentTime + 0.15); // A5
+                    gain.gain.setValueAtTime(0.3, audioCtx.currentTime);
+                    gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 0.6);
+                    osc.connect(gain);
+                    gain.connect(audioCtx.destination);
+                    osc.start();
+                    osc.stop(audioCtx.currentTime + 0.6);
+                } catch (e) {}
+
+                // Remove empty placeholder row if present
+                const emptyRow = document.getElementById('emptyQueueRow');
+                if (emptyRow) emptyRow.remove();
+
+                // Prepend new row into queue table
+                const tbody = document.querySelector('tbody');
+                const row = document.createElement('tr');
+                row.className = "hover:bg-slate-950/60 transition-colors bg-purple-950/30 border-l-4 border-purple-500 animate-fade-in";
+                row.innerHTML = `
+                    <td class="py-4 px-4">
+                        <div class="flex items-center gap-3">
+                            <div class="w-9 h-9 rounded-xl bg-purple-600/30 text-purple-300 border border-purple-500/40 flex items-center justify-center font-bold text-xs flex-shrink-0 animate-pulse">
+                                ${(req.patientName || 'P').substring(0, 1).toUpperCase()}
+                            </div>
+                            <div>
+                                <div class="font-bold text-white text-sm flex items-center gap-1.5">
+                                    <span>${req.patientName || 'Patient'}</span>
+                                    <span class="px-1.5 py-0.5 rounded bg-emerald-500/20 text-emerald-400 text-[9px] font-bold uppercase animate-pulse">NEW</span>
+                                </div>
+                                <div class="text-slate-400 text-[11px]">User #${req.patientId}</div>
+                            </div>
+                        </div>
+                    </td>
+                    <td class="py-4 px-4 text-emerald-400 font-medium">Just now</td>
+                    <td class="py-4 px-4"><span class="font-mono font-bold text-emerald-400">₹--</span></td>
+                    <td class="py-4 px-4 font-mono text-white">Standard/min</td>
+                    <td class="py-4 px-4">
+                        <span class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[10px] font-bold bg-amber-500/20 text-amber-400 border border-amber-500/30">
+                            Waiting in Queue
+                        </span>
+                    </td>
+                    <td class="py-4 px-4 text-right">
+                        <div class="flex items-center justify-end gap-2">
+                            <a href="/Consultation/Room/${req.consultationId}" class="px-3.5 py-1.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-semibold text-xs flex items-center gap-1.5 shadow-md shadow-emerald-600/30 transition-all animate-bounce">
+                                <i data-lucide="video" class="w-3.5 h-3.5"></i>
+                                <span>Accept & Join</span>
+                            </a>
+                            <a href="/Doctor/Prescriptions/Create?consultationId=${req.consultationId}&userId=${req.patientId}" class="px-3 py-1.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white border border-slate-700 text-xs font-medium transition-all" title="Write Prescription">
+                                <i data-lucide="file-plus" class="w-3.5 h-3.5 inline mr-1"></i> Rx
+                            </a>
+                        </div>
+                    </td>
+                `;
+                tbody.prepend(row);
+                if (window.lucide) lucide.createIcons();
+            });
+
+            queueHubConn.start().then(() => {
+                console.log("[DoctorQueue] Connected to live reel hub. Joining stream room:", doctorId);
+                queueHubConn.invoke("JoinStreamRoom", doctorId.toString()).catch(console.error);
+            }).catch(console.error);
+        }
+    </script>
+}

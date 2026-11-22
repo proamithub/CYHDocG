@@ -1,0 +1,552 @@
+@model CYHDocG.Web.Controllers.ConsultationRoomViewModel
+@{
+    ViewData["Title"] = $"1-to-1 Video Consultation - {(Model.IsDoctor ? Model.PatientName : Model.DoctorName)}";
+}
+
+<!-- WebRTC LiveKit Cloud SDK & SignalR Client Script -->
+<script src="https://cdn.jsdelivr.net/npm/livekit-client/dist/livekit-client.umd.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/microsoft-signalr/8.0.0/signalr.min.js"></script>
+
+<div class="min-h-[calc(100vh-80px)] bg-slate-950 text-white p-3 sm:p-5 flex flex-col justify-between">
+    <!-- Top Bar: Room Title, Participants, and Synchronized Live Timer -->
+    <div class="max-w-7xl w-full mx-auto bg-slate-900 border border-slate-800 rounded-2xl p-3 sm:p-4 mb-4 flex flex-wrap items-center justify-between gap-3 shadow-xl">
+        <div class="flex items-center gap-3">
+            <div class="w-10 h-10 rounded-xl @(Model.IsDoctor ? "bg-purple-600/20 text-purple-400 border border-purple-500/30" : "bg-red-600/20 text-red-500 border border-red-500/30") flex items-center justify-center font-bold text-sm">
+                <i data-lucide="@(Model.IsDoctor ? "user" : "stethoscope")" class="w-5 h-5"></i>
+            </div>
+            <div>
+                <div class="flex items-center gap-2">
+                    <h1 class="font-heading font-extrabold text-sm sm:text-base text-white">
+                        @(Model.IsDoctor ? $"Patient: {Model.PatientName}" : $"Dr. {Model.DoctorName}")
+                    </h1>
+                    <span id="sessionStatusBadge" class="px-2.5 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider @(Model.Status == "Active" ? "bg-emerald-500/20 text-emerald-400 border border-emerald-500/30" : "bg-amber-500/20 text-amber-400 border border-amber-500/30")">
+                        @(Model.Status == "Active" ? "● LIVE CALL" : "WAITING FOR DOCTOR")
+                    </span>
+                </div>
+                <p class="text-xs text-slate-400">
+                    @(Model.IsDoctor ? $"Wallet: ₹{Model.PatientWalletBalance:N2} • Room #{Model.ConsultationId}" : $"{Model.Specialty} • {Model.Department} • Rate: ₹{Model.RatePerMinute:N2}/min")
+                </p>
+            </div>
+        </div>
+
+        <!-- Synchronized Live Timer & Billed Amount Card -->
+        <div class="flex items-center gap-3 bg-slate-950 px-4 py-2 rounded-2xl border border-slate-800 shadow-inner">
+            <div class="flex items-center gap-2">
+                <span id="timerPulseDot" class="w-2.5 h-2.5 rounded-full @(Model.Status == "Active" ? "bg-red-500 animate-ping" : "bg-amber-500")"></span>
+                <span id="consultationClock" class="font-mono font-black text-base sm:text-lg text-white">00:00:00</span>
+            </div>
+            <div class="h-6 w-px bg-slate-800"></div>
+            <div class="text-right">
+                <div id="liveAccruedCost" class="text-xs sm:text-sm font-bold font-mono text-emerald-400">₹0.00</div>
+                <span class="text-[9px] text-slate-400 uppercase tracking-wider">Live Billed</span>
+            </div>
+        </div>
+    </div>
+
+    <!-- Main Consultation Workspace (Video Stage 70% + Direct Chat 30%) -->
+    <div class="max-w-7xl w-full mx-auto grid grid-cols-1 lg:grid-cols-12 gap-4 flex-1">
+        
+        <!-- ===================== TWO-WAY VIDEO STAGE (COL 1-8) ===================== -->
+        <div class="lg:col-span-8 bg-black border border-slate-800 rounded-3xl overflow-hidden relative flex flex-col justify-between shadow-2xl min-h-[420px] sm:min-h-[520px]">
+            <!-- Main Remote Video View (Doctor or Patient) -->
+            <div class="w-full h-full absolute inset-0 bg-slate-950 flex items-center justify-center overflow-hidden">
+                <video id="remoteParticipantVideo" autoplay playsinline class="w-full h-full object-cover hidden"></video>
+
+                <!-- Audio Track Container for Remote Audio -->
+                <audio id="remoteAudioTrack" autoplay></audio>
+
+                <!-- Waiting / Connecting Placeholder -->
+                <div id="remoteVideoPlaceholder" class="flex flex-col items-center justify-center text-center p-6 space-y-4 max-w-sm">
+                    <div class="w-20 h-20 rounded-3xl bg-purple-600/20 text-purple-400 border border-purple-500/30 flex items-center justify-center animate-pulse shadow-2xl">
+                        <i data-lucide="video" class="w-10 h-10"></i>
+                    </div>
+                    <div>
+                        <h3 id="placeholderTitle" class="font-heading font-bold text-base sm:text-lg text-white">
+                            @(Model.Status == "Active" ? "Connecting WebRTC Video..." : (Model.IsDoctor ? "Ready to Start Consultation" : "Waiting for Doctor to Start Call"))
+                        </h3>
+                        <p id="placeholderSubtitle" class="text-xs text-slate-400 mt-1">
+                            @(Model.Status == "Active" 
+                                ? "Establishing encrypted 2-way WebRTC stream via LiveKit Cloud." 
+                                : (Model.IsDoctor ? "Click 'Start Consultation' below to activate camera and start the timer." : "Timer will NOT start until doctor accepts and begins the session."))
+                        </p>
+                    </div>
+
+                    @if (Model.IsDoctor && Model.Status == "Pending")
+                    {
+                        <button type="button" id="btnDoctorStartCall" onclick="doctorStartConsultation()" class="px-6 py-3 rounded-2xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs shadow-lg shadow-emerald-600/30 flex items-center gap-2 transition-all active:scale-95 animate-bounce">
+                            <i data-lucide="play" class="w-4 h-4 fill-current"></i>
+                            <span>Start Consultation (Begin Timer)</span>
+                        </button>
+                    }
+                </div>
+
+                <!-- Video HUD Overlay (Top-Left) -->
+                <div class="absolute top-4 left-4 z-20 flex items-center gap-2 bg-black/60 backdrop-blur-md px-3 py-1.5 rounded-xl border border-white/10 text-xs">
+                    <span class="w-2 h-2 rounded-full bg-emerald-400"></span>
+                    <span class="font-semibold text-white">
+                        @(Model.IsDoctor ? $"Remote: {Model.PatientName}" : $"Remote: Dr. {Model.DoctorName}")
+                    </span>
+                </div>
+            </div>
+
+            <!-- Picture-in-Picture Local Video (Self View) -->
+            <div class="absolute bottom-20 right-4 sm:bottom-20 sm:right-6 w-28 h-20 sm:w-40 sm:h-30 rounded-2xl overflow-hidden border-2 border-white/20 shadow-2xl bg-slate-900 z-30">
+                <video id="localParticipantVideo" autoplay playsinline muted class="w-full h-full object-cover"></video>
+                <div class="absolute bottom-1 left-2 bg-black/70 px-1.5 py-0.5 rounded text-[10px] text-white font-medium">You (Self)</div>
+            </div>
+
+            <!-- Video Controls Bar (Bottom Overlay) -->
+            <div class="relative z-30 p-4 bg-gradient-to-t from-black via-black/80 to-transparent flex items-center justify-between gap-3 mt-auto">
+                <div class="flex items-center gap-2">
+                    <button type="button" id="btnToggleMic" onclick="toggleMicrophone()" class="w-10 h-10 rounded-2xl bg-slate-800 hover:bg-slate-700 text-white flex items-center justify-center transition-all border border-slate-700" title="Mute/Unmute Mic">
+                        <i data-lucide="mic" id="iconMic" class="w-5 h-5"></i>
+                    </button>
+                    <button type="button" id="btnToggleCam" onclick="toggleCamera()" class="w-10 h-10 rounded-2xl bg-slate-800 hover:bg-slate-700 text-white flex items-center justify-center transition-all border border-slate-700" title="Turn Camera On/Off">
+                        <i data-lucide="video" id="iconCam" class="w-5 h-5"></i>
+                    </button>
+                    <button type="button" onclick="toggleFullscreen()" class="w-10 h-10 rounded-2xl bg-slate-800 hover:bg-slate-700 text-white hidden sm:flex items-center justify-center transition-all border border-slate-700" title="Fullscreen">
+                        <i data-lucide="maximize" class="w-5 h-5"></i>
+                    </button>
+                </div>
+
+                <div class="flex items-center gap-2.5">
+                    @if (Model.IsDoctor)
+                    {
+                        <a href="/Doctor/Prescriptions/Create?consultationId=@Model.ConsultationId&userId=@Model.PatientUserId" target="_blank" class="px-3.5 py-2 rounded-xl bg-purple-600 hover:bg-purple-700 text-white font-bold text-xs flex items-center gap-1.5 shadow-md shadow-purple-600/30 transition-all" title="Open Prescription Creator">
+                            <i data-lucide="file-plus" class="w-4 h-4"></i>
+                            <span>Write Rx</span>
+                        </a>
+                    }
+                    <button type="button" onclick="confirmEndConsultation()" class="px-4 py-2 rounded-xl bg-red-600 hover:bg-red-700 text-white font-bold text-xs flex items-center gap-1.5 shadow-lg shadow-red-600/40 transition-all active:scale-95">
+                        <i data-lucide="phone-off" class="w-4 h-4"></i>
+                        <span>End Consultation</span>
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- ===================== DIRECT 1-TO-1 CONSULTATION CHAT (COL 9-12) ===================== -->
+        <div class="lg:col-span-4 bg-slate-900 border border-slate-800 rounded-3xl overflow-hidden flex flex-col h-[520px] shadow-2xl">
+            <!-- Chat Header -->
+            <div class="p-3.5 border-b border-slate-800 bg-slate-950 flex items-center justify-between">
+                <div class="flex items-center gap-2">
+                    <span class="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
+                    <h3 class="font-heading font-bold text-xs text-white uppercase tracking-wider">Consultation Chat</h3>
+                </div>
+                <span class="text-[10px] text-slate-400 font-medium">1-to-1 Private Session</span>
+            </div>
+
+            <!-- Messages Stream -->
+            <div id="chatMessageStream" class="flex-1 p-4 overflow-y-auto space-y-3 no-scrollbar text-xs">
+                <div class="p-3 rounded-2xl bg-slate-950/80 border border-slate-800 text-slate-400 text-center text-[11px] leading-relaxed">
+                    🔒 This consultation is private and encrypted.<br />Messages and notes are saved directly to this session's medical record.
+                </div>
+            </div>
+
+            <!-- Chat Input Form -->
+            <form id="consultationChatForm" onsubmit="handleSendChatMessage(event)" class="p-3 border-t border-slate-800 bg-slate-950 flex items-center gap-2">
+                <input type="text" id="consultationChatInput" placeholder="Type message to @(Model.IsDoctor ? Model.PatientName : $"Dr. {Model.DoctorName}")..." autocomplete="off" class="flex-1 bg-slate-900 border border-slate-800 rounded-xl px-3.5 py-2.5 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-purple-500 transition-colors" />
+                <button type="submit" class="w-9 h-9 rounded-xl bg-purple-600 hover:bg-purple-700 text-white flex items-center justify-center transition-all shadow-md active:scale-95 flex-shrink-0">
+                    <i data-lucide="send" class="w-4 h-4"></i>
+                </button>
+            </form>
+        </div>
+    </div>
+</div>
+
+<!-- ===================== END CONSULTATION SUMMARY MODAL ===================== -->
+<div id="endSummaryModal" class="fixed inset-0 bg-black/85 backdrop-blur-md z-[999] hidden flex items-center justify-center p-4">
+    <div class="bg-slate-900 border border-slate-800 rounded-3xl p-6 sm:p-7 max-w-sm w-full shadow-2xl text-center space-y-4">
+        <div class="w-14 h-14 bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 rounded-2xl mx-auto flex items-center justify-center">
+            <i data-lucide="check-circle-2" class="w-7 h-7"></i>
+        </div>
+        <div>
+            <h3 class="font-heading font-extrabold text-lg text-white">Consultation Completed</h3>
+            <p class="text-xs text-slate-400 mt-1">The session has ended and timer has stopped.</p>
+        </div>
+        <div class="bg-slate-950 border border-slate-800/80 rounded-2xl p-4 space-y-2 text-xs">
+            <div class="flex justify-between text-slate-400">
+                <span>Total Duration:</span>
+                <span id="summaryDuration" class="font-bold text-white font-mono">0 mins</span>
+            </div>
+            <div class="flex justify-between text-slate-400">
+                <span>Rate per Minute:</span>
+                <span class="font-bold text-white font-mono">₹@Model.RatePerMinute.ToString("N2")/min</span>
+            </div>
+            <div class="h-px bg-slate-800"></div>
+            <div class="flex justify-between text-white font-semibold text-sm">
+                <span>Total Billed Amount:</span>
+                <span id="summaryTotalBilled" class="font-mono text-emerald-400 font-extrabold">₹0.00</span>
+            </div>
+        </div>
+        <div class="space-y-2 pt-2">
+            @if (Model.IsDoctor)
+            {
+                <a href="/Doctor/Consultations" class="w-full py-3 rounded-xl bg-purple-600 hover:bg-purple-700 text-white font-bold text-xs flex items-center justify-center gap-2 shadow-lg transition-all">
+                    <span>Back to Patient Queue</span>
+                </a>
+            }
+            else
+            {
+                <a href="/User/Dashboard" class="w-full py-3 rounded-xl bg-red-600 hover:bg-red-700 text-white font-bold text-xs flex items-center justify-center gap-2 shadow-lg transition-all">
+                    <span>Return to Dashboard</span>
+                </a>
+            }
+        </div>
+    </div>
+</div>
+
+@section Scripts {
+    <script>
+        const consultationId = @Model.ConsultationId;
+        const isDoctor = @(Model.IsDoctor ? "true" : "false");
+        const ratePerMinute = @Model.RatePerMinute;
+        const isPaid = @(Model.IsPaid ? "true" : "false");
+        const livekitServerUrl = "@Model.LiveKitServerUrl";
+        const livekitToken = "@Model.LiveKitToken";
+        const roomName = "@Model.LiveKitRoomName";
+        const currentRole = "@Model.CurrentRole";
+        const currentUserName = "@Model.CurrentUserName";
+
+        let livekitRoom = null;
+        let consultationHubConn = null;
+        let timerInterval = null;
+        let timerStartedAt = @(Model.StartedAt != null ? $"new Date('{Model.StartedAt.Value.ToString("o")}').getTime()" : "null");
+        let isMicMuted = false;
+        let isCamOff = false;
+
+        // 1. Setup SignalR Consultation Hub
+        async function setupSignalR() {
+            try {
+                consultationHubConn = new signalR.HubConnectionBuilder()
+                    .withUrl('/hubs/consultation')
+                    .withAutomaticReconnect([0, 2000, 5000, 10000])
+                    .build();
+
+                // Listen for 1-to-1 Chat messages
+                consultationHubConn.on("ReceiveConsultationMessage", (payload) => {
+                    appendChatMessage(payload.senderRole, payload.messageText, payload.createdAt, false);
+                });
+
+                // Listen for Timer Start (emitted when Doctor clicks Accept/Start)
+                consultationHubConn.on("TimerStarted", (payload) => {
+                    console.log("[ConsultationRoom] TimerStarted event received:", payload);
+                    const serverTime = payload.startedAt || payload.StartedAt;
+                    if (serverTime) {
+                        timerStartedAt = new Date(serverTime).getTime();
+                    } else {
+                        timerStartedAt = new Date().getTime();
+                    }
+                    startSynchronizedTimer();
+
+                    // Update UI state
+                    const statusBadge = document.getElementById('sessionStatusBadge');
+                    if (statusBadge) {
+                        statusBadge.className = "px-2.5 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider bg-emerald-500/20 text-emerald-400 border border-emerald-500/30";
+                        statusBadge.textContent = "● LIVE CALL";
+                    }
+                    const dot = document.getElementById('timerPulseDot');
+                    if (dot) dot.className = "w-2.5 h-2.5 rounded-full bg-red-500 animate-ping";
+
+                    // Ensure WebRTC video is running
+                    if (!livekitRoom) {
+                        connectLiveKitRoom();
+                    }
+                });
+
+                // Listen for Consultation Ended
+                consultationHubConn.on("ConsultationEnded", (summary) => {
+                    console.log("[ConsultationRoom] ConsultationEnded received:", summary);
+                    showEndSummaryModal(summary);
+                });
+
+                await consultationHubConn.start();
+                console.log("[ConsultationRoom] SignalR connected. Joining group Consultation_" + consultationId);
+                await consultationHubConn.invoke("JoinConsultation", consultationId.toString());
+            } catch (err) {
+                console.warn("[ConsultationRoom] SignalR connection notice:", err);
+            }
+        }
+
+        // 2. Connect LiveKit WebRTC Video Channel
+        async function connectLiveKitRoom() {
+            if (!window.LivekitClient || !livekitServerUrl || !livekitToken) {
+                console.warn("[ConsultationRoom] LiveKit SDK or credentials missing.");
+                return;
+            }
+
+            try {
+                livekitRoom = new LivekitClient.Room({
+                    adaptiveStream: true,
+                    dynacast: true
+                });
+
+                // Remote Track Subscribed
+                livekitRoom.on(LivekitClient.RoomEvent.TrackSubscribed, (track, publication, participant) => {
+                    console.log("[ConsultationRoom] Remote track subscribed:", track.kind);
+                    if (track.kind === LivekitClient.Track.Kind.Video || track.kind === 'video') {
+                        const remoteVid = document.getElementById('remoteParticipantVideo');
+                        track.attach(remoteVid);
+                        remoteVid.classList.remove('hidden');
+                        document.getElementById('remoteVideoPlaceholder').classList.add('hidden');
+                    } else if (track.kind === LivekitClient.Track.Kind.Audio || track.kind === 'audio') {
+                        const audioEl = document.getElementById('remoteAudioTrack');
+                        track.attach(audioEl);
+                        audioEl.play().catch(e => console.warn("Audio autoplay blocked:", e));
+                    }
+                });
+
+                // Remote Track Unsubscribed
+                livekitRoom.on(LivekitClient.RoomEvent.TrackUnsubscribed, (track) => {
+                    track.detach();
+                });
+
+                await livekitRoom.connect(livekitServerUrl, livekitToken);
+                console.log("[ConsultationRoom] Connected to LiveKit room:", roomName);
+
+                // Publish local camera and mic
+                await livekitRoom.localParticipant.setCameraEnabled(true);
+                await livekitRoom.localParticipant.setMicrophoneEnabled(true);
+
+                // Attach local video to self PIP
+                const localVideoPub = Array.from(livekitRoom.localParticipant.videoTrackPublications.values())[0];
+                if (localVideoPub && localVideoPub.track) {
+                    localVideoPub.track.attach(document.getElementById('localParticipantVideo'));
+                }
+
+                // Check for remote participants already in the room
+                livekitRoom.remoteParticipants.forEach(participant => {
+                    participant.trackPublications.forEach(pub => {
+                        if (pub.track) {
+                            if (pub.kind === 'video') {
+                                const remoteVid = document.getElementById('remoteParticipantVideo');
+                                pub.track.attach(remoteVid);
+                                remoteVid.classList.remove('hidden');
+                                document.getElementById('remoteVideoPlaceholder').classList.add('hidden');
+                            } else if (pub.kind === 'audio') {
+                                const audioEl = document.getElementById('remoteAudioTrack');
+                                pub.track.attach(audioEl);
+                            }
+                        }
+                    });
+                });
+            } catch (err) {
+                console.error("[ConsultationRoom] LiveKit connect error:", err);
+            }
+        }
+
+        // 3. Synchronized Live Timer
+        function startSynchronizedTimer() {
+            if (timerInterval) clearInterval(timerInterval);
+            if (!timerStartedAt) return;
+
+            function updateClock() {
+                const now = new Date().getTime();
+                const diffSeconds = Math.max(0, Math.floor((now - timerStartedAt) / 1000));
+
+                const hrs = Math.floor(diffSeconds / 3600);
+                const mins = Math.floor((diffSeconds % 3600) / 60);
+                const secs = diffSeconds % 60;
+
+                const clockEl = document.getElementById('consultationClock');
+                if (clockEl) {
+                    clockEl.textContent = `${pad(hrs)}:${pad(mins)}:${pad(secs)}`;
+                }
+
+                // Accrued Billed Amount
+                const costEl = document.getElementById('liveAccruedCost');
+                if (costEl) {
+                    if (!isPaid) {
+                        costEl.textContent = "FREE";
+                    } else {
+                        const billedMinutes = Math.max(1, Math.ceil(diffSeconds / 60));
+                        const accrued = billedMinutes * ratePerMinute;
+                        costEl.textContent = `₹${accrued.toFixed(2)}`;
+                    }
+                }
+            }
+
+            updateClock();
+            timerInterval = setInterval(updateClock, 1000);
+        }
+
+        function pad(n) { return n < 10 ? '0' + n : n; }
+
+        // 4. Doctor Start Consultation Handler (Transitions from Pending to Active)
+        async function doctorStartConsultation() {
+            const btn = document.getElementById('btnDoctorStartCall');
+            if (btn) {
+                btn.disabled = true;
+                btn.innerHTML = 'Starting Call...';
+            }
+
+            try {
+                const res = await fetch('/api/consultation/accept', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(consultationId)
+                });
+                const data = await res.json();
+                if (data.success) {
+                    timerStartedAt = new Date().getTime();
+                    startSynchronizedTimer();
+                    connectLiveKitRoom();
+                } else {
+                    alert(data.message || "Failed to start consultation session");
+                    if (btn) {
+                        btn.disabled = false;
+                        btn.innerHTML = '<i data-lucide="play" class="w-4 h-4 fill-current"></i><span>Start Consultation (Begin Timer)</span>';
+                        if (window.lucide) lucide.createIcons();
+                    }
+                }
+            } catch (err) {
+                console.error(err);
+                if (btn) btn.disabled = false;
+            }
+        }
+
+        // 5. Media Controls (Mic, Cam, Fullscreen)
+        async function toggleMicrophone() {
+            if (!livekitRoom?.localParticipant) return;
+            isMicMuted = !isMicMuted;
+            await livekitRoom.localParticipant.setMicrophoneEnabled(!isMicMuted);
+
+            const btn = document.getElementById('btnToggleMic');
+            const icon = document.getElementById('iconMic');
+            if (isMicMuted) {
+                btn.className = "w-10 h-10 rounded-2xl bg-red-600/30 text-red-400 border border-red-500/40 flex items-center justify-center transition-all";
+                icon.setAttribute('data-lucide', 'mic-off');
+            } else {
+                btn.className = "w-10 h-10 rounded-2xl bg-slate-800 hover:bg-slate-700 text-white flex items-center justify-center transition-all border border-slate-700";
+                icon.setAttribute('data-lucide', 'mic');
+            }
+            if (window.lucide) lucide.createIcons();
+        }
+
+        async function toggleCamera() {
+            if (!livekitRoom?.localParticipant) return;
+            isCamOff = !isCamOff;
+            await livekitRoom.localParticipant.setCameraEnabled(!isCamOff);
+
+            const btn = document.getElementById('btnToggleCam');
+            const icon = document.getElementById('iconCam');
+            if (isCamOff) {
+                btn.className = "w-10 h-10 rounded-2xl bg-red-600/30 text-red-400 border border-red-500/40 flex items-center justify-center transition-all";
+                icon.setAttribute('data-lucide', 'video-off');
+            } else {
+                btn.className = "w-10 h-10 rounded-2xl bg-slate-800 hover:bg-slate-700 text-white flex items-center justify-center transition-all border border-slate-700";
+                icon.setAttribute('data-lucide', 'video');
+            }
+            if (window.lucide) lucide.createIcons();
+        }
+
+        function toggleFullscreen() {
+            if (!document.fullscreenElement) {
+                document.documentElement.requestFullscreen().catch(() => {});
+            } else {
+                document.exitFullscreen().catch(() => {});
+            }
+        }
+
+        // 6. Direct 1-to-1 Chat Messaging
+        async function handleSendChatMessage(e) {
+            e.preventDefault();
+            const input = document.getElementById('consultationChatInput');
+            const msg = input.value.trim();
+            if (!msg) return;
+
+            appendChatMessage(currentRole, msg, new Date().toISOString(), true);
+            input.value = '';
+
+            if (consultationHubConn && consultationHubConn.state === "Connected") {
+                try {
+                    await consultationHubConn.invoke("SendMessage", consultationId, msg, currentRole);
+                } catch (err) {
+                    console.error("Failed to send message via SignalR:", err);
+                }
+            }
+        }
+
+        function appendChatMessage(role, text, time, isSelf) {
+            const stream = document.getElementById('chatMessageStream');
+            const item = document.createElement('div');
+            item.className = `flex flex-col ${isSelf ? 'items-end' : 'items-start'} space-y-1 animate-fade-in`;
+
+            const bubbleColor = isSelf 
+                ? (role === 'Doctor' ? 'bg-purple-600 text-white' : 'bg-red-600 text-white')
+                : 'bg-slate-800 border border-slate-700 text-slate-200';
+
+            item.innerHTML = `
+                <div class="max-w-[85%] rounded-2xl px-3.5 py-2.5 ${bubbleColor} shadow">
+                    <p class="text-xs leading-relaxed break-words">${escapeHtml(text)}</p>
+                </div>
+                <span class="text-[9px] text-slate-500 font-mono px-1">${formatTime(time)}</span>
+            `;
+            stream.appendChild(item);
+            stream.scrollTop = stream.scrollHeight;
+        }
+
+        function formatTime(iso) {
+            try {
+                return new Date(iso).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+            } catch {
+                return '';
+            }
+        }
+
+        function escapeHtml(t) {
+            if (!t) return '';
+            const m = { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#039;' };
+            return t.replace(/[&<>"']/g, c => m[c]);
+        }
+
+        // 7. End Consultation
+        async function confirmEndConsultation() {
+            if (!confirm("Are you sure you want to end this 1-to-1 consultation?")) return;
+
+            try {
+                const res = await fetch('/api/consultation/end', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(consultationId)
+                });
+                const data = await res.json();
+                if (data.success) {
+                    showEndSummaryModal(data.data);
+                } else {
+                    alert(data.message || "Failed to end consultation");
+                }
+            } catch (err) {
+                console.error(err);
+            }
+        }
+
+        function showEndSummaryModal(summary) {
+            if (timerInterval) clearInterval(timerInterval);
+            if (livekitRoom) {
+                livekitRoom.disconnect().catch(() => {});
+                livekitRoom = null;
+            }
+
+            const modal = document.getElementById('endSummaryModal');
+            if (modal) {
+                const duration = summary ? (summary.durationSeconds || summary.DurationSeconds || 0) : 0;
+                const billed = summary ? (summary.billedAmount || summary.BilledAmount || 0) : 0;
+                const mins = Math.max(1, Math.ceil(duration / 60));
+
+                document.getElementById('summaryDuration').textContent = `${mins} min(s) (${duration}s)`;
+                document.getElementById('summaryTotalBilled').textContent = `₹${parseFloat(billed).toFixed(2)}`;
+                modal.classList.remove('hidden');
+            }
+        }
+
+        window.addEventListener('DOMContentLoaded', () => {
+            setupSignalR();
+            if (timerStartedAt) {
+                startSynchronizedTimer();
+                connectLiveKitRoom();
+            }
+            if (window.lucide) lucide.createIcons();
+        });
+    </script>
+}

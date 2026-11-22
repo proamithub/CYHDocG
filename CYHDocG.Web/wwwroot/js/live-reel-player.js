@@ -215,6 +215,32 @@
 
             await activeLiveKitRoom.connect(data.serverUrl, data.token);
             console.log('[LiveReel] Connected to LiveKit room:', data.roomName);
+
+            // Immediately inspect and attach any already-published tracks from the doctor
+            activeLiveKitRoom.remoteParticipants.forEach(participant => {
+                participant.trackPublications.forEach(pub => {
+                    if (pub.track) {
+                        if (pub.kind === 'video') {
+                            if (videoEl) {
+                                pub.track.attach(videoEl);
+                                videoEl.classList.remove('hidden');
+                                if (placeholder) placeholder.classList.add('hidden');
+                                videoEl.play().catch(e => console.warn('[LiveReel] Video play suppressed:', e));
+                            }
+                        } else if (pub.kind === 'audio') {
+                            let audioEl = document.getElementById('liveReelAudioTrack');
+                            if (!audioEl) {
+                                audioEl = document.createElement('audio');
+                                audioEl.id = 'liveReelAudioTrack';
+                                audioEl.autoplay = true;
+                                card.appendChild(audioEl);
+                            }
+                            pub.track.attach(audioEl);
+                            audioEl.play().catch(e => console.warn('[LiveReel] Audio play suppressed:', e));
+                        }
+                    }
+                });
+            });
         } catch (err) {
             console.warn('[LiveReel] LiveKit subscriber error:', err);
         }

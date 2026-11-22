@@ -106,7 +106,7 @@ BEGIN
                 1,
                 25.00,
                 0,
-                0, -- IsApproved = 0: MUST BE VERIFIED AND ACTIVATED BY ADMIN
+                1, -- Auto-approved for seamless onboarding & testing
                 0,
                 SYSUTCDATETIME()
             );

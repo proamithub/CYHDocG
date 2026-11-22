@@ -81,42 +81,10 @@ public class LiveChatController : Controller
         ViewBag.DoctorId = doctorId;
         ViewBag.ConsultationId = consultationId;
 
-        // If a consultationId was provided (from Doctor Studio Accept or Patient Reel Handoff), fetch details
+        // If a consultationId was provided (from Doctor Studio Accept or Patient Reel Handoff), route directly to Dedicated Video Room
         if (consultationId.HasValue && consultationId.Value > 0)
         {
-            try
-            {
-                using var conn = _baseRepo.CreateConnection();
-                string sql = @"
-                    SELECT 
-                        c.ConsultationId,
-                        c.UserId AS PatientUserId,
-                        pu.FullName AS PatientName,
-                        c.DoctorId,
-                        du.FullName AS DoctorName,
-                        c.Status,
-                        c.StartedAt,
-                        c.RatePerMinute,
-                        c.IsPaid
-                    FROM dbo.Consultations c
-                    INNER JOIN dbo.Users pu ON c.UserId = pu.UserId
-                    INNER JOIN dbo.Doctors d ON c.DoctorId = d.DoctorId
-                    INNER JOIN dbo.Users du ON d.UserId = du.UserId
-                    WHERE c.ConsultationId = @ConsultationId;";
-
-                var activeConsultation = await conn.QueryFirstOrDefaultAsync<dynamic>(sql, new { ConsultationId = consultationId.Value });
-                if (activeConsultation != null)
-                {
-                    ViewBag.ActiveConsultation = activeConsultation;
-                    ViewBag.DoctorName = (string)activeConsultation.DoctorName;
-                    ViewBag.PatientName = (string)activeConsultation.PatientName;
-                    ViewBag.ConsultationStatus = (string)activeConsultation.Status;
-                    ViewBag.RatePerMinute = (decimal)activeConsultation.RatePerMinute;
-                    ViewBag.IsPaid = (bool)activeConsultation.IsPaid;
-                    ViewBag.StartedAt = activeConsultation.StartedAt != null ? ((DateTime)activeConsultation.StartedAt).ToString("o") : null;
-                }
-            }
-            catch { }
+            return RedirectToAction("Room", "ConsultationRoom", new { id = consultationId.Value });
         }
 
         // Fetch live doctors who can accept chats

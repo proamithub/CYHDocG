@@ -322,7 +322,7 @@
                 videoEl.srcObject = localMediaStream;
                 document.getElementById('videoPlaceholder').classList.add('hidden');
 
-                // 2. Connect to LiveKit if available
+                // 2. Connect to LiveKit WebRTC and publish Camera & Microphone
                 if (window.LivekitClient && livekitServerUrl && livekitToken) {
                     try {
                         livekitRoom = new LivekitClient.Room({
@@ -330,18 +330,31 @@
                             dynacast: true
                         });
                         await livekitRoom.connect(livekitServerUrl, livekitToken);
-                        await livekitRoom.localParticipant.enableCameraAndMicrophone();
+                        console.log("[LiveStudio] Connected to LiveKit Room:", roomName);
+
+                        await livekitRoom.localParticipant.setCameraEnabled(true);
+                        await livekitRoom.localParticipant.setMicrophoneEnabled(true);
+
+                        const pub = Array.from(livekitRoom.localParticipant.videoTrackPublications.values())[0];
+                        if (pub && pub.track) {
+                            pub.track.attach(videoEl);
+                        }
                     } catch (lkErr) {
                         console.warn("LiveKit server connect fallback to local WebRTC:", lkErr);
                     }
                 }
 
                 // 3. Notify backend that doctor is LIVE
-                await fetch('/Doctor/LiveStudio/ToggleLive', {
+                const toggleResp = await fetch('/Doctor/LiveStudio/ToggleLive', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ isLive: true, streamUrl: '/Doctor/LiveStudio' })
                 });
+                const toggleData = await toggleResp.json();
+                if (!toggleResp.ok || !toggleData.success) {
+                    alert("Live Studio Error: " + (toggleData.message || "Failed to activate live status."));
+                    return;
+                }
 
                 // Update UI state
                 isBroadcasting = true;
@@ -390,21 +403,31 @@
             document.getElementById('liveStatusText').textContent = "STUDIO OFFLINE";
         }
 
-        function toggleMic() {
-            if (!localMediaStream) return;
-            const audioTrack = localMediaStream.getAudioTracks()[0];
-            if (audioTrack) {
-                audioTrack.enabled = !audioTrack.enabled;
-                document.getElementById('micText').textContent = audioTrack.enabled ? "Mute" : "Unmute";
+        async function toggleMic() {
+            if (livekitRoom?.localParticipant) {
+                const isEnabled = livekitRoom.localParticipant.isMicrophoneEnabled;
+                await livekitRoom.localParticipant.setMicrophoneEnabled(!isEnabled);
+                document.getElementById('micText').textContent = !isEnabled ? "Mute" : "Unmute";
+            } else if (localMediaStream) {
+                const audioTrack = localMediaStream.getAudioTracks()[0];
+                if (audioTrack) {
+                    audioTrack.enabled = !audioTrack.enabled;
+                    document.getElementById('micText').textContent = audioTrack.enabled ? "Mute" : "Unmute";
+                }
             }
         }
 
-        function toggleCam() {
-            if (!localMediaStream) return;
-            const videoTrack = localMediaStream.getVideoTracks()[0];
-            if (videoTrack) {
-                videoTrack.enabled = !videoTrack.enabled;
-                document.getElementById('camText').textContent = videoTrack.enabled ? "Stop Video" : "Start Video";
+        async function toggleCam() {
+            if (livekitRoom?.localParticipant) {
+                const isEnabled = livekitRoom.localParticipant.isCameraEnabled;
+                await livekitRoom.localParticipant.setCameraEnabled(!isEnabled);
+                document.getElementById('camText').textContent = !isEnabled ? "Stop Video" : "Start Video";
+            } else if (localMediaStream) {
+                const videoTrack = localMediaStream.getVideoTracks()[0];
+                if (videoTrack) {
+                    videoTrack.enabled = !videoTrack.enabled;
+                    document.getElementById('camText').textContent = videoTrack.enabled ? "Stop Video" : "Start Video";
+                }
             }
         }
 
@@ -515,8 +538,8 @@
                 });
                 const data = await res.json();
                 if (data.success) {
-                    // Navigate smoothly into the 1-to-1 consultation session
-                    window.location.href = `/LiveChat?doctorId=${doctorId}&consultationId=${consultationId}`;
+                    // Navigate smoothly into the Dedicated 1-to-1 Video Consultation Room
+                    window.location.href = `/Consultation/Room/${consultationId}`;
                 } else {
                     alert(data.message || "Failed to accept consultation");
                     if (btn) {

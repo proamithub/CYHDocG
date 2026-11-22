@@ -386,8 +386,8 @@
         // Global listener for ConsultationAccepted from SignalR
         window.handleConsultationAcceptedByDoctor = function (payload) {
             if (requestedConsultationId && payload.consultationId == requestedConsultationId) {
-                // Doctor has accepted! Transition patient to 1-to-1 session!
-                window.location.href = `/LiveChat?doctorId=${payload.doctorId}&consultationId=${payload.consultationId}`;
+                // Doctor has accepted! Transition patient directly to the Dedicated Video Consultation Room!
+                window.location.href = `/Consultation/Room/${payload.consultationId}`;
             }
         };
     </script>

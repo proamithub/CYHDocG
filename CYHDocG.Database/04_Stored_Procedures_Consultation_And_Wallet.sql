@@ -141,7 +141,13 @@ CREATE OR ALTER PROCEDURE dbo.usp_Consultation_Accept
 AS
 BEGIN
     SET NOCOUNT ON;
-    IF EXISTS (SELECT 1 FROM dbo.Consultations WHERE ConsultationId = @ConsultationId AND DoctorId = @DoctorId AND Status = 'Pending')
+    IF EXISTS (
+        SELECT 1 FROM dbo.Consultations c 
+        INNER JOIN dbo.Doctors d ON c.DoctorId = d.DoctorId 
+        WHERE c.ConsultationId = @ConsultationId 
+          AND (c.DoctorId = @DoctorId OR d.UserId = @DoctorId) 
+          AND c.Status = 'Pending'
+    )
     BEGIN
         UPDATE dbo.Consultations
         SET Status = 'Active',
@@ -152,7 +158,16 @@ BEGIN
     END
     ELSE
     BEGIN
-        SELECT 0 AS Success, 'Invalid or already processed consultation' AS Message, NULL AS StartedAt;
+        DECLARE @ExistingStartedAt DATETIME2;
+        SELECT @ExistingStartedAt = StartedAt FROM dbo.Consultations WHERE ConsultationId = @ConsultationId AND Status = 'Active';
+        IF @ExistingStartedAt IS NOT NULL
+        BEGIN
+            SELECT 1 AS Success, 'Consultation already active' AS Message, @ExistingStartedAt AS StartedAt;
+        END
+        ELSE
+        BEGIN
+            SELECT 0 AS Success, 'Invalid or already processed consultation' AS Message, NULL AS StartedAt;
+        END
     END
 END
 GO
@@ -166,6 +181,18 @@ BEGIN
     SET NOCOUNT ON;
     BEGIN TRANSACTION;
     BEGIN TRY
+        -- If consultation is Pending (not yet started), allow clean cancellation without billing
+        IF EXISTS (SELECT 1 FROM dbo.Consultations WHERE ConsultationId = @ConsultationId AND Status = 'Pending')
+        BEGIN
+            UPDATE dbo.Consultations
+            SET Status = 'Cancelled', EndedAt = SYSUTCDATETIME(), DurationSeconds = 0, TotalAmount = 0.00
+            WHERE ConsultationId = @ConsultationId;
+
+            COMMIT TRANSACTION;
+            SELECT 1 AS Success, 'Consultation cancelled' AS Message, 0 AS DurationSeconds, 0.00 AS BilledAmount;
+            RETURN;
+        END
+
         DECLARE @UserId BIGINT, @DoctorId BIGINT, @StartedAt DATETIME2, @Rate DECIMAL(18,2), @IsPaid BIT;
         SELECT 
             @UserId = UserId, 
