@@ -168,7 +168,7 @@
             </div>
 
             <!-- Comments Log -->
-            <div id="studioCommentsBox" class="flex-1 overflow-y-auto space-y-2.5 pr-1 no-scrollbar text-xs">
+            <div id="studioCommentsBox" class="flex-1 overflow-y-auto space-y-3 pr-1.5 no-scrollbar text-xs">
                 @if (ViewBag.RecentComments != null && ((List<CYHDocG.Repo.DTOs.LiveCommentDto>)ViewBag.RecentComments).Any())
                 {
                     foreach (var c in (List<CYHDocG.Repo.DTOs.LiveCommentDto>)ViewBag.RecentComments)
@@ -178,37 +178,98 @@
                         {
                             cleanUserName = cleanUserName.Substring(4).Trim();
                         }
-                        var isDoc = cleanUserName.StartsWith("Dr.", StringComparison.OrdinalIgnoreCase) || cleanUserName == "System";
-                        <div id="comment_@c.CommentId" data-user-id="@c.UserId" class="comment-item p-2.5 rounded-xl bg-slate-950/80 border border-slate-800/80 flex flex-col gap-0.5">
-                            <div class="flex items-center justify-between">
-                                <span class="font-bold text-white text-[11px] cursor-pointer hover:underline hover:text-red-400" onclick="replyToUser('@cleanUserName')" title="Click to reply">@cleanUserName</span>
-                                <div class="flex items-center gap-1.5">
-                                    @if (!isDoc && c.UserId > 0)
-                                    {
-                                        <button type="button" onclick="replyToUser('@cleanUserName')" class="text-[10px] text-blue-400 hover:text-blue-300 px-1.5 py-0.5 rounded bg-blue-500/10 border border-blue-500/20" title="Reply">Reply</button>
-                                        <button type="button" onclick="handleBlockUser(@c.UserId, '@cleanUserName')" class="text-[10px] text-red-400 hover:text-red-300 px-1.5 py-0.5 rounded bg-red-500/10 border border-red-500/20" title="Block User">Block</button>
-                                    }
-                                    <button type="button" onclick="handleDeleteComment(@c.CommentId)" class="text-[10px] text-slate-400 hover:text-slate-200 px-1.5 py-0.5 rounded bg-slate-800 border border-slate-700" title="Delete Comment">Delete</button>
+                        var isSystem = cleanUserName.Equals("System", StringComparison.OrdinalIgnoreCase);
+                        var isDoc = cleanUserName.StartsWith("Dr.", StringComparison.OrdinalIgnoreCase) || cleanUserName.Equals(ViewBag.DoctorName?.ToString(), StringComparison.OrdinalIgnoreCase);
+                        var initial = !string.IsNullOrEmpty(cleanUserName) ? cleanUserName.Substring(0, 1).ToUpper() : "U";
+
+                        if (isSystem)
+                        {
+                            <div class="comment-item flex justify-center w-full my-1 animate-fade-in">
+                                <div class="px-3.5 py-1 rounded-full bg-slate-950/90 border border-slate-800 text-slate-400 text-[10px] text-center shadow">
+                                    @c.Message
                                 </div>
                             </div>
-                            <span class="text-slate-300 text-xs">@c.Message</span>
-                        </div>
+                        }
+                        else if (isDoc)
+                        {
+                            <!-- Doctor Reply: Right Side -->
+                            <div id="comment_@c.CommentId" class="comment-item flex justify-end w-full group animate-fade-in">
+                                <div class="max-w-[85%] bg-gradient-to-br from-red-950/70 via-slate-900 to-slate-950 border border-red-500/40 rounded-2xl rounded-tr-xs p-3 shadow-lg flex flex-col gap-1.5 text-right">
+                                    <div class="flex items-center justify-between gap-3 border-b border-red-500/20 pb-1">
+                                        <button type="button" onclick="handleDeleteComment(@c.CommentId)" class="px-1.5 py-0.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-400 hover:text-slate-200 border border-slate-700 text-[10px] transition-all" title="Delete Comment">
+                                            ✕
+                                        </button>
+                                        <div class="flex items-center gap-1.5">
+                                            <span class="font-bold text-white text-[11px]">@cleanUserName</span>
+                                            <span class="px-1.5 py-0.5 rounded-full bg-red-500/20 border border-red-500/40 text-red-300 text-[9px] font-extrabold uppercase tracking-wide">Doctor</span>
+                                        </div>
+                                    </div>
+                                    <div class="text-white text-xs leading-relaxed break-words text-left">
+                                        @c.Message
+                                    </div>
+                                </div>
+                            </div>
+                        }
+                        else
+                        {
+                            <!-- Patient Comment: Left Side -->
+                            <div id="comment_@c.CommentId" data-user-id="@c.UserId" class="comment-item flex justify-start w-full group animate-fade-in">
+                                <div class="max-w-[85%] bg-slate-950/90 hover:bg-slate-950 border border-slate-800/90 rounded-2xl rounded-tl-xs p-3 shadow-md flex flex-col gap-1.5 text-left">
+                                    <div class="flex items-center justify-between gap-3 border-b border-slate-800/60 pb-1">
+                                        <div class="flex items-center gap-1.5">
+                                            <div class="w-5 h-5 rounded-full bg-blue-500/20 text-blue-400 border border-blue-500/30 flex items-center justify-center font-bold text-[10px]">
+                                                @initial
+                                            </div>
+                                            <span class="font-bold text-white text-[11px] cursor-pointer hover:underline hover:text-blue-400 transition-colors" onclick="replyToUser('@cleanUserName')" title="Click to tag and reply">
+                                                @cleanUserName
+                                            </span>
+                                        </div>
+                                        <div class="flex items-center gap-1 opacity-90 group-hover:opacity-100 transition-opacity">
+                                            <button type="button" onclick="replyToUser('@cleanUserName')" class="px-2 py-0.5 rounded-lg bg-blue-500/15 hover:bg-blue-500/30 text-blue-300 border border-blue-500/20 text-[10px] font-semibold flex items-center gap-1 transition-all active:scale-95" title="Tag and reply">
+                                                <span>Tag</span>
+                                            </button>
+                                            @if (c.UserId > 0)
+                                            {
+                                                <button type="button" onclick="handleBlockUser(@c.UserId, '@cleanUserName')" class="px-1.5 py-0.5 rounded-lg bg-red-500/15 hover:bg-red-500/30 text-red-400 border border-red-500/20 text-[10px] font-semibold transition-all active:scale-95" title="Block User">
+                                                    Block
+                                                </button>
+                                            }
+                                            <button type="button" onclick="handleDeleteComment(@c.CommentId)" class="px-1.5 py-0.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-400 hover:text-slate-200 border border-slate-700 text-[10px] transition-all" title="Delete Comment">
+                                                ✕
+                                            </button>
+                                        </div>
+                                    </div>
+                                    <div class="text-slate-200 text-xs leading-relaxed break-words">
+                                        @c.Message
+                                    </div>
+                                </div>
+                            </div>
+                        }
                     }
                 }
                 else
                 {
-                    <div id="noCommentsYetMsg" class="p-3 rounded-2xl bg-slate-950/60 border border-slate-800 text-slate-400 text-center text-[11px]">
+                    <div id="noCommentsYetMsg" class="p-4 rounded-2xl bg-slate-950/60 border border-slate-800 text-slate-400 text-center text-xs">
                         No comments yet. When patients watch your stream, their questions will appear here in real-time.
                     </div>
                 }
             </div>
 
+            <!-- Active Tagging / Replying Banner Chip -->
+            <div id="replyingToChip" class="hidden mt-2 px-3 py-1.5 rounded-xl bg-blue-950/60 border border-blue-500/30 flex items-center justify-between text-xs text-blue-300 animate-fade-in">
+                <div class="flex items-center gap-1.5">
+                    <span class="font-mono text-blue-400 font-bold">&#64;</span>
+                    <span>Tagging <strong id="replyingToUserName" class="text-white font-bold">&#64;User</strong></span>
+                </div>
+                <button type="button" onclick="cancelReplyToUser()" class="text-blue-400 hover:text-white text-xs font-bold px-1.5 py-0.5 rounded hover:bg-blue-500/20" title="Cancel Tag">✕</button>
+            </div>
+
             <!-- Doctor Broadcast Message Input -->
-            <form onsubmit="handleSendDoctorStudioComment(event)" class="mt-3 pt-3 border-t border-slate-800 flex gap-2">
-                <input type="text" id="studioCommentInput" placeholder="Reply to viewers..." 
-                       class="flex-1 px-3.5 py-2 rounded-xl bg-slate-950 border border-slate-800 text-white text-xs placeholder-slate-400 outline-none focus:border-red-500" />
-                <button type="submit" class="px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded-xl text-xs font-semibold transition-all">
-                    Send
+            <form onsubmit="handleSendDoctorStudioComment(event)" class="mt-2 pt-2 border-t border-slate-800 flex gap-2">
+                <input type="text" id="studioCommentInput" placeholder="Reply or tag a patient..." 
+                       class="flex-1 px-3.5 py-2.5 rounded-xl bg-slate-950 border border-slate-800 text-white text-xs placeholder-slate-400 outline-none focus:border-red-500 transition-colors" />
+                <button type="submit" class="px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded-xl text-xs font-semibold flex items-center gap-1.5 shadow-lg shadow-red-600/30 transition-all active:scale-95">
+                    <span>Send</span>
                 </button>
             </form>
         </div>
@@ -449,10 +510,33 @@
 
         function replyToUser(userName) {
             const input = document.getElementById('studioCommentInput');
+            const chip = document.getElementById('replyingToChip');
+            const chipName = document.getElementById('replyingToUserName');
             if (!input) return;
+
             const cleanName = (userName || '').replace(/^(Dr\.\s*)+/i, '').trim();
+            if (chip && chipName) {
+                chipName.textContent = "@@" + cleanName;
+                chip.classList.remove('hidden');
+            }
             input.value = "@@" + cleanName + " ";
             input.focus();
+        }
+
+        function cancelReplyToUser() {
+            const chip = document.getElementById('replyingToChip');
+            const input = document.getElementById('studioCommentInput');
+            if (chip) chip.classList.add('hidden');
+            if (input && input.value.startsWith('@@')) {
+                input.value = '';
+            }
+        }
+
+        function formatMentions(text) {
+            if (!text) return '';
+            const safe = escapeHtml(text);
+            return safe.replace(/(^|\s)(@@[a-zA-Z0-9_\u0900-\u097F]+(?:\s+[a-zA-Z0-9_\u0900-\u097F]+)?)/g, 
+                '$1<span class="inline-flex items-center px-1.5 py-0.5 rounded-md bg-blue-500/25 border border-blue-400/30 text-blue-300 font-bold text-[11px]">$2</span>');
         }
 
         function appendComment(user, text, userId, commentId) {
@@ -462,34 +546,85 @@
             if (noMsg) noMsg.remove();
 
             const box = document.getElementById('studioCommentsBox');
+            if (!box) return;
+
+            let displayName = (user || '').trim();
+            displayName = displayName.replace(/^(Dr\.\s*)+/i, 'Dr. ');
+
+            const isSystem = displayName === "System";
+            const doctorNameConfig = "@(ViewBag.DoctorName?.ToString()?.ToLower() ?? "")";
+            const isDoctor = displayName.startsWith("Dr.") || (doctorNameConfig && displayName.toLowerCase().includes(doctorNameConfig));
+
             const item = document.createElement('div');
-            item.className = "comment-item p-2.5 rounded-xl bg-slate-950/80 border border-slate-800/80 flex flex-col gap-0.5 animate-fade-in";
             if (commentId) item.id = `comment_${commentId}`;
             if (userId) item.setAttribute('data-user-id', userId);
 
-            let displayName = (user || '').trim();
-            // Prevent duplicate Dr. prefixes like "Dr. Dr. Arvind Mehta"
-            displayName = displayName.replace(/^(Dr\.\s*)+/i, 'Dr. ');
-
-            const isDoctor = displayName.startsWith("Dr.") || displayName === "System";
-
-            item.innerHTML = `
-                <div class="flex items-center justify-between">
-                    <span class="font-bold text-white text-[11px] cursor-pointer hover:underline hover:text-red-400" onclick="replyToUser('${escapeHtml(displayName)}')" title="Click to reply">${escapeHtml(displayName)}</span>
-                    ${!isDoctor && userId ? `
-                        <div class="flex items-center gap-1.5">
-                            <button type="button" onclick="replyToUser('${escapeHtml(displayName)}')" class="text-[10px] text-blue-400 hover:text-blue-300 px-1.5 py-0.5 rounded bg-blue-500/10 border border-blue-500/20" title="Reply to ${escapeHtml(displayName)}">Reply</button>
-                            <button type="button" onclick="handleBlockUser(${userId}, '${escapeHtml(displayName)}')" class="text-[10px] text-red-400 hover:text-red-300 px-1.5 py-0.5 rounded bg-red-500/10 border border-red-500/20" title="Block User from Stream">Block</button>
-                            ${commentId ? `<button type="button" onclick="handleDeleteComment(${commentId})" class="text-[10px] text-slate-400 hover:text-slate-200 px-1.5 py-0.5 rounded bg-slate-800 border border-slate-700" title="Delete Comment">Delete</button>` : ''}
+            if (isSystem) {
+                item.className = "comment-item flex justify-center w-full my-1 animate-fade-in";
+                item.innerHTML = `
+                    <div class="px-3.5 py-1 rounded-full bg-slate-950/90 border border-slate-800 text-slate-400 text-[10px] text-center shadow">
+                        ${escapeHtml(text)}
+                    </div>
+                `;
+            } else if (isDoctor) {
+                // Doctor Reply: Right Side
+                item.className = "comment-item flex justify-end w-full group animate-fade-in";
+                item.innerHTML = `
+                    <div class="max-w-[85%] bg-gradient-to-br from-red-950/70 via-slate-900 to-slate-950 border border-red-500/40 rounded-2xl rounded-tr-xs p-3 shadow-lg flex flex-col gap-1.5 text-right">
+                        <div class="flex items-center justify-between gap-3 border-b border-red-500/20 pb-1">
+                            ${commentId ? `
+                                <button type="button" onclick="handleDeleteComment(${commentId})" class="px-1.5 py-0.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-400 hover:text-slate-200 border border-slate-700 text-[10px] transition-all" title="Delete Comment">
+                                    ✕
+                                </button>
+                            ` : '<span></span>'}
+                            <div class="flex items-center gap-1.5">
+                                <span class="font-bold text-white text-[11px]">${escapeHtml(displayName)}</span>
+                                <span class="px-1.5 py-0.5 rounded-full bg-red-500/20 border border-red-500/40 text-red-300 text-[9px] font-extrabold uppercase tracking-wide">Doctor</span>
+                            </div>
                         </div>
-                    ` : (commentId ? `
-                        <div class="flex items-center gap-1.5">
-                            <button type="button" onclick="handleDeleteComment(${commentId})" class="text-[10px] text-slate-400 hover:text-slate-200 px-1.5 py-0.5 rounded bg-slate-800 border border-slate-700" title="Delete Comment">Delete</button>
+                        <div class="text-white text-xs leading-relaxed break-words text-left">
+                            ${formatMentions(text)}
                         </div>
-                    ` : '')}
-                </div>
-                <span class="text-slate-300 text-xs">${escapeHtml(text)}</span>
-            `;
+                    </div>
+                `;
+            } else {
+                // Patient Comment: Left Side
+                const initial = displayName.length > 0 ? displayName.charAt(0).toUpperCase() : 'U';
+                item.className = "comment-item flex justify-start w-full group animate-fade-in";
+                item.innerHTML = `
+                    <div class="max-w-[85%] bg-slate-950/90 hover:bg-slate-950 border border-slate-800/90 rounded-2xl rounded-tl-xs p-3 shadow-md flex flex-col gap-1.5 text-left">
+                        <div class="flex items-center justify-between gap-3 border-b border-slate-800/60 pb-1">
+                            <div class="flex items-center gap-1.5">
+                                <div class="w-5 h-5 rounded-full bg-blue-500/20 text-blue-400 border border-blue-500/30 flex items-center justify-center font-bold text-[10px]">
+                                    ${escapeHtml(initial)}
+                                </div>
+                                <span class="font-bold text-white text-[11px] cursor-pointer hover:underline hover:text-blue-400 transition-colors" onclick="replyToUser('${escapeHtml(displayName)}')" title="Click to tag and reply">
+                                    ${escapeHtml(displayName)}
+                                </span>
+                            </div>
+                            <div class="flex items-center gap-1 opacity-90 group-hover:opacity-100 transition-opacity">
+                                <button type="button" onclick="replyToUser('${escapeHtml(displayName)}')" class="px-2 py-0.5 rounded-lg bg-blue-500/15 hover:bg-blue-500/30 text-blue-300 border border-blue-500/20 text-[10px] font-semibold flex items-center gap-1 transition-all active:scale-95" title="Tag and reply">
+                                    <span>Tag</span>
+                                </button>
+                                ${userId ? `
+                                    <button type="button" onclick="handleBlockUser(${userId}, '${escapeHtml(displayName)}')" class="px-1.5 py-0.5 rounded-lg bg-red-500/15 hover:bg-red-500/30 text-red-400 border border-red-500/20 text-[10px] font-semibold transition-all active:scale-95" title="Block User">
+                                        Block
+                                    </button>
+                                ` : ''}
+                                ${commentId ? `
+                                    <button type="button" onclick="handleDeleteComment(${commentId})" class="px-1.5 py-0.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-400 hover:text-slate-200 border border-slate-700 text-[10px] transition-all" title="Delete Comment">
+                                        ✕
+                                    </button>
+                                ` : ''}
+                            </div>
+                        </div>
+                        <div class="text-slate-200 text-xs leading-relaxed break-words">
+                            ${formatMentions(text)}
+                        </div>
+                    </div>
+                `;
+            }
+
             box.appendChild(item);
             box.scrollTop = box.scrollHeight;
         }
@@ -722,6 +857,7 @@
                 signalrConn.invoke("SendLiveComment", doctorId, val).catch(console.error);
             }
             input.value = "";
+            cancelReplyToUser();
         }
 
         window.addEventListener('DOMContentLoaded', () => {
