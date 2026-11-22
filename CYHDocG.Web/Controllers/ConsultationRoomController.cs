@@ -134,7 +134,7 @@ public class ConsultationRoomController : Controller
             LiveKitServerUrl = _liveKitTokenService.GetServerUrl()
         };
 
-        return View(vm);
+        return View("Index", vm);
     }
 }
 
