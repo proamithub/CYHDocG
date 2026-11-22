@@ -19,9 +19,24 @@ public class LiveReelHub : Hub
     // Pinned Banner cache: streamKey -> PinnedBannerDto
     private static readonly ConcurrentDictionary<string, PinnedBannerDto> _roomPinnedBanners = new();
 
+    // Doctor live broadcaster tracking: doctorId <-> connectionId
+    private static readonly ConcurrentDictionary<long, string> _doctorLiveConnections = new();
+    private static readonly ConcurrentDictionary<string, long> _connectionToDoctors = new();
+
     public LiveReelHub(IDoctorRepository doctorRepo)
     {
         _doctorRepo = doctorRepo;
+    }
+
+    public async Task RegisterDoctorBroadcaster(long doctorId)
+    {
+        var currentRole = Context.User?.FindFirstValue(ClaimTypes.Role);
+        if (currentRole != "Doctor" && currentRole != "Admin") return;
+
+        string connId = Context.ConnectionId;
+        _doctorLiveConnections[doctorId] = connId;
+        _connectionToDoctors[connId] = doctorId;
+        await JoinStreamRoom(doctorId.ToString());
     }
 
     private static string NormalizeKey(string streamId)
@@ -89,6 +104,28 @@ public class LiveReelHub : Hub
     public override async Task OnDisconnectedAsync(Exception? exception)
     {
         string connId = Context.ConnectionId;
+
+        // If a broadcasting doctor disconnected abruptly, mark them offline and notify all clients
+        if (_connectionToDoctors.TryRemove(connId, out long docId))
+        {
+            _doctorLiveConnections.TryRemove(docId, out _);
+            _ = Task.Run(async () =>
+            {
+                try
+                {
+                    await _doctorRepo.SetDoctorLiveStatusAsync(docId, false, null);
+                    await Clients.All.SendAsync("DoctorLiveStatusChanged", new
+                    {
+                        doctorId = docId,
+                        isLive = false,
+                        doctorName = "",
+                        streamUrl = ""
+                    });
+                }
+                catch { }
+            });
+        }
+
         if (_connectionRooms.TryRemove(connId, out var key))
         {
             if (_roomViewers.TryGetValue(key, out var viewers))
@@ -172,6 +209,22 @@ public class LiveReelHub : Hub
 
         await _doctorRepo.BlockUserAsync(doctorId, targetUserId, reason);
         await Clients.User(targetUserId.ToString()).SendAsync("UserBlockedFromChat", "You have been restricted from this stream by the doctor.");
+
+        string key = NormalizeKey(doctorId.ToString());
+        // Broadcast to both doctor and all patients watching to remove this user's comments from screen
+        await Clients.Group($"Stream_{key}").SendAsync("UserRemovedFromChat", new { doctorId, targetUserId });
+    }
+
+    public async Task DeleteComment(long doctorId, long commentId)
+    {
+        var currentRole = Context.User?.FindFirstValue(ClaimTypes.Role);
+        if (currentRole != "Doctor" && currentRole != "Admin")
+        {
+            return;
+        }
+
+        string key = NormalizeKey(doctorId.ToString());
+        await Clients.Group($"Stream_{key}").SendAsync("CommentDeleted", commentId);
     }
 
     public async Task PinStreamBanner(long doctorId, string bannerText, string bannerType, string? medicineName)

@@ -162,6 +162,7 @@ BEGIN
         1 AS Success, 
         'Comment added' AS Message, 
         @NewCommentId AS CommentId,
+        u.UserId,
         u.FullName AS UserName,
         u.AvatarUrl
     FROM dbo.Users u WHERE u.UserId = @UserId;
@@ -174,8 +175,9 @@ CREATE OR ALTER PROCEDURE dbo.usp_LiveStream_GetRecentComments
 AS
 BEGIN
     SET NOCOUNT ON;
-    SELECT TOP 5
+    SELECT TOP 15
         c.CommentId,
+        c.UserId,
         c.Message,
         c.CreatedAt,
         u.FullName AS UserName,

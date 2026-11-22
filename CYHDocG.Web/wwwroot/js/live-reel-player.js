@@ -101,6 +101,25 @@
             if (input) input.disabled = true;
         });
 
+        // Consultation Accepted Listener (1-to-1 switch)
+        connection.on('ConsultationAccepted', function (payload) {
+            console.log('[LiveReel] ConsultationAccepted received:', payload);
+            if (window.handleConsultationAcceptedByDoctor) {
+                window.handleConsultationAcceptedByDoctor(payload);
+            }
+        });
+
+        // Real-Time Comment Moderation Listeners
+        connection.on('UserRemovedFromChat', function (data) {
+            console.log('[LiveReel] UserRemovedFromChat:', data);
+            document.querySelectorAll(`.floating-comment-item[data-user-id="${data.targetUserId}"]`).forEach(el => el.remove());
+        });
+
+        connection.on('CommentDeleted', function (commentId) {
+            const el = document.getElementById(`floatingComment_${commentId}`);
+            if (el) el.remove();
+        });
+
         connection.start().then(() => {
             console.log('[LiveReel] Connected to SignalR Live Hub successfully');
             syncActiveReel();
@@ -300,7 +319,10 @@
         if (!streamContainer) return;
 
         const commentEl = document.createElement('div');
-        commentEl.className = 'flex items-center gap-1.5 text-xs text-white bg-black/40 backdrop-blur-md px-2.5 py-1 rounded-xl border border-white/10 animate-fade-in transition-all';
+        commentEl.className = 'floating-comment-item flex items-center gap-1.5 text-xs text-white bg-black/40 backdrop-blur-md px-2.5 py-1 rounded-xl border border-white/10 animate-fade-in transition-all';
+        if (comment.commentId) commentEl.id = `floatingComment_${comment.commentId}`;
+        if (comment.userId) commentEl.setAttribute('data-user-id', comment.userId);
+
         commentEl.innerHTML = `
             <span class="font-bold text-red-400">${escapeHtml(comment.userName)}:</span>
             <span class="text-slate-200">${escapeHtml(comment.message)}</span>

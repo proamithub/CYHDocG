@@ -170,9 +170,28 @@
 
             <!-- Comments Log -->
             <div id="studioCommentsBox" class="flex-1 overflow-y-auto space-y-2.5 pr-1 no-scrollbar text-xs">
-                <div class="p-3 rounded-2xl bg-slate-950/60 border border-slate-800 text-slate-400 text-center text-[11px]">
-                    No comments yet. When patients watch your stream, their questions will appear here in real-time.
-                </div>
+                @if (ViewBag.RecentComments != null && ((List<CYHDocG.Repo.DTOs.LiveCommentDto>)ViewBag.RecentComments).Any())
+                {
+                    foreach (var c in (List<CYHDocG.Repo.DTOs.LiveCommentDto>)ViewBag.RecentComments)
+                    {
+                        <div id="comment_@c.CommentId" data-user-id="@c.UserId" class="comment-item p-2.5 rounded-xl bg-slate-950/80 border border-slate-800/80 flex flex-col gap-0.5">
+                            <div class="flex items-center justify-between">
+                                <span class="font-bold text-white text-[11px]">@c.UserName</span>
+                                <div class="flex items-center gap-1.5">
+                                    <button type="button" onclick="handleBlockUser(@c.UserId, '@c.UserName')" class="text-[10px] text-red-400 hover:text-red-300 px-1.5 py-0.5 rounded bg-red-500/10 border border-red-500/20" title="Block User">Block</button>
+                                    <button type="button" onclick="handleDeleteComment(@c.CommentId)" class="text-[10px] text-slate-400 hover:text-slate-200 px-1.5 py-0.5 rounded bg-slate-800 border border-slate-700" title="Delete Comment">Delete</button>
+                                </div>
+                            </div>
+                            <span class="text-slate-300 text-xs">@c.Message</span>
+                        </div>
+                    }
+                }
+                else
+                {
+                    <div id="noCommentsYetMsg" class="p-3 rounded-2xl bg-slate-950/60 border border-slate-800 text-slate-400 text-center text-[11px]">
+                        No comments yet. When patients watch your stream, their questions will appear here in real-time.
+                    </div>
+                }
             </div>
 
             <!-- Doctor Broadcast Message Input -->
@@ -183,6 +202,38 @@
                     Send
                 </button>
             </form>
+        </div>
+    </div>
+</div>
+
+<!-- ===================== INCOMING 1-TO-1 CONSULTATION MODAL ===================== -->
+<div id="incomingConsultationModal" class="fixed inset-0 bg-black/85 backdrop-blur-md z-[100] hidden flex items-center justify-center p-4">
+    <div class="bg-slate-900 border-2 border-emerald-500/60 rounded-3xl p-6 sm:p-8 max-w-md w-full shadow-2xl relative text-center">
+        <!-- Pulsing Phone Icon -->
+        <div class="w-16 h-16 rounded-full bg-emerald-500/20 text-emerald-400 border border-emerald-500/40 mx-auto flex items-center justify-center mb-4 animate-bounce">
+            <i data-lucide="phone-call" class="w-8 h-8"></i>
+        </div>
+
+        <span class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-black bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 uppercase tracking-wider mb-2">
+            <span class="w-2 h-2 rounded-full bg-emerald-400 animate-ping"></span> Live 1-to-1 Call Request
+        </span>
+
+        <h3 id="incomingPatientName" class="font-heading font-extrabold text-xl text-white mt-1">Patient Requesting Call</h3>
+        <p class="text-xs text-slate-300 mt-2 leading-relaxed">
+            A viewer has requested an immediate 1-to-1 private video consultation at <strong class="text-emerald-400">@(Model?.IsFreeConsultation == true ? "FREE" : "₹" + (Model?.ConsultationFeePerMinute ?? 30) + "/min")</strong>.
+        </p>
+        <p class="text-[11px] text-amber-400/90 mt-1">
+            ⏱️ Timer will start ticking ONLY after you accept.
+        </p>
+
+        <div class="grid grid-cols-2 gap-3 mt-6">
+            <button type="button" onclick="handleDeclineConsultation()" class="py-3 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 font-bold text-xs border border-slate-700 transition-all">
+                Decline
+            </button>
+            <button type="button" id="btnAcceptConsultation" onclick="handleAcceptConsultation()" class="py-3 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs shadow-lg shadow-emerald-600/30 flex items-center justify-center gap-1.5 transition-all active:scale-95">
+                <i data-lucide="video" class="w-4 h-4"></i>
+                <span>Accept Call</span>
+            </button>
         </div>
     </div>
 </div>
@@ -198,8 +249,9 @@
         let isBroadcasting = false;
         let signalrConn = null;
         let localMediaStream = null;
+        let pendingConsultation = null;
 
-        // SignalR setup for comments and real-time viewers
+        // SignalR setup for comments, moderation, and incoming 1-to-1 calls
         async function setupSignalR() {
             try {
                 signalrConn = new signalR.HubConnectionBuilder()
@@ -207,12 +259,22 @@
                     .withAutomaticReconnect([0, 2000, 5000, 10000])
                     .build();
 
+                // Live Comments
                 signalrConn.on("ReceiveNewComment", (streamId, comment) => {
-                    appendComment(comment.userName, comment.message);
+                    appendComment(comment.userName, comment.message, comment.userId, comment.commentId);
                 });
 
+                // Moderation listeners
+                signalrConn.on("UserRemovedFromChat", (data) => {
+                    removeCommentsByUserId(data.targetUserId);
+                });
+
+                signalrConn.on("CommentDeleted", (commentId) => {
+                    removeCommentById(commentId);
+                });
+
+                // Real-time Viewer count
                 signalrConn.on("UpdateViewerCount", (streamKey, count) => {
-                    console.log("[LiveStudio] Real-time viewer count updated:", streamKey, count);
                     if (streamKey == doctorId.toString()) {
                         const viewerEl = document.getElementById("liveViewerCount");
                         if (viewerEl) {
@@ -221,6 +283,12 @@
                             setTimeout(() => viewerEl.classList.remove("text-emerald-400", "scale-125"), 400);
                         }
                     }
+                });
+
+                // Incoming 1-to-1 Consultation Request Alert
+                signalrConn.on("ReceiveIncomingConsultationRequest", (request) => {
+                    console.log("[LiveStudio] Incoming 1-to-1 request received:", request);
+                    showIncomingCallModal(request);
                 });
 
                 // Listen for Pinned Banner sync
@@ -238,7 +306,9 @@
 
                 await signalrConn.start();
                 console.log("[LiveStudio] Connected to SignalR Live Hub for room:", doctorId);
-                await signalrConn.invoke("JoinStreamRoom", doctorId.toString());
+                
+                // Register doctor connection for auto-offline & room notifications
+                await signalrConn.invoke("RegisterDoctorBroadcaster", doctorId);
             } catch (err) {
                 console.warn("SignalR live reel hub connect error:", err);
             }
@@ -338,13 +408,141 @@
             }
         }
 
-        function appendComment(user, text) {
+        function appendComment(user, text, userId, commentId) {
+            const noMsg = document.getElementById('noCommentsYetMsg');
+            if (noMsg) noMsg.remove();
+
             const box = document.getElementById('studioCommentsBox');
             const item = document.createElement('div');
-            item.className = "p-2.5 rounded-xl bg-slate-950/80 border border-slate-800/80 flex flex-col gap-0.5";
-            item.innerHTML = `<span class="font-bold text-white text-[11px]">${user}</span><span class="text-slate-300 text-xs">${text}</span>`;
+            item.className = "comment-item p-2.5 rounded-xl bg-slate-950/80 border border-slate-800/80 flex flex-col gap-0.5 animate-fade-in";
+            if (commentId) item.id = `comment_${commentId}`;
+            if (userId) item.setAttribute('data-user-id', userId);
+
+            const isDoctor = user.includes("Dr.") || user === "System";
+
+            item.innerHTML = `
+                <div class="flex items-center justify-between">
+                    <span class="font-bold text-white text-[11px]">${escapeHtml(user)}</span>
+                    ${!isDoctor && userId ? `
+                        <div class="flex items-center gap-1.5">
+                            <button type="button" onclick="handleBlockUser(${userId}, '${escapeHtml(user)}')" class="text-[10px] text-red-400 hover:text-red-300 px-1.5 py-0.5 rounded bg-red-500/10 border border-red-500/20" title="Block User from Stream">Block</button>
+                            ${commentId ? `<button type="button" onclick="handleDeleteComment(${commentId})" class="text-[10px] text-slate-400 hover:text-slate-200 px-1.5 py-0.5 rounded bg-slate-800 border border-slate-700" title="Delete Comment">Delete</button>` : ''}
+                        </div>
+                    ` : ''}
+                </div>
+                <span class="text-slate-300 text-xs">${escapeHtml(text)}</span>
+            `;
             box.appendChild(item);
             box.scrollTop = box.scrollHeight;
+        }
+
+        async function handleBlockUser(targetUserId, targetUserName) {
+            if (!confirm(`Are you sure you want to block ${targetUserName} from your live chat?`)) return;
+            if (signalrConn && signalrConn.state === "Connected") {
+                try {
+                    await signalrConn.invoke("ModerateBlockUser", doctorId, targetUserId, "Blocked by doctor in live studio");
+                    removeCommentsByUserId(targetUserId);
+                    appendComment("System", `🚫 You blocked ${targetUserName}.`);
+                } catch (err) {
+                    console.error("Block user error:", err);
+                }
+            }
+        }
+
+        async function handleDeleteComment(commentId) {
+            if (signalrConn && signalrConn.state === "Connected") {
+                try {
+                    await signalrConn.invoke("DeleteComment", doctorId, commentId);
+                    removeCommentById(commentId);
+                } catch (err) {
+                    console.error("Delete comment error:", err);
+                }
+            }
+        }
+
+        function removeCommentsByUserId(targetUserId) {
+            document.querySelectorAll(`.comment-item[data-user-id="${targetUserId}"]`).forEach(el => el.remove());
+        }
+
+        function removeCommentById(commentId) {
+            const el = document.getElementById(`comment_${commentId}`);
+            if (el) el.remove();
+        }
+
+        function showIncomingCallModal(request) {
+            pendingConsultation = request;
+            const nameEl = document.getElementById('incomingPatientName');
+            if (nameEl) nameEl.textContent = request.patientName || "Patient";
+            const modal = document.getElementById('incomingConsultationModal');
+            if (modal) {
+                modal.classList.remove('hidden');
+                playAlertChime();
+            }
+            if (window.lucide) window.lucide.createIcons();
+        }
+
+        function playAlertChime() {
+            try {
+                const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+                const osc = audioCtx.createOscillator();
+                const gain = audioCtx.createGain();
+                osc.type = 'sine';
+                osc.frequency.setValueAtTime(587.33, audioCtx.currentTime);
+                osc.frequency.setValueAtTime(880, audioCtx.currentTime + 0.15);
+                gain.gain.setValueAtTime(0.3, audioCtx.currentTime);
+                gain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.4);
+                osc.connect(gain);
+                gain.connect(audioCtx.destination);
+                osc.start();
+                osc.stop(audioCtx.currentTime + 0.4);
+            } catch (e) {}
+        }
+
+        async function handleAcceptConsultation() {
+            if (!pendingConsultation) return;
+            const consultationId = pendingConsultation.consultationId;
+            const btn = document.getElementById('btnAcceptConsultation');
+            if (btn) {
+                btn.disabled = true;
+                btn.innerHTML = 'Connecting...';
+            }
+
+            try {
+                const res = await fetch('/api/consultation/accept', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(consultationId)
+                });
+                const data = await res.json();
+                if (data.success) {
+                    // Navigate smoothly into the 1-to-1 consultation session
+                    window.location.href = `/LiveChat?doctorId=${doctorId}&consultationId=${consultationId}`;
+                } else {
+                    alert(data.message || "Failed to accept consultation");
+                    if (btn) {
+                        btn.disabled = false;
+                        btn.innerHTML = 'Accept Call';
+                    }
+                }
+            } catch (err) {
+                console.error(err);
+                if (btn) {
+                    btn.disabled = false;
+                    btn.innerHTML = 'Accept Call';
+                }
+            }
+        }
+
+        function handleDeclineConsultation() {
+            const modal = document.getElementById('incomingConsultationModal');
+            if (modal) modal.classList.add('hidden');
+            pendingConsultation = null;
+        }
+
+        function escapeHtml(text) {
+            if (!text) return '';
+            const map = { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#039;' };
+            return text.toString().replace(/[&<>"']/g, m => map[m]);
         }
 
         // Pinned Banner Handlers

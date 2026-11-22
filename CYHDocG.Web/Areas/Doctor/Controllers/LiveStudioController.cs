@@ -49,6 +49,16 @@ public class LiveStudioController : Controller
         ViewBag.DoctorId = docId;
         ViewBag.DoctorName = doctorName;
 
+        try
+        {
+            var comments = (await _doctorRepo.GetRecentCommentsAsync(docId)).Reverse().ToList();
+            ViewBag.RecentComments = comments;
+        }
+        catch
+        {
+            ViewBag.RecentComments = new List<CYHDocG.Repo.DTOs.LiveCommentDto>();
+        }
+
         return View(metrics);
     }
 

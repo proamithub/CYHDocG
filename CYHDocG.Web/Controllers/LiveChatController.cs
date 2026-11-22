@@ -1,7 +1,9 @@
 using System.Security.Claims;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.SignalR;
 using CYHDocG.Repo.DTOs;
 using CYHDocG.Repo.Interfaces;
+using CYHDocG.Web.Hubs;
 
 namespace CYHDocG.Web.Controllers;
 
@@ -12,19 +14,25 @@ public class LiveChatController : Controller
     private readonly IAiSearchService _aiSearchService;
     private readonly ILiveKitTokenService _liveKitTokenService;
     private readonly IConfiguration _config;
+    private readonly IHubContext<LiveReelHub> _liveReelHub;
+    private readonly IHubContext<ConsultationHub> _consultationHub;
 
     public LiveChatController(
         IConsultationRepository consultationRepo, 
         IDoctorRepository doctorRepo, 
         IAiSearchService aiSearchService,
         ILiveKitTokenService liveKitTokenService,
-        IConfiguration config)
+        IConfiguration config,
+        IHubContext<LiveReelHub> liveReelHub,
+        IHubContext<ConsultationHub> consultationHub)
     {
         _consultationRepo = consultationRepo;
         _doctorRepo = doctorRepo;
         _aiSearchService = aiSearchService;
         _liveKitTokenService = liveKitTokenService;
         _config = config;
+        _liveReelHub = liveReelHub;
+        _consultationHub = consultationHub;
     }
 
     [HttpPost("/api/consultation/video-token")]
@@ -79,6 +87,20 @@ public class LiveChatController : Controller
         request.UserId = userId;
 
         var result = await _consultationRepo.CreateConsultationRequestAsync(request.UserId, request.DoctorId);
+        if (result.Success && result.Data > 0)
+        {
+            string patientName = User.Identity?.Name ?? "Patient";
+            // Notify doctor in real time on Doctor Live Studio screen
+            await _liveReelHub.Clients.Group($"Stream_{request.DoctorId}").SendAsync("ReceiveIncomingConsultationRequest", new
+            {
+                consultationId = result.Data,
+                patientId = userId,
+                patientName = patientName,
+                doctorId = request.DoctorId,
+                requestedAt = DateTime.UtcNow
+            });
+        }
+
         return Ok(result);
     }
 
@@ -91,10 +113,39 @@ public class LiveChatController : Controller
             return Forbid();
         }
 
+        long.TryParse(User.FindFirstValue(ClaimTypes.NameIdentifier), out long currentUserId);
         var doctorIdClaim = User.FindFirstValue("DoctorId");
         long.TryParse(doctorIdClaim, out long doctorId);
 
+        if (doctorId == 0)
+        {
+            var metrics = await _doctorRepo.GetDoctorStudioMetricsAsync(currentUserId);
+            if (metrics?.DoctorId > 0) doctorId = metrics.DoctorId;
+            else doctorId = currentUserId;
+        }
+
         var result = await _consultationRepo.AcceptConsultationAsync(consultationId, doctorId);
+        if (result.Success)
+        {
+            DateTime startedAt = result.Data;
+
+            // Broadcast TimerStarted to Consultation room
+            await _consultationHub.Clients.Group($"Consultation_{consultationId}").SendAsync("TimerStarted", new
+            {
+                startedAt = startedAt,
+                consultationId = consultationId,
+                doctorId = doctorId
+            });
+
+            // Also broadcast to LiveReelHub for direct handshake if patient requested from reel
+            await _liveReelHub.Clients.Group($"Stream_{doctorId}").SendAsync("ConsultationAccepted", new
+            {
+                consultationId = consultationId,
+                doctorId = doctorId,
+                startedAt = startedAt
+            });
+        }
+
         return Ok(result);
     }
 

@@ -202,8 +202,15 @@
                 appendChatMessage(payload.SenderRole === 'User' ? 'user' : 'doctor', payload.MessageText, payload.SenderRole);
             });
 
+            // Timer starts ONLY when doctor accepts
             consultationConnection.on('TimerStarted', function (timerData) {
-                startSynchronizedTimer(timerData.startedAt, timerData.ratePerMinute, timerData.isPaid);
+                console.log('[LiveChat] Doctor accepted call! Starting synchronized timer:', timerData);
+                document.getElementById('chatPartnerStatus').textContent = "1-to-1 Live Video";
+                document.getElementById('chatPartnerStatus').className = "px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-400 text-[10px] font-bold uppercase tracking-wider";
+                
+                startSynchronizedTimer(timerData.startedAt, timerData.ratePerMinute || pendingRate, timerData.isPaid !== undefined ? timerData.isPaid : pendingIsPaid);
+                startLiveKitVideoConsultation(activeConsultationId, pendingDoctorName || "Doctor");
+                appendChatMessage('doctor', `Namaste! Consultation is now active. Dr. ${pendingDoctorName || "Doctor"} has accepted and is listening to your concerns.`, pendingDoctorName || "Doctor");
             });
 
             consultationConnection.on('ConsultationEnded', function (endData) {
@@ -213,7 +220,15 @@
                 window.location.reload();
             });
 
-            consultationConnection.start().catch(err => console.error("SignalR Connection Error: ", err));
+            consultationConnection.start().then(() => {
+                const urlParams = new URLSearchParams(window.location.search);
+                const consultationIdParam = urlParams.get('consultationId');
+                if (consultationIdParam && consultationConnection) {
+                    activeConsultationId = parseInt(consultationIdParam);
+                    consultationConnection.invoke('JoinConsultation', activeConsultationId.toString());
+                    startLiveKitVideoConsultation(activeConsultationId, "Doctor");
+                }
+            }).catch(err => console.error("SignalR Connection Error: ", err));
         }
 
         // 2. Start LiveKit Video Consultation
@@ -551,8 +566,16 @@
             document.getElementById('doctorSelectModal').classList.add('hidden');
         }
 
+        let pendingDoctorName = '';
+        let pendingRate = 0;
+        let pendingIsPaid = false;
+
         async function requestDoctorConsultation(doctorId, doctorName, rate, isPaid) {
             closeDoctorSelectModal();
+            pendingDoctorName = doctorName;
+            pendingRate = rate;
+            pendingIsPaid = isPaid;
+
             try {
                 const res = await fetch('/api/consultation/request', {
                     method: 'POST',
@@ -564,21 +587,16 @@
                     activeConsultationId = data.data;
 
                     document.getElementById('chatPartnerName').textContent = doctorName;
-                    document.getElementById('chatPartnerStatus').textContent = "1-to-1 Live Video";
-                    document.getElementById('chatPartnerStatus').className = "px-2 py-0.5 rounded-full bg-blue-500/20 text-blue-400 text-[10px] font-bold uppercase tracking-wider";
+                    document.getElementById('chatPartnerStatus').textContent = "Waiting for Doctor to Accept...";
+                    document.getElementById('chatPartnerStatus').className = "px-2 py-0.5 rounded-full bg-amber-500/20 text-amber-400 text-[10px] font-bold uppercase tracking-wider animate-pulse";
                     document.getElementById('escalateBtnWrapper').classList.add('hidden');
 
                     if (consultationConnection) {
                         await consultationConnection.invoke('JoinConsultation', activeConsultationId.toString());
                     }
 
-                    // Start synchronized timer
-                    startSynchronizedTimer(new Date().toISOString(), rate, isPaid);
-
-                    // Launch LiveKit Video Stream
-                    await startLiveKitVideoConsultation(activeConsultationId, doctorName);
-
-                    appendChatMessage('doctor', `Namaste! Video consultation is now active. I am listening to your health concerns.`, doctorName);
+                    // Notice: Timer will start strictly upon doctor acceptance via SignalR TimerStarted event
+                    appendChatMessage('doctor', `Request sent to Dr. ${doctorName}. Please wait while the doctor accepts the call on their screen. Your billing timer will NOT start until acceptance.`, 'System');
                 } else {
                     alert(data.message || 'Consultation request failed');
                 }

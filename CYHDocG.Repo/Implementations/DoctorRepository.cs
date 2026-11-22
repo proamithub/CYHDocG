@@ -139,6 +139,7 @@ public class DoctorRepository : BaseRepository, IDoctorRepository
             var comment = new LiveCommentDto
             {
                 CommentId = (long)result.CommentId,
+                UserId = userId,
                 Message = message,
                 CreatedAt = DateTime.UtcNow,
                 UserName = (string)result.UserName,
