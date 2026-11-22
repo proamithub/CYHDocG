@@ -75,7 +75,8 @@ BEGIN
         FollowerCount INT NOT NULL DEFAULT 0,
         Rating DECIMAL(3,2) NOT NULL DEFAULT 5.00,
         IsApproved BIT NOT NULL DEFAULT 0,
-        CreatedAt DATETIME2 NOT NULL DEFAULT SYSUTCDATETIME()
+        CreatedAt DATETIME2 NOT NULL DEFAULT SYSUTCDATETIME(),
+        UpdatedAt DATETIME2 NULL
     );
     CREATE NONCLUSTERED INDEX IX_Doctors_Department ON dbo.Doctors(Department);
     CREATE NONCLUSTERED INDEX IX_Doctors_IsLive ON dbo.Doctors(IsLive);

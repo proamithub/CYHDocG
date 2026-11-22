@@ -316,13 +316,9 @@
 
         async function startBroadcast() {
             try {
-                // 1. Get User Media (Camera & Mic)
-                localMediaStream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
                 const videoEl = document.getElementById('doctorStudioVideo');
-                videoEl.srcObject = localMediaStream;
-                document.getElementById('videoPlaceholder').classList.add('hidden');
 
-                // 2. Connect to LiveKit WebRTC and publish Camera & Microphone
+                // 1. Connect to LiveKit WebRTC and publish Camera & Microphone
                 if (window.LivekitClient && livekitServerUrl && livekitToken) {
                     try {
                         livekitRoom = new LivekitClient.Room({
@@ -338,13 +334,21 @@
                         const pub = Array.from(livekitRoom.localParticipant.videoTrackPublications.values())[0];
                         if (pub && pub.track) {
                             pub.track.attach(videoEl);
+                            document.getElementById('videoPlaceholder').classList.add('hidden');
                         }
                     } catch (lkErr) {
                         console.warn("LiveKit server connect fallback to local WebRTC:", lkErr);
+                        localMediaStream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
+                        videoEl.srcObject = localMediaStream;
+                        document.getElementById('videoPlaceholder').classList.add('hidden');
                     }
+                } else {
+                    localMediaStream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
+                    videoEl.srcObject = localMediaStream;
+                    document.getElementById('videoPlaceholder').classList.add('hidden');
                 }
 
-                // 3. Notify backend that doctor is LIVE
+                // 2. Notify backend that doctor is LIVE
                 const toggleResp = await fetch('/Doctor/LiveStudio/ToggleLive', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
@@ -374,12 +378,15 @@
         }
 
         async function endBroadcast() {
+            if (livekitRoom) {
+                try {
+                    await livekitRoom.disconnect();
+                } catch (e) {}
+                livekitRoom = null;
+            }
             if (localMediaStream) {
                 localMediaStream.getTracks().forEach(track => track.stop());
-            }
-            if (livekitRoom) {
-                await livekitRoom.disconnect();
-                livekitRoom = null;
+                localMediaStream = null;
             }
 
             const videoEl = document.getElementById('doctorStudioVideo');

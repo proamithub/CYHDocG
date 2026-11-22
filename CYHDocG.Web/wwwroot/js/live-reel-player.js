@@ -188,6 +188,8 @@
                 if (track.kind === 'video') {
                     if (videoEl) {
                         track.attach(videoEl);
+                        videoEl.muted = true;
+                        videoEl.playsInline = true;
                         videoEl.classList.remove('hidden');
                         if (placeholder) placeholder.classList.add('hidden');
                         videoEl.play().catch(e => console.warn('[LiveReel] Video play suppressed by browser policy:', e));
@@ -223,6 +225,8 @@
                         if (pub.kind === 'video') {
                             if (videoEl) {
                                 pub.track.attach(videoEl);
+                                videoEl.muted = true;
+                                videoEl.playsInline = true;
                                 videoEl.classList.remove('hidden');
                                 if (placeholder) placeholder.classList.add('hidden');
                                 videoEl.play().catch(e => console.warn('[LiveReel] Video play suppressed:', e));
