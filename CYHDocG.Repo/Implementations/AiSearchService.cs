@@ -9,12 +9,18 @@ namespace CYHDocG.Repo.Implementations;
 public class AiSearchService : IAiSearchService
 {
     private readonly IDoctorRepository _doctorRepo;
+    private readonly ISettingsRepository? _settingsRepo;
     private readonly IConfiguration? _configuration;
     private readonly HttpClient _httpClient;
 
-    public AiSearchService(IDoctorRepository doctorRepo, IConfiguration? configuration = null, HttpClient? httpClient = null)
+    public AiSearchService(
+        IDoctorRepository doctorRepo, 
+        ISettingsRepository? settingsRepo = null, 
+        IConfiguration? configuration = null, 
+        HttpClient? httpClient = null)
     {
         _doctorRepo = doctorRepo;
+        _settingsRepo = settingsRepo;
         _configuration = configuration;
         _httpClient = httpClient ?? new HttpClient();
     }
@@ -43,22 +49,66 @@ public class AiSearchService : IAiSearchService
             return result;
         }
 
-        // Try External LLM if API Key is configured and enabled
+        // Dynamic Configuration Resolution (DB AppSettings -> Configuration -> Environment)
         bool isAiEnabled = true;
-        if (bool.TryParse(_configuration?["AiSettings:IsAiEnabled"], out bool parsedEnabled))
+        string? apiKey = null;
+        string? provider = null;
+        string? model = null;
+
+        if (_settingsRepo != null)
+        {
+            try
+            {
+                var dbKey = await _settingsRepo.GetSettingByKeyAsync("AiApiKey");
+                if (!string.IsNullOrWhiteSpace(dbKey?.SettingValue) && !dbKey.SettingValue.StartsWith("YOUR_", StringComparison.OrdinalIgnoreCase))
+                {
+                    apiKey = dbKey.SettingValue;
+                }
+
+                var dbModel = await _settingsRepo.GetSettingByKeyAsync("AiModel");
+                if (!string.IsNullOrWhiteSpace(dbModel?.SettingValue))
+                {
+                    model = dbModel.SettingValue;
+                }
+
+                var dbProvider = await _settingsRepo.GetSettingByKeyAsync("AiProvider");
+                if (!string.IsNullOrWhiteSpace(dbProvider?.SettingValue))
+                {
+                    provider = dbProvider.SettingValue;
+                }
+
+                var dbEnabled = await _settingsRepo.GetSettingByKeyAsync("AiEnabled");
+                if (dbEnabled != null && bool.TryParse(dbEnabled.SettingValue, out bool parsedDbEnabled))
+                {
+                    isAiEnabled = parsedDbEnabled;
+                }
+                else if (dbEnabled != null && (dbEnabled.SettingValue == "1" || dbEnabled.SettingValue == "0"))
+                {
+                    isAiEnabled = dbEnabled.SettingValue == "1";
+                }
+            }
+            catch { }
+        }
+
+        apiKey ??= _configuration?["AiSettings:ApiKey"] 
+               ?? _configuration?["GeminiSettings:ApiKey"]
+               ?? Environment.GetEnvironmentVariable("GEMINI_API_KEY")
+               ?? Environment.GetEnvironmentVariable("GOOGLE_API_KEY");
+
+        provider ??= _configuration?["AiSettings:Provider"] ?? "GoogleGemini";
+        model ??= _configuration?["AiSettings:Model"] 
+              ?? _configuration?["GeminiSettings:ModelName"] 
+              ?? "gemini-3.1-flash-lite";
+
+        if (model.Equals("gemini-1.5-flash", StringComparison.OrdinalIgnoreCase))
+        {
+            model = "gemini-3.1-flash-lite";
+        }
+
+        if (bool.TryParse(_configuration?["AiSettings:IsAiEnabled"], out bool parsedEnabled) && _settingsRepo == null)
         {
             isAiEnabled = parsedEnabled;
         }
-
-        string? apiKey = _configuration?["AiSettings:ApiKey"] 
-                      ?? _configuration?["GeminiSettings:ApiKey"]
-                      ?? Environment.GetEnvironmentVariable("GEMINI_API_KEY")
-                      ?? Environment.GetEnvironmentVariable("GOOGLE_API_KEY");
-
-        string provider = _configuration?["AiSettings:Provider"] ?? "GoogleGemini";
-        string model = _configuration?["AiSettings:Model"] 
-                    ?? _configuration?["GeminiSettings:ModelName"] 
-                    ?? "gemini-1.5-flash";
 
         if (isAiEnabled && !string.IsNullOrWhiteSpace(apiKey) && !apiKey.StartsWith("YOUR_", StringComparison.OrdinalIgnoreCase))
         {
@@ -169,28 +219,52 @@ Respond ONLY in valid JSON matching this schema without markdown fences:
 
         if (provider.Equals("GoogleGemini", StringComparison.OrdinalIgnoreCase))
         {
-            string url = $"https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent?key={apiKey}";
-            var requestBody = new
+            var candidateModels = new[] { model, "gemini-3.1-flash-lite", "gemini-3.8-flash" }
+                .Where(m => !string.IsNullOrWhiteSpace(m))
+                .Distinct(StringComparer.OrdinalIgnoreCase)
+                .ToList();
+
+            foreach (var currentModel in candidateModels)
             {
-                contents = new[]
+                try
                 {
-                    new { parts = new[] { new { text = prompt } } }
+                    string url = $"https://generativelanguage.googleapis.com/v1beta/models/{currentModel}:generateContent?key={apiKey}";
+                    var requestBody = new
+                    {
+                        contents = new[]
+                        {
+                            new { parts = new[] { new { text = prompt } } }
+                        },
+                        generationConfig = new
+                        {
+                            responseMimeType = "application/json"
+                        }
+                    };
+
+                    var content = new StringContent(JsonSerializer.Serialize(requestBody), Encoding.UTF8, "application/json");
+                    using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(10));
+                    var response = await _httpClient.PostAsync(url, content, cts.Token);
+                    if (response.IsSuccessStatusCode)
+                    {
+                        var respString = await response.Content.ReadAsStringAsync();
+                        using var doc = JsonDocument.Parse(respString);
+                        string text = doc.RootElement
+                            .GetProperty("candidates")[0]
+                            .GetProperty("content")
+                            .GetProperty("parts")[0]
+                            .GetProperty("text").GetString() ?? "";
+
+                        var parsed = ParseLlmJsonResponse(text, query);
+                        if (parsed != null)
+                        {
+                            return parsed;
+                        }
+                    }
                 }
-            };
-
-            var content = new StringContent(JsonSerializer.Serialize(requestBody), Encoding.UTF8, "application/json");
-            var response = await _httpClient.PostAsync(url, content);
-            if (response.IsSuccessStatusCode)
-            {
-                var respString = await response.Content.ReadAsStringAsync();
-                using var doc = JsonDocument.Parse(respString);
-                string text = doc.RootElement
-                    .GetProperty("candidates")[0]
-                    .GetProperty("content")
-                    .GetProperty("parts")[0]
-                    .GetProperty("text").GetString() ?? "";
-
-                return ParseLlmJsonResponse(text, query);
+                catch
+                {
+                    // Fallthrough to try alternate model
+                }
             }
         }
         else if (provider.Equals("OpenAI", StringComparison.OrdinalIgnoreCase))
