@@ -215,6 +215,18 @@ public class LiveReelHub : Hub
         await Clients.Group($"Stream_{key}").SendAsync("UserRemovedFromChat", new { doctorId, targetUserId });
     }
 
+    public async Task ModerateUnblockUser(long doctorId, long targetUserId)
+    {
+        var currentRole = Context.User?.FindFirstValue(ClaimTypes.Role);
+        if (currentRole != "Doctor" && currentRole != "Admin")
+        {
+            return;
+        }
+
+        await _doctorRepo.UnblockUserAsync(doctorId, targetUserId);
+        await Clients.User(targetUserId.ToString()).SendAsync("UserUnblockedFromChat", "Your chat restriction has been lifted by the doctor.");
+    }
+
     public async Task DeleteComment(long doctorId, long commentId)
     {
         var currentRole = Context.User?.FindFirstValue(ClaimTypes.Role);

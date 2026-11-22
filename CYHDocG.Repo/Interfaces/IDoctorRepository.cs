@@ -9,6 +9,7 @@ public interface IDoctorRepository
     Task<IEnumerable<DoctorSearchDto>> SearchDoctorsAsync(string searchTerm);
     Task<ApiResponse<bool>> ToggleFollowAsync(long doctorId, long userId);
     Task<ApiResponse> BlockUserAsync(long doctorId, long userId, string reason);
+    Task<ApiResponse> UnblockUserAsync(long doctorId, long userId);
     Task<bool> IsUserBlockedAsync(long doctorId, long userId);
     Task<ApiResponse<LiveCommentDto>> AddStreamCommentAsync(long streamId, long userId, string message);
     Task<IEnumerable<LiveCommentDto>> GetRecentCommentsAsync(long streamId);

@@ -112,6 +112,21 @@ public class DoctorRepository : BaseRepository, IDoctorRepository
         return ApiResponse.Fail("Unable to block user");
     }
 
+    public async Task<ApiResponse> UnblockUserAsync(long doctorId, long userId)
+    {
+        var result = await QueryFirstOrDefaultSPAsync<dynamic>("dbo.usp_Doctor_UnblockUser", new
+        {
+            DoctorId = doctorId,
+            UserId = userId
+        });
+
+        if (result != null && (int)result.Success == 1)
+        {
+            return ApiResponse.Ok((string)result.Message);
+        }
+        return ApiResponse.Fail("Unable to unblock user");
+    }
+
     public async Task<bool> IsUserBlockedAsync(long doctorId, long userId)
     {
         var result = await QueryFirstOrDefaultSPAsync<dynamic>("dbo.usp_Doctor_IsUserBlocked", new

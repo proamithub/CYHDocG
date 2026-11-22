@@ -121,6 +121,18 @@ BEGIN
 END
 GO
 
+-- 4b. Unblock User from Doctor's Stream (Undo Block)
+CREATE OR ALTER PROCEDURE dbo.usp_Doctor_UnblockUser
+    @DoctorId BIGINT,
+    @UserId BIGINT
+AS
+BEGIN
+    SET NOCOUNT ON;
+    DELETE FROM dbo.DoctorBlockedUsers WHERE DoctorId = @DoctorId AND UserId = @UserId;
+    SELECT 1 AS Success, 'User unblocked successfully' AS Message;
+END
+GO
+
 -- 5. Check if User is Blocked by Doctor
 CREATE OR ALTER PROCEDURE dbo.usp_Doctor_IsUserBlocked
     @DoctorId BIGINT,

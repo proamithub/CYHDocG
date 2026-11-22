@@ -101,6 +101,12 @@
             if (input) input.disabled = true;
         });
 
+        connection.on('UserUnblockedFromChat', function (msg) {
+            const input = document.getElementById('reelChatInput');
+            if (input) input.disabled = false;
+            alert(msg || 'Your chat restriction has been lifted by the doctor.');
+        });
+
         // Consultation Accepted Listener (1-to-1 switch)
         connection.on('ConsultationAccepted', function (payload) {
             console.log('[LiveReel] ConsultationAccepted received:', payload);

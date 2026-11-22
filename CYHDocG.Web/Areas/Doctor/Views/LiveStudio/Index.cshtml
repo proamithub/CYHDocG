@@ -18,7 +18,7 @@
                 </span>
                 <span class="text-xs text-slate-400">Stream Room: <span class="font-mono text-slate-300">@ViewBag.RoomName</span></span>
             </div>
-            <h1 class="font-heading font-extrabold text-2xl text-white">Live Health Studio</h1>
+            <h1 class="font-heading font-extrabold text-2xl text-white">Live Studio</h1>
         </div>
 
         <div class="flex items-center gap-3">
@@ -174,11 +174,21 @@
                 {
                     foreach (var c in (List<CYHDocG.Repo.DTOs.LiveCommentDto>)ViewBag.RecentComments)
                     {
+                        var cleanUserName = (c.UserName ?? "").Trim();
+                        if (cleanUserName.StartsWith("Dr. Dr.", StringComparison.OrdinalIgnoreCase))
+                        {
+                            cleanUserName = cleanUserName.Substring(4).Trim();
+                        }
+                        var isDoc = cleanUserName.StartsWith("Dr.", StringComparison.OrdinalIgnoreCase) || cleanUserName == "System";
                         <div id="comment_@c.CommentId" data-user-id="@c.UserId" class="comment-item p-2.5 rounded-xl bg-slate-950/80 border border-slate-800/80 flex flex-col gap-0.5">
                             <div class="flex items-center justify-between">
-                                <span class="font-bold text-white text-[11px]">@c.UserName</span>
+                                <span class="font-bold text-white text-[11px] cursor-pointer hover:underline hover:text-red-400" onclick="replyToUser('@cleanUserName')" title="Click to reply">@cleanUserName</span>
                                 <div class="flex items-center gap-1.5">
-                                    <button type="button" onclick="handleBlockUser(@c.UserId, '@c.UserName')" class="text-[10px] text-red-400 hover:text-red-300 px-1.5 py-0.5 rounded bg-red-500/10 border border-red-500/20" title="Block User">Block</button>
+                                    @if (!isDoc && c.UserId > 0)
+                                    {
+                                        <button type="button" onclick="replyToUser('@cleanUserName')" class="text-[10px] text-blue-400 hover:text-blue-300 px-1.5 py-0.5 rounded bg-blue-500/10 border border-blue-500/20" title="Reply">Reply</button>
+                                        <button type="button" onclick="handleBlockUser(@c.UserId, '@cleanUserName')" class="text-[10px] text-red-400 hover:text-red-300 px-1.5 py-0.5 rounded bg-red-500/10 border border-red-500/20" title="Block User">Block</button>
+                                    }
                                     <button type="button" onclick="handleDeleteComment(@c.CommentId)" class="text-[10px] text-slate-400 hover:text-slate-200 px-1.5 py-0.5 rounded bg-slate-800 border border-slate-700" title="Delete Comment">Delete</button>
                                 </div>
                             </div>
@@ -438,7 +448,17 @@
             }
         }
 
+        function replyToUser(userName) {
+            const input = document.getElementById('studioCommentInput');
+            if (!input) return;
+            const cleanName = (userName || '').replace(/^(Dr\.\s*)+/i, '').trim();
+            input.value = "@@" + cleanName + " ";
+            input.focus();
+        }
+
         function appendComment(user, text, userId, commentId) {
+            if (commentId && document.getElementById(`comment_${commentId}`)) return;
+
             const noMsg = document.getElementById('noCommentsYetMsg');
             if (noMsg) noMsg.remove();
 
@@ -448,17 +468,26 @@
             if (commentId) item.id = `comment_${commentId}`;
             if (userId) item.setAttribute('data-user-id', userId);
 
-            const isDoctor = user.includes("Dr.") || user === "System";
+            let displayName = (user || '').trim();
+            // Prevent duplicate Dr. prefixes like "Dr. Dr. Arvind Mehta"
+            displayName = displayName.replace(/^(Dr\.\s*)+/i, 'Dr. ');
+
+            const isDoctor = displayName.startsWith("Dr.") || displayName === "System";
 
             item.innerHTML = `
                 <div class="flex items-center justify-between">
-                    <span class="font-bold text-white text-[11px]">${escapeHtml(user)}</span>
+                    <span class="font-bold text-white text-[11px] cursor-pointer hover:underline hover:text-red-400" onclick="replyToUser('${escapeHtml(displayName)}')" title="Click to reply">${escapeHtml(displayName)}</span>
                     ${!isDoctor && userId ? `
                         <div class="flex items-center gap-1.5">
-                            <button type="button" onclick="handleBlockUser(${userId}, '${escapeHtml(user)}')" class="text-[10px] text-red-400 hover:text-red-300 px-1.5 py-0.5 rounded bg-red-500/10 border border-red-500/20" title="Block User from Stream">Block</button>
+                            <button type="button" onclick="replyToUser('${escapeHtml(displayName)}')" class="text-[10px] text-blue-400 hover:text-blue-300 px-1.5 py-0.5 rounded bg-blue-500/10 border border-blue-500/20" title="Reply to ${escapeHtml(displayName)}">Reply</button>
+                            <button type="button" onclick="handleBlockUser(${userId}, '${escapeHtml(displayName)}')" class="text-[10px] text-red-400 hover:text-red-300 px-1.5 py-0.5 rounded bg-red-500/10 border border-red-500/20" title="Block User from Stream">Block</button>
                             ${commentId ? `<button type="button" onclick="handleDeleteComment(${commentId})" class="text-[10px] text-slate-400 hover:text-slate-200 px-1.5 py-0.5 rounded bg-slate-800 border border-slate-700" title="Delete Comment">Delete</button>` : ''}
                         </div>
-                    ` : ''}
+                    ` : (commentId ? `
+                        <div class="flex items-center gap-1.5">
+                            <button type="button" onclick="handleDeleteComment(${commentId})" class="text-[10px] text-slate-400 hover:text-slate-200 px-1.5 py-0.5 rounded bg-slate-800 border border-slate-700" title="Delete Comment">Delete</button>
+                        </div>
+                    ` : '')}
                 </div>
                 <span class="text-slate-300 text-xs">${escapeHtml(text)}</span>
             `;
@@ -472,9 +501,46 @@
                 try {
                     await signalrConn.invoke("ModerateBlockUser", doctorId, targetUserId, "Blocked by doctor in live studio");
                     removeCommentsByUserId(targetUserId);
-                    appendComment("System", `🚫 You blocked ${targetUserName}.`);
+                    appendBlockNotice(targetUserId, targetUserName);
                 } catch (err) {
                     console.error("Block user error:", err);
+                    alert("Failed to block user: " + err);
+                }
+            }
+        }
+
+        function appendBlockNotice(targetUserId, targetUserName) {
+            const noMsg = document.getElementById('noCommentsYetMsg');
+            if (noMsg) noMsg.remove();
+
+            const box = document.getElementById('studioCommentsBox');
+            if (!box) return;
+
+            const notice = document.createElement('div');
+            notice.id = `blockNotice_${targetUserId}`;
+            notice.className = "comment-item p-2.5 rounded-xl bg-red-950/40 border border-red-500/30 flex items-center justify-between gap-2 animate-fade-in";
+            notice.innerHTML = `
+                <span class="text-xs text-red-300">🚫 You blocked <strong>${escapeHtml(targetUserName)}</strong>.</span>
+                <button type="button" onclick="handleUnblockUser(${targetUserId}, '${escapeHtml(targetUserName)}')" class="px-2.5 py-1 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white text-[11px] font-bold shadow flex items-center gap-1 transition-all active:scale-95">
+                    <span>Undo</span>
+                </button>
+            `;
+            box.appendChild(notice);
+            box.scrollTop = box.scrollHeight;
+        }
+
+        async function handleUnblockUser(targetUserId, targetUserName) {
+            if (signalrConn && signalrConn.state === "Connected") {
+                try {
+                    await signalrConn.invoke("ModerateUnblockUser", doctorId, targetUserId);
+                    const notice = document.getElementById(`blockNotice_${targetUserId}`);
+                    if (notice) {
+                        notice.className = "comment-item p-2.5 rounded-xl bg-emerald-950/40 border border-emerald-500/30 flex items-center gap-1.5 text-xs text-emerald-300 animate-fade-in";
+                        notice.innerHTML = `<span>✅ Unblocked <strong>${escapeHtml(targetUserName)}</strong>. User can chat again.</span>`;
+                    }
+                } catch (err) {
+                    console.error("Unblock user error:", err);
+                    alert("Failed to unblock user: " + err);
                 }
             }
         }
@@ -653,7 +719,6 @@
             const input = document.getElementById('studioCommentInput');
             const val = input.value.trim();
             if (!val) return;
-            appendComment("Dr. @(ViewBag.DoctorName)", val);
             if (signalrConn && signalrConn.state === "Connected") {
                 signalrConn.invoke("SendLiveComment", doctorId, val).catch(console.error);
             }
