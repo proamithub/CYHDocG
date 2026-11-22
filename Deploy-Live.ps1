@@ -76,22 +76,15 @@ function Ensure-FtpDirectory($ftpDirUri) {
 
 function Enable-AppOffline($remoteUri) {
     try {
-        $offlineUri = "$remoteUri/app_offline.htm"
-        $req = [System.Net.FtpWebRequest]::Create($offlineUri)
-        $req.Method = [System.Net.WebRequestMethods+Ftp]::UploadFile
-        $req.Credentials = New-Object System.Net.NetworkCredential($ftpUser, $ftpPass)
-        $req.UseBinary = $true
-        $req.KeepAlive = $false
-        $req.Timeout = 10000
+        $tempOffline = Join-Path $PSScriptRoot "publish\app_offline.htm"
         $html = "<html><body><h1>Site Under Maintenance - Deploying Fast Update...</h1></body></html>"
-        $bytes = [System.Text.Encoding]::UTF8.GetBytes($html)
-        $req.ContentLength = $bytes.Length
-        $stream = $req.GetRequestStream()
-        $stream.Write($bytes, 0, $bytes.Length)
-        $stream.Close()
-        $res = $req.GetResponse()
-        $res.Close()
-        Write-Host ">>> App offline mode activated: $remoteUri" -ForegroundColor Yellow
+        [System.IO.File]::WriteAllText($tempOffline, $html)
+        $remoteFileUri = "$remoteUri/app_offline.htm"
+        & curl.exe -s --user "$($ftpUser):$($ftpPass)" -T $tempOffline $remoteFileUri
+        if ($LASTEXITCODE -eq 0) {
+            Write-Host ">>> App offline mode activated: $remoteUri" -ForegroundColor Yellow
+        }
+        Remove-Item $tempOffline -ErrorAction SilentlyContinue
         Start-Sleep -Seconds 1
     } catch {
         Write-Host "Notice: Offline mode trigger skipped: $($_.Exception.Message)" -ForegroundColor Gray
@@ -100,14 +93,8 @@ function Enable-AppOffline($remoteUri) {
 
 function Disable-AppOffline($remoteUri) {
     try {
-        $offlineUri = "$remoteUri/app_offline.htm"
-        $req = [System.Net.FtpWebRequest]::Create($offlineUri)
-        $req.Method = [System.Net.WebRequestMethods+Ftp]::DeleteFile
-        $req.Credentials = New-Object System.Net.NetworkCredential($ftpUser, $ftpPass)
-        $req.KeepAlive = $false
-        $req.Timeout = 10000
-        $res = $req.GetResponse()
-        $res.Close()
+        $cleanPath = $remoteUri -replace "^ftp://[^/]+/", ""
+        & curl.exe -s --user "$($ftpUser):$($ftpPass)" -Q "-DELE /$cleanPath/app_offline.htm" "ftp://$ftpHost/" | Out-Null
         Write-Host ">>> App offline mode cleared. Site is LIVE: $remoteUri" -ForegroundColor Green
     } catch {
         # Ignore if file not found
@@ -127,8 +114,8 @@ function Upload-FtpFolder($localDir, $remoteUri, $targetKey) {
     foreach ($file in $allFiles) {
         $relative = $file.FullName.Substring($localDir.Length).TrimStart("\", "/")
         
-        # Skip unnecessary .exe files if locked on shared hosting
-        if ($file.Extension -eq ".exe") {
+        # Skip unnecessary .exe, .br, .gz files
+        if ($file.Extension -in @(".exe", ".br", ".gz")) {
             continue
         }
 
@@ -153,59 +140,40 @@ function Upload-FtpFolder($localDir, $remoteUri, $targetKey) {
 
     # If DLLs or critical files are changing, toggle app_offline
     $hasBinaries = $filesToUpload | Where-Object { $_.File.Extension -in @(".dll", ".config", ".json") }
-    if ($hasBinaries) {
-        Enable-AppOffline $remoteUri
-    }
+    try {
+        if ($hasBinaries) {
+            Enable-AppOffline $remoteUri
+        }
 
-    $current = 0
-    $success = 0
-    $failed = 0
+        $current = 0
+        $success = 0
+        $failed = 0
 
-    foreach ($item in $filesToUpload) {
-        $current++
-        $relative = $item.Relative
-        $remoteFileUri = "$remoteUri/" + ($relative -replace "\\", "/")
-        
-        # Ensure parent remote directories exist
-        $parts = $relative.Split("\/")
-        if ($parts.Length -gt 1) {
-            $currPath = $remoteUri
-            for ($i = 0; $i -lt ($parts.Length - 1); $i++) {
-                $currPath += "/" + $parts[$i]
-                Ensure-FtpDirectory $currPath
+        foreach ($item in $filesToUpload) {
+            $current++
+            $relative = $item.Relative
+            $remoteFileUri = "$remoteUri/" + ($relative -replace "\\", "/")
+            
+            try {
+                & curl.exe -s --max-time 30 --connect-timeout 10 --retry 1 --user "$($ftpUser):$($ftpPass)" --ftp-create-dirs -T $item.File.FullName $remoteFileUri
+                if ($LASTEXITCODE -eq 0) {
+                    $success++
+                    # Update manifest entry
+                    $targetManifest[$relative] = $item.Hash
+                    Write-Host "[$current/$($filesToUpload.Count)] Uploaded: $relative" -ForegroundColor Green
+                } else {
+                    $failed++
+                    Write-Host "[$current/$($filesToUpload.Count)] Failed: $relative - curl exit code $LASTEXITCODE" -ForegroundColor Red
+                }
+            } catch {
+                $failed++
+                Write-Host "[$current/$($filesToUpload.Count)] Failed: $relative - $($_.Exception.Message)" -ForegroundColor Red
             }
         }
-
-        try {
-            $req = [System.Net.FtpWebRequest]::Create($remoteFileUri)
-            $req.Method = [System.Net.WebRequestMethods+Ftp]::UploadFile
-            $req.Credentials = New-Object System.Net.NetworkCredential($ftpUser, $ftpPass)
-            $req.UseBinary = $true
-            $req.KeepAlive = $false
-            $req.Timeout = 25000
-
-            $fileBytes = [System.IO.File]::ReadAllBytes($item.File.FullName)
-            $req.ContentLength = $fileBytes.Length
-
-            $stream = $req.GetRequestStream()
-            $stream.Write($fileBytes, 0, $fileBytes.Length)
-            $stream.Close()
-
-            $res = $req.GetResponse()
-            $res.Close()
-
-            $success++
-            # Update manifest entry
-            $targetManifest[$relative] = $item.Hash
-            Write-Host "[$current/$($filesToUpload.Count)] Uploaded: $relative" -ForegroundColor Green
-        } catch {
-            $failed++
-            Write-Host "[$current/$($filesToUpload.Count)] Failed: $relative - $($_.Exception.Message)" -ForegroundColor Red
+    } finally {
+        if ($hasBinaries) {
+            Disable-AppOffline $remoteUri
         }
-    }
-
-    if ($hasBinaries) {
-        Disable-AppOffline $remoteUri
     }
 
     Save-Manifest
