@@ -417,103 +417,127 @@ Respond ONLY in valid JSON matching this schema without markdown fences:
         // C. Medical Query Categorization
         result.IsMedical = true;
 
-        // 1. Cardiology (Heart, BP)
-        if (ContainsAny(q, "chest pain", "heart", "cardio", "chest", "palpitation", "high bp", "hypertension", "bp", "blood pressure", "shortness of breath", "cholesterol"))
+        // 1. Gastroenterology (Stomach, Pet, Gas, Acidity, Vomiting)
+        if (ContainsAny(q, "stomach", "pet", "pet dard", "pet me dard", "pet mein dard", "pet kharab", "abdomen", "belly", "gastric", "acidity", "gas", "vomit", "vomiting", "ulti", "nausea", "diarrhea", "dast", "loose motion", "constipation", "kabz", "मरोड़", "पेट", "उल्टी", "दस्त", "कब्ज"))
+        {
+            result.IdentifiedDepartment = "Gastroenterology";
+            result.SpecialtyNeeded = "Gastroenterologist / Physician";
+            result.Severity = ContainsAny(q, "blood", "severe", "dehydration", "khoon", "asahania") ? "High" : "Moderate";
+            result.MatchedKeywords.Add("Gastrointestinal / Stomach pain");
+            result.AiAdviceEn = "पेट में दर्द, गैस, मरोड़ या अपच पाचन तंत्र में गड़बड़ी के आम लक्षण हैं। भारी या तला-भुना भोजन बिल्कुल न लें और शरीर को पर्याप्त आराम दें।";
+            result.HomeRemedies.Add("हल्का गुनगुना पानी पिएं और भारी या ऑयली खाना पूरी तरह बंद रखें।");
+            result.HomeRemedies.Add("अजवाइन और काला नमक का गुनगुना पानी या सौंफ का पानी गैस व मरोड़ में तुरंत आराम देता है।");
+            result.HomeRemedies.Add("पेट पर गर्म पानी की थैली (hot water bag) से हल्की सिकाई करें और बाईं करवट (left side) लेटें।");
+            result.HomeRemedies.Add("उल्टी या दस्त की स्थिति में ORS का घोल या नारियल पानी घूंट-घूंट करके पिएं।");
+        }
+        // 2. Neurology (Headache, Sir Dard, Migraine, Chakkar)
+        else if (ContainsAny(q, "headache", "migraine", "dizziness", "dizzy", "vertigo", "seizure", "numbness", "nerve", "stroke", "paralysis", "sir dard", "sar dard", "sardard", "sirdard", "chakkar", "सिर", "सिरदर्द", "चक्कर"))
+        {
+            result.IdentifiedDepartment = "Neurology";
+            result.SpecialtyNeeded = "Neurologist / Physician";
+            result.Severity = ContainsAny(q, "sudden", "blackout", "vomiting", "seizure", "stroke", "paralysis") ? "High" : "Moderate";
+            result.IsEmergency = ContainsAny(q, "blackout", "seizure", "paralysis", "stroke");
+            result.MatchedKeywords.Add("Neurological / Headache symptoms");
+            result.AiAdviceEn = "सिरदर्द या चक्कर आना अत्यधिक तनाव, नींद की कमी, डिहाइड्रेशन या माइग्रेन की वजह से हो सकता है। आंखों पर रोशनी का तनाव कम करें और शांत रहें।";
+            result.HomeRemedies.Add("शांत और अंधेरे कमरे में लेटकर गहरी सांसें लें और आराम करें।");
+            result.HomeRemedies.Add("माथे और गर्दन के पीछे ठंडे या सामान्य पानी की पट्टी रखें।");
+            result.HomeRemedies.Add("मोबाइल, टीवी और लैपटॉप की स्क्रीन से पूरी तरह दूरी बनाएं।");
+            result.HomeRemedies.Add("भरपूर मात्रा में पानी पिएं और अदरक या पुदीने की हल्की गुनगुनी चाय लें।");
+        }
+        // 3. Cardiology (Chest, Seene Me Dard, Heart, BP)
+        else if (ContainsAny(q, "chest pain", "heart", "cardio", "chest", "palpitation", "high bp", "hypertension", "bp", "blood pressure", "shortness of breath", "cholesterol", "seene me dard", "seene mein dard", "chhati", "छाती", "हार्ट", "दिल"))
         {
             result.IdentifiedDepartment = "Cardiology";
             result.SpecialtyNeeded = "Cardiologist / Heart Specialist";
-            result.Severity = ContainsAny(q, "severe", "pain", "sudden", "left arm", "collapse") ? "High" : "Moderate";
-            result.IsEmergency = ContainsAny(q, "severe chest", "left arm", "collapse", "breathless", "heart attack");
+            result.Severity = ContainsAny(q, "severe", "pain", "sudden", "left arm", "collapse", "tez") ? "High" : "Moderate";
+            result.IsEmergency = ContainsAny(q, "severe chest", "left arm", "collapse", "breathless", "heart attack", "chhati me dard");
             result.MatchedKeywords.Add("Cardiac / Chest Sensation");
-            result.AiAdviceEn = "Chest or heart-related discomfort requires immediate professional medical attention. Monitor your pulse and blood pressure, avoid physical exertion, and seek medical care promptly.";
+            result.AiAdviceEn = "सीने में दर्द या भारीपन को कभी नज़रअंदाज़ नहीं करना चाहिए। तुरंत किसी भी शारीरिक गतिविधि को रोकें और आराम से बैठें।";
+            result.HomeRemedies.Add("तुरंत आरामदायक स्थिति में बैठ जाएं, कपड़े ढीले करें और गहरी, शांत सांसें लें।");
+            result.HomeRemedies.Add("किसी भी प्रकार का तनाव या शारीरिक परिश्रम बिल्कुल न करें।");
+            result.HomeRemedies.Add("⚠️ चेतावनी: यदि दर्द बाएँ हाथ, जबड़े में फैले या पसीना/सांस फूलने लगे तो तुरंत आपातकालीन एम्बुलेंस (108/112) बुलाएं।");
         }
-        // 2. Dermatology (Skin, Allergy)
-        else if (ContainsAny(q, "skin", "rash", "itching", "itch", "allergy", "acne", "pimple", "eczema", "fungal", "fungus", "lesion"))
-        {
-            result.IdentifiedDepartment = "Dermatology";
-            result.SpecialtyNeeded = "Dermatologist / Skin Specialist";
-            result.Severity = "Low";
-            result.MatchedKeywords.Add("Dermatological / Skin condition");
-            result.AiAdviceEn = "Skin conditions benefit from direct visual consultation with a dermatologist. Keep the affected area clean and dry, avoid scratching, and do not apply unprescribed steroid creams.";
-        }
-        // 3. Neurology (Brain, Nerves, Headaches)
-        else if (ContainsAny(q, "headache", "migraine", "dizziness", "dizzy", "vertigo", "seizure", "numbness", "nerve", "stroke", "paralysis"))
-        {
-            result.IdentifiedDepartment = "Neurology";
-            result.SpecialtyNeeded = "Neurologist";
-            result.Severity = ContainsAny(q, "sudden", "blackout", "vomiting", "seizure", "stroke", "paralysis") ? "High" : "Moderate";
-            result.IsEmergency = ContainsAny(q, "blackout", "seizure", "paralysis", "stroke");
-            result.MatchedKeywords.Add("Neurological / Migraine symptoms");
-            result.AiAdviceEn = "Frequent headaches, migraines, or dizziness require proper neurological assessment. Rest in a dark quiet room, maintain hydration, and avoid screen strain.";
-        }
-        // 4. Orthopedics (Bones, Joints, Spine)
-        else if (ContainsAny(q, "bone", "joint", "knee", "back pain", "back", "spine", "fracture", "ligament", "sprain", "arthritis"))
+        // 4. Orthopedics (Bone, Joint, Knee, Back, Kamar Dard)
+        else if (ContainsAny(q, "bone", "joint", "knee", "back pain", "back", "spine", "fracture", "ligament", "sprain", "arthritis", "kamar", "kamar dard", "ghutna", "haddi", "कमर", "हड्डी", "जोड़", "घुटना"))
         {
             result.IdentifiedDepartment = "Orthopedics";
             result.SpecialtyNeeded = "Orthopedic Specialist / Bone Surgeon";
             result.Severity = ContainsAny(q, "fracture", "swollen", "unable to walk", "severe") ? "High" : "Moderate";
             result.MatchedKeywords.Add("Musculoskeletal / Orthopedic pain");
-            result.AiAdviceEn = "Bone, knee, or spine pains should be evaluated to prevent joint degeneration. Practice R.I.C.E. (Rest, Ice, Compression, Elevation) and avoid heavy lifting.";
+            result.AiAdviceEn = "कमर, घुटने या जोड़ों का दर्द मांसपेशियों में खिंचाव, गलत पोस्चर या आर्थराइटिस के कारण हो सकता है। झुककर भारी सामान न उठाएं।";
+            result.HomeRemedies.Add("R.I.C.E. तकनीक अपनाएं: प्रभावित हिस्से को आराम दें और उस पर ज्यादा दबाव न डालें।");
+            result.HomeRemedies.Add("गर्म पानी की सिकाई या दर्दनिवारक आयुर्वेदिक तेल से हल्के हाथों से मालिश करें।");
+            result.HomeRemedies.Add("सख्त सतह या उपयुक्त गद्दे पर सोएं और बैठते समय पीठ को सीधा रखें।");
         }
-        // 5. Pediatrics (Children)
-        else if (ContainsAny(q, "child", "baby", "pediatric", "infant", "newborn", "teething", "vaccination", "vaccine"))
+        // 5. ENT (Throat, Gala, Khansi, Cold, Zukam, Ear)
+        else if (ContainsAny(q, "throat", "ear", "tonsil", "sinus", "nose", "ent", "hearing", "earache", "gala", "gala kharab", "khansi", "cough", "cold", "zukam", "nazla", "गला", "खांसी", "जुकाम", "कान"))
+        {
+            result.IdentifiedDepartment = "ENT";
+            result.SpecialtyNeeded = "ENT Specialist / Physician";
+            result.Severity = "Low";
+            result.MatchedKeywords.Add("ENT / Throat & Ear symptoms");
+            result.AiAdviceEn = "गले में खराश, खांसी या जुकाम मौसमी संक्रमण या एलर्जी हो सकता है। गर्म तरल पदार्थों का सेवन करें और ठंडी हवा से बचें।";
+            result.HomeRemedies.Add("गुनगुने पानी में थोड़ा सेंधा नमक डालकर दिन में 2-3 बार गरारे करें।");
+            result.HomeRemedies.Add("अजवाइन या विक्स डालकर गर्म पानी की भाप (steam) लें।");
+            result.HomeRemedies.Add("अदरक, तुलसी, काली मिर्च और शहद का काढ़ा या गुनगुनी चाय पिएं।");
+            result.HomeRemedies.Add("फ्रिज का ठंडा पानी और तैलीय खट्टे खाद्य पदार्थों से पूरी तरह परहेज़ करें।");
+        }
+        // 6. Dermatology (Skin, Allergy, Khujli)
+        else if (ContainsAny(q, "skin", "rash", "itching", "itch", "allergy", "acne", "pimple", "eczema", "fungal", "fungus", "lesion", "khujli", "chaale", "दाद", "खुजली", "त्वचा"))
+        {
+            result.IdentifiedDepartment = "Dermatology";
+            result.SpecialtyNeeded = "Dermatologist / Skin Specialist";
+            result.Severity = "Low";
+            result.MatchedKeywords.Add("Dermatological / Skin condition");
+            result.AiAdviceEn = "त्वचा पर खुजली, दाने या लाल चकत्ते एलर्जी या फंगल इन्फेक्शन हो सकते हैं। प्रभावित जगह को खरोंचें नहीं।";
+            result.HomeRemedies.Add("प्रभावित हिस्से को ठंडे पानी से साफ करें और सूती तौलिए से थपथपाकर सुखाएं।");
+            result.HomeRemedies.Add("नारियल तेल या एलोवेरा जेल लगाएं ताकि जलन और खुजली शांत हो सके।");
+            result.HomeRemedies.Add("ढीले और सूती कपड़े पहनें, बिना डॉक्टर की सलाह के कोई स्टेरॉयड क्रीम न लगाएं।");
+        }
+        // 7. Pediatrics (Child, Baccha)
+        else if (ContainsAny(q, "child", "baby", "pediatric", "infant", "newborn", "teething", "vaccination", "vaccine", "baccha", "chota baccha", "बच्चा"))
         {
             result.IdentifiedDepartment = "Pediatrics";
             result.SpecialtyNeeded = "Pediatrician / Child Specialist";
             result.Severity = ContainsAny(q, "high fever", "breathing", "vomiting", "seizure") ? "High" : "Moderate";
             result.MatchedKeywords.Add("Pediatric / Child care");
-            result.AiAdviceEn = "Children's health requires delicate and timely pediatric guidance. Ensure sufficient hydration, monitor body temperature frequently, and do not administer adult medications.";
+            result.AiAdviceEn = "बच्चों की स्वास्थ्य समस्याओं में विशेष देखभाल की आवश्यकता होती है। बिना विशेषज्ञ की सलाह के बच्चों को कोई भी वयस्क दवा न दें।";
+            result.HomeRemedies.Add("बच्चे को पर्याप्त स्तनपान या तरल पदार्थ देकर हाइड्रेटेड रखें।");
+            result.HomeRemedies.Add("बुखार की स्थिति में बच्चे के माथे और पैरों पर सामान्य पानी की पट्टी रखें।");
         }
-        // 6. Gynecology (Women Health)
-        else if (ContainsAny(q, "pregnancy", "pregnant", "period", "periods", "gynec", "female", "menstrual", "pcod", "pcos", "cramp"))
+        // 8. Gynecology (Women Health)
+        else if (ContainsAny(q, "pregnancy", "pregnant", "period", "periods", "gynec", "female", "menstrual", "pcod", "pcos", "cramp", "mahina", "garbh", "महिला"))
         {
             result.IdentifiedDepartment = "Gynecology";
             result.SpecialtyNeeded = "Gynecologist / Women's Specialist";
             result.Severity = "Moderate";
             result.MatchedKeywords.Add("Gynecological / Women health");
-            result.AiAdviceEn = "Women's wellness and reproductive health require personalized consultation with a certified gynecologist. Track your cycle and consult regarding any irregular bleeding or intense cramps.";
+            result.AiAdviceEn = "मासिक धर्म में ऐंठन या महिलाओं से जुड़े लक्षणों में शरीर को विश्राम दें। गंभीर दर्द होने पर विशेषज्ञ से सलाह लें।";
+            result.HomeRemedies.Add("निचले पेट पर गर्म पानी की थैली (hot water bottle) से सिकाई करें।");
+            result.HomeRemedies.Add("हल्का गुनगुना पानी और हर्बल चाय पिएं, तनाव से बचें।");
         }
-        // 7. Gastroenterology (Stomach, Digestion)
-        else if (ContainsAny(q, "stomach", "abdomen", "belly", "gastric", "acidity", "gas", "vomit", "vomiting", "nausea", "diarrhea", "loose motion", "constipation"))
-        {
-            result.IdentifiedDepartment = "Gastroenterology";
-            result.SpecialtyNeeded = "Gastroenterologist / Physician";
-            result.Severity = ContainsAny(q, "blood", "severe", "dehydration") ? "High" : "Moderate";
-            result.MatchedKeywords.Add("Gastrointestinal / Digestive health");
-            result.AiAdviceEn = "Digestive discomfort or gastrointestinal symptoms should be managed with adequate hydration (ORS/fluids), bland diet, and evaluation by a physician if symptoms persist beyond 24 hours.";
-        }
-        // 8. ENT (Ear, Nose, Throat)
-        else if (ContainsAny(q, "throat", "ear", "tonsil", "sinus", "nose", "ent", "hearing", "earache"))
-        {
-            result.IdentifiedDepartment = "ENT";
-            result.SpecialtyNeeded = "ENT Specialist";
-            result.Severity = "Low";
-            result.MatchedKeywords.Add("ENT / Throat & Ear symptoms");
-            result.AiAdviceEn = "Throat, ear, or sinus discomfort can be soothed with warm salt-water gargles, steam inhalation, and proper rest. Consult an ENT specialist if pain or fever worsens.";
-        }
-        // 9. Dental (Teeth, Gums)
-        else if (ContainsAny(q, "teeth", "tooth", "gum", "dental", "dentist", "mouth ulcer", "cavity"))
-        {
-            result.IdentifiedDepartment = "Dental";
-            result.SpecialtyNeeded = "Dentist / Dental Surgeon";
-            result.Severity = "Low";
-            result.MatchedKeywords.Add("Dental / Oral symptoms");
-            result.AiAdviceEn = "Dental and gum issues require in-person dental examination. Rinse with warm salt water and avoid very hot, cold, or sugary foods until examined.";
-        }
-        // 10. General Medicine
+        // 9. General Medicine & Fever (Bukhar, Weakness, Infection)
         else
         {
             result.IdentifiedDepartment = "General Medicine";
             result.SpecialtyNeeded = "General Physician / MD Medicine";
-            result.Severity = "Low";
+            result.Severity = ContainsAny(q, "high", "tez", "chot", "severe") ? "Moderate" : "Low";
             result.MatchedKeywords.Add("General constitutional symptoms");
-            result.AiAdviceEn = "Consult a General Physician for comprehensive diagnosis, blood tests, and personalized care. Stay hydrated and monitor your symptoms.";
+            result.AiAdviceEn = "बुखार, थकान या सामान्य अस्वस्थता संक्रमण से लड़ने का शारीरिक संकेत है। शरीर को पूर्ण आराम दें और तापमान को मापते रहें।";
+            result.HomeRemedies.Add("भरपूर आराम करें और डिहाइड्रेशन से बचने के लिए पानी, ओआरएस, सूप या नारियल पानी पिएं।");
+            result.HomeRemedies.Add("माथे पर सामान्य नल के पानी की पट्टी रखें और सूती, ढीले कपड़े पहनें।");
+            result.HomeRemedies.Add("हल्का, सुपाच्य भोजन (जैसे मूंग दाल की खिचड़ी या दलिया) लें।");
         }
 
         AttachLiveDoctorNotice(result, liveDoctors);
 
         // Fetch doctors
-        result.RecommendedDoctors = (await _doctorRepo.SearchDoctorsAsync(result.IdentifiedDepartment)).ToList();
+        var docs = (await _doctorRepo.SearchDoctorsAsync(result.IdentifiedDepartment)).ToList();
+        if (!docs.Any())
+        {
+            docs = (await _doctorRepo.SearchDoctorsAsync("")).Take(3).ToList();
+        }
+        result.RecommendedDoctors = docs;
         return result;
     }
 
