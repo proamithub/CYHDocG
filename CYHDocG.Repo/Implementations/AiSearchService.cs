@@ -19,7 +19,7 @@ public class AiSearchService : IAiSearchService
         _httpClient = httpClient ?? new HttpClient();
     }
 
-    public async Task<AiDiagnosisResultDto> AnalyzeSymptomAsync(string query)
+    public async Task<AiDiagnosisResultDto> AnalyzeSymptomAsync(string query, List<ChatTurnDto>? history = null)
     {
         var result = new AiDiagnosisResultDto
         {
@@ -64,7 +64,7 @@ public class AiSearchService : IAiSearchService
         {
             try
             {
-                var llmResult = await CallLlmApiAsync(query, provider, apiKey, model);
+                var llmResult = await CallLlmApiAsync(query, history, provider, apiKey, model);
                 if (llmResult != null)
                 {
                     llmResult.LiveDoctors = liveDoctors;
@@ -83,7 +83,7 @@ public class AiSearchService : IAiSearchService
         }
 
         // Local Rule Engine Fallback (Instant, 100% Reliable, Pure English)
-        var ruleResult = await ExecuteRuleEngineAsync(query, liveDoctors);
+        var ruleResult = await ExecuteRuleEngineAsync(query, liveDoctors, history);
         ruleResult.LiveDoctors = liveDoctors;
         return ruleResult;
     }
@@ -102,39 +102,68 @@ public class AiSearchService : IAiSearchService
         }
     }
 
-    private async Task<AiDiagnosisResultDto?> CallLlmApiAsync(string query, string provider, string apiKey, string model)
+    private async Task<AiDiagnosisResultDto?> CallLlmApiAsync(string query, List<ChatTurnDto>? history, string provider, string apiKey, string model)
     {
-        string prompt = $@"You are CYHDocGuru's dedicated Medical & Health AI Assistant.
-A patient/user has sent the following message: ""{query}"".
+        StringBuilder historyContext = new();
+        if (history != null && history.Any())
+        {
+            historyContext.AppendLine("Previous Conversation Turns:");
+            foreach (var turn in history.TakeLast(6))
+            {
+                string speaker = turn.Role?.ToLowerInvariant() == "user" ? "Patient" : "Doctor AI";
+                if (!string.IsNullOrWhiteSpace(turn.Content))
+                {
+                    historyContext.AppendLine($"{speaker}: {turn.Content.Trim()}");
+                }
+            }
+            historyContext.AppendLine();
+        }
 
-Strict Instructions for Clinical Triage & Intent Detection:
+        string prompt = $@"You are CYHDocGuru's Senior AI Clinical Triage & Health Assistant. You converse empathetically in the SAME LANGUAGE as the patient (Hindi, Hinglish, or English).
+
+{historyContext}Current Patient Message: ""{query}""
+
+Strict Clinical Triage Instructions:
 1. Intent Classification:
-   - GREETING: If user says 'hi', 'hello', 'namaste', etc., classify as isMedical: true. Greet warmly as CYHDoc Medical AI and ask what health symptom or issue they are experiencing today.
-   - NON-MEDICAL: If user asks about cooking/food recipes (e.g. 'मुझे खाना बनाना है', 'खाना कैसे बनाएं', recipe), cricket/sports, movies/entertainment, coding/software, weather, jokes, politics, or any topic unrelated to human health/medicine/symptoms, classify as isMedical: false. Set advice to empty string """". Do NOT provide recipes, cooking tips, or non-medical assistance!
-   - MEDICAL: If user asks about symptoms, illness, pain, disease (e.g. 'मुझे बुखार है', 'मेरे पेट में दर्द है', headache, fever, cough, chest pain, nausea, loose motion, injury, weakness), medicines, or doctor consultations in ANY language (Hindi, Hinglish, English):
-     Classify as isMedical: true. Provide concise, caring, medically sound advice, safe home care/precautions, and recommendation to consult a doctor in the SAME LANGUAGE as the user asked (e.g. Hindi if asked in Hindi, English if asked in English).
+   - NON-MEDICAL: If patient asks about cooking/recipes (e.g. 'मुझे खाना बनाना है', food recipes), cricket/sports, movies, coding, tech, weather, jokes, or non-health topics, set isMedical to false, and advice to """" (empty string).
+   - GREETING: If patient says 'hi', 'hello', 'namaste', greet warmly as CYHDoc Medical AI and ask what health symptom they have. Set isMedical: true.
+   - MEDICAL: If patient mentions ANY pain, symptom, illness, medicine, or health issue (e.g. 'मुझे दर्द है', 'पेट में दर्द', 'बुखार', 'fever', 'headache'): Set isMedical: true.
 
-2. If isMedical is true:
-   - department: Cardiology | Dermatology | Neurology | Orthopedics | Pediatrics | Gynecology | Gastroenterology | ENT | General Medicine
-   - specialty: Doctor Specialty Title (e.g. General Physician, Gastroenterologist, Cardiologist, etc.)
-   - severity: Low | Moderate | High | Emergency
-   - isEmergency: true if chest pain, stroke, breathing emergency, severe trauma; else false.
+2. Dynamic Clinical Consultancy (NOT static, deeply personalized to what patient said):
+   - A) If patient's symptom is VAGUE or INCOMPLETE (e.g. 'मुझे दर्द है', 'I feel pain', 'tabiyat kharab hai', 'pet me kuch ho raha hai'):
+     Set isNeedsMoreInfo: true.
+     Act like an attentive physician! In 'advice' and 'followUpQuestions', ask 2-3 specific clarifying questions:
+     - Exact location (दर्द कहाँ हो रहा है? जैसे सिर, पेट, छाती, जोड़)
+     - Severity (दर्द कितना तेज है? हल्का, मध्यम, या बहुत तेज?)
+     - Duration & Nature (कब से हो रहा है? जलन, मरोड़ या भारीपन?)
+     - Any other symptoms (बुखार, उल्टी, चक्कर?)
+     Still provide general soothing words.
+   
+   - B) If patient has specified symptom location/details (e.g. 'पेट में दर्द है', '3 दिन से बुखार है', 'सिर दर्द'):
+     Set isNeedsMoreInfo: false.
+     Provide a comprehensive clinical response in the user's language:
+     1. Empathetic explanation of what could be causing it.
+     2. Specific, safe Home Remedies (घरेलू उपचार) in 'homeRemedies' array (e.g. hydration, warm compress, ajwain water for stomach gas, steam for cold, rest, light diet).
+     3. Red flag warnings: When to immediately seek medical care.
+     4. Clear reminder that while home remedies help with temporary comfort, an in-person or live video evaluation with a certified doctor is vital.
 
-3. If isMedical is false:
-   - department: ""Non-Medical""
-   - specialty: ""General Physician""
-   - severity: ""Low""
-   - isEmergency: false
-   - advice: """" (strictly empty string)
+3. Department & Doctor Specialty:
+   - Categorize department accurately: Cardiology | Dermatology | Neurology | Orthopedics | Pediatrics | Gynecology | Gastroenterology | ENT | General Medicine
+   - Specialty: e.g. 'General Physician', 'Gastroenterologist', 'Cardiologist', 'Neurologist', etc.
+   - Severity: Low | Moderate | High | Emergency
+   - isEmergency: true if severe chest pain, stroke signs, breathing crisis, unconsciousness, severe bleeding.
 
 Respond ONLY in valid JSON matching this schema without markdown fences:
 {{
   ""isMedical"": true|false,
+  ""isNeedsMoreInfo"": true|false,
   ""department"": ""Department Name"",
   ""specialty"": ""Specialist Title"",
-  ""severity"": ""Low|Moderate|High"",
+  ""severity"": ""Low|Moderate|High|Emergency"",
   ""isEmergency"": true|false,
-  ""advice"": ""Detailed medical response in user's language, OR empty string if non-medical"",
+  ""followUpQuestions"": [""Question 1"", ""Question 2""],
+  ""homeRemedies"": [""Remedy 1"", ""Remedy 2""],
+  ""advice"": ""Detailed empathetic clinical response in patient's language"",
   ""keywords"": [""key1"", ""key2""]
 }}";
 
@@ -242,10 +271,17 @@ Respond ONLY in valid JSON matching this schema without markdown fences:
                 };
             }
 
+            bool isNeedsMoreInfo = false;
+            if (root.TryGetProperty("isNeedsMoreInfo", out var nmiProp))
+            {
+                isNeedsMoreInfo = nmiProp.GetBoolean();
+            }
+
             var res = new AiDiagnosisResultDto
             {
                 QueryText = query,
                 IsMedical = true,
+                IsNeedsMoreInfo = isNeedsMoreInfo,
                 IdentifiedDepartment = root.TryGetProperty("department", out var dProp) ? (dProp.GetString() ?? "General Medicine") : "General Medicine",
                 SpecialtyNeeded = root.TryGetProperty("specialty", out var sProp) ? (sProp.GetString() ?? "Physician") : "Physician",
                 Severity = root.TryGetProperty("severity", out var svProp) ? (svProp.GetString() ?? "Moderate") : "Moderate",
@@ -253,7 +289,25 @@ Respond ONLY in valid JSON matching this schema without markdown fences:
                 AiAdviceEn = advice
             };
 
-            if (root.TryGetProperty("keywords", out var kwElem))
+            if (root.TryGetProperty("followUpQuestions", out var fqElem) && fqElem.ValueKind == JsonValueKind.Array)
+            {
+                foreach (var qItem in fqElem.EnumerateArray())
+                {
+                    string s = qItem.GetString() ?? "";
+                    if (!string.IsNullOrWhiteSpace(s)) res.FollowUpQuestions.Add(s);
+                }
+            }
+
+            if (root.TryGetProperty("homeRemedies", out var hrElem) && hrElem.ValueKind == JsonValueKind.Array)
+            {
+                foreach (var rItem in hrElem.EnumerateArray())
+                {
+                    string s = rItem.GetString() ?? "";
+                    if (!string.IsNullOrWhiteSpace(s)) res.HomeRemedies.Add(s);
+                }
+            }
+
+            if (root.TryGetProperty("keywords", out var kwElem) && kwElem.ValueKind == JsonValueKind.Array)
             {
                 foreach (var k in kwElem.EnumerateArray())
                 {
@@ -305,7 +359,7 @@ Respond ONLY in valid JSON matching this schema without markdown fences:
         "बुखार", "दर्द", "पेट", "सिर", "खांसी", "जुकाम", "उल्टी", "दस्त", "चक्कर", "दवा", "दवाई", "डॉक्टर", "इलाज", "बीमारी", "स्वास्थ्य", "छाती", "हार्ट", "चोट", "सूजन", "खून", "कमर", "हड्डी", "आंख", "कान", "गला", "दांत", "सांस"
     };
 
-    private async Task<AiDiagnosisResultDto> ExecuteRuleEngineAsync(string query, List<DoctorReelDto> liveDoctors)
+    private async Task<AiDiagnosisResultDto> ExecuteRuleEngineAsync(string query, List<DoctorReelDto> liveDoctors, List<ChatTurnDto>? history)
     {
         var result = new AiDiagnosisResultDto { QueryText = query.Trim() };
         string q = query.ToLowerInvariant();
@@ -331,6 +385,32 @@ Respond ONLY in valid JSON matching this schema without markdown fences:
             result.SpecialtyNeeded = "General Physician";
             result.Severity = "Low";
             result.AiAdviceEn = string.Empty;
+            return result;
+        }
+
+        // C. Medical Query Categorization
+        result.IsMedical = true;
+
+        // Check if query is vague (e.g. "mujhe dard hai", "dard", "pain", "tabiyat kharab")
+        bool isVague = (ContainsAny(q, "dard", "pain", "दर्द") && !ContainsAny(q, "pet", "stomach", "sir", "sar", "head", "chest", "seene", "kamar", "back", "joint", "haddi", "gala"))
+                    || q.Equals("mujhe dard hai", StringComparison.OrdinalIgnoreCase)
+                    || q.Equals("dard ho raha hai", StringComparison.OrdinalIgnoreCase)
+                    || q.Equals("tabiyat kharab hai", StringComparison.OrdinalIgnoreCase)
+                    || q.Length <= 15;
+
+        if (isVague)
+        {
+            result.IsNeedsMoreInfo = true;
+            result.IdentifiedDepartment = "General Medicine";
+            result.SpecialtyNeeded = "General Physician";
+            result.Severity = "Moderate";
+            result.AiAdviceEn = "दर्द होने की स्थिति में शरीर को आराम देना जरूरी है। आपको सटीक क्लिनिकल सलाह और उचित घरेलू उपचार सुझाने के लिए, कृपया नीचे दिए गए प्रश्नों के उत्तर दें:";
+            result.FollowUpQuestions.Add("दर्द शरीर के किस हिस्से में हो रहा है? (जैसे सिर, पेट, छाती, कमर या जोड़)");
+            result.FollowUpQuestions.Add("दर्द कितना तेज है? (हल्का, मध्यम या बहुत तेज)");
+            result.FollowUpQuestions.Add("यह दर्द कब से है और क्या साथ में बुखार, उल्टी या चक्कर भी है?");
+            result.HomeRemedies.Add("आरामदायक मुद्रा में विश्राम करें और अचानक कोई भारी गतिविधि न करें।");
+            result.HomeRemedies.Add("पर्याप्त गुनगुना पानी पिएं।");
+            AttachLiveDoctorNotice(result, liveDoctors);
             return result;
         }
 

@@ -178,6 +178,8 @@ public class LiveChatController : Controller
     public async Task<IActionResult> AiChat([FromBody] System.Text.Json.JsonElement body)
     {
         string query = "";
+        List<CYHDocG.Repo.DTOs.ChatTurnDto> history = new();
+
         if (body.ValueKind == System.Text.Json.JsonValueKind.String)
         {
             query = body.GetString() ?? "";
@@ -186,9 +188,22 @@ public class LiveChatController : Controller
         {
             if (body.TryGetProperty("query", out var qProp)) query = qProp.GetString() ?? "";
             else if (body.TryGetProperty("message", out var mProp)) query = mProp.GetString() ?? "";
+
+            if (body.TryGetProperty("history", out var hProp) && hProp.ValueKind == System.Text.Json.JsonValueKind.Array)
+            {
+                foreach (var item in hProp.EnumerateArray())
+                {
+                    string role = item.TryGetProperty("role", out var r) ? (r.GetString() ?? "user") : "user";
+                    string content = item.TryGetProperty("content", out var c) ? (c.GetString() ?? "") : "";
+                    if (!string.IsNullOrWhiteSpace(content))
+                    {
+                        history.Add(new CYHDocG.Repo.DTOs.ChatTurnDto { Role = role, Content = content });
+                    }
+                }
+            }
         }
 
-        var diagnosis = await _aiSearchService.AnalyzeSymptomAsync(query);
+        var diagnosis = await _aiSearchService.AnalyzeSymptomAsync(query, history);
         return Ok(diagnosis);
     }
 }

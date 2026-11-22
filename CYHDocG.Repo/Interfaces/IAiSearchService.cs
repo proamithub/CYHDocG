@@ -4,5 +4,5 @@ namespace CYHDocG.Repo.Interfaces;
 
 public interface IAiSearchService
 {
-    Task<AiDiagnosisResultDto> AnalyzeSymptomAsync(string query);
+    Task<AiDiagnosisResultDto> AnalyzeSymptomAsync(string query, List<ChatTurnDto>? history = null);
 }

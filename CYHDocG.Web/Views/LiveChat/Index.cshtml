@@ -418,6 +418,9 @@
             if (window.lucide) lucide.createIcons();
         }
 
+        let nonMedicalAttemptsCount = 0;
+        let chatHistory = [];
+
         function removeTypingIndicator(id) {
             const el = document.getElementById(id);
             if (el) el.remove();
@@ -455,15 +458,59 @@
             }, 3500);
         }
 
+        function showNonMedicalPolicyAlert(count) {
+            const stream = document.getElementById('messageStream');
+            const alertHtml = `
+            <div class="my-3 p-4 sm:p-5 rounded-3xl bg-gradient-to-r from-red-950/90 via-slate-900 to-slate-900 border-2 border-red-500/70 text-white shadow-2xl space-y-3">
+                <div class="flex items-center gap-2.5">
+                    <div class="w-9 h-9 rounded-2xl bg-red-600/30 border border-red-500/50 flex items-center justify-center text-red-400 flex-shrink-0">
+                        <i data-lucide="shield-alert" class="w-5 h-5 animate-pulse"></i>
+                    </div>
+                    <div>
+                        <h4 class="font-heading font-bold text-sm text-red-400 flex items-center gap-2">
+                            <span>CYHDoc नीति चेतावनी (Policy Alert)</span>
+                            <span class="px-2 py-0.5 rounded-full bg-red-600 text-white text-[9px] font-black uppercase">${count} गैर-चिकित्सीय प्रयास</span>
+                        </h4>
+                        <span class="text-[11px] text-slate-400">गैर-चिकित्सीय प्रश्नों की अधिकतम सीमा पार</span>
+                    </div>
+                </div>
+                <p class="text-xs sm:text-sm text-slate-200 leading-relaxed">
+                    आपने लगातार <strong>${count} बार</strong> गैर-चिकित्सीय (Non-Medical) प्रश्न पूछे हैं। 
+                    CYHDocGuru एक अधिकृत <strong>क्लिनिकल व हेल्थकेयर प्लेटफॉर्म</strong> है। AI परामर्श केवल बीमारियों, लक्षणों और स्वास्थ्य समस्याओं के लिए आरक्षित है।
+                </p>
+                <div class="pt-1 flex flex-wrap gap-2">
+                    <button type="button" onclick="sendQuickPrompt('मुझे स्वास्थ्य सलाह चाहिए')" class="px-3.5 py-1.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs border border-slate-700 flex items-center gap-1.5 transition-all">
+                        <i data-lucide="heart-pulse" class="w-3.5 h-3.5 text-red-400"></i>
+                        <span>स्वास्थ्य सलाह पूछें</span>
+                    </button>
+                    <button type="button" onclick="openDoctorSelectModal()" class="px-3.5 py-1.5 rounded-xl bg-red-600 hover:bg-red-700 text-white text-xs font-bold flex items-center gap-1.5 transition-all">
+                        <i data-lucide="stethoscope" class="w-3.5 h-3.5"></i>
+                        <span>सीधे डॉक्टर से बात करें</span>
+                    </button>
+                </div>
+            </div>`;
+            stream.insertAdjacentHTML('beforeend', alertHtml);
+            stream.scrollTop = stream.scrollHeight;
+            if (window.lucide) lucide.createIcons();
+        }
+
         function renderAiResponse(data, query) {
             const stream = document.getElementById('messageStream');
             const isMedical = data.isMedical !== false;
 
-            // 1. If Non-Medical query: DO NOT reply in chat stream! Show discrete toast alert.
+            // 1. If Non-Medical query: check 5-strike limit
             if (!isMedical) {
-                showNonMedicalToast("⚠️ CYHDoc AI केवल स्वास्थ्य और मेडिकल से संबंधित सवालों के लिए है। कृपया अपने स्वास्थ्य या लक्षणों से जुड़े सवाल पूछें।");
+                nonMedicalAttemptsCount++;
+                if (nonMedicalAttemptsCount >= 5) {
+                    showNonMedicalPolicyAlert(nonMedicalAttemptsCount);
+                } else {
+                    showNonMedicalToast("⚠️ CYHDoc AI केवल स्वास्थ्य और मेडिकल से संबंधित सवालों के लिए है। (" + nonMedicalAttemptsCount + "/5 गैर-चिकित्सीय प्रयास)");
+                }
                 return;
             }
+
+            // Valid medical inquiry -> reset non-medical strike counter
+            nonMedicalAttemptsCount = 0;
 
             const primaryAdvice = data.aiAdviceEn || data.aiAdvice || "Clinical analysis complete.";
             const severity = data.severity || 'Moderate';
@@ -497,6 +544,36 @@
                 </div>`;
             }
 
+            // Follow-up Clarifying Questions HTML
+            let followUpHtml = '';
+            if (data.followUpQuestions && data.followUpQuestions.length > 0) {
+                followUpHtml = `
+                <div class="p-3.5 rounded-2xl bg-blue-950/70 border border-blue-500/50 space-y-2">
+                    <div class="text-xs font-bold text-blue-300 flex items-center gap-1.5">
+                        <i data-lucide="help-circle" class="w-4 h-4 text-blue-400"></i>
+                        <span>डॉक्टर की तरह क्लिनिकल सवाल (कृपया बताएँ):</span>
+                    </div>
+                    <ul class="text-xs text-slate-200 space-y-1.5 pl-2">
+                        ${data.followUpQuestions.map(q => `<li class="flex items-start gap-2"><span class="text-blue-400 font-bold">•</span><span>${escapeHtml(q)}</span></li>`).join('')}
+                    </ul>
+                </div>`;
+            }
+
+            // Safe Home Remedies HTML
+            let homeRemediesHtml = '';
+            if (data.homeRemedies && data.homeRemedies.length > 0) {
+                homeRemediesHtml = `
+                <div class="p-3.5 rounded-2xl bg-emerald-950/70 border border-emerald-500/50 space-y-2">
+                    <div class="text-xs font-bold text-emerald-300 flex items-center gap-1.5">
+                        <i data-lucide="sparkles" class="w-4 h-4 text-emerald-400"></i>
+                        <span>सुरक्षित प्राथमिक घरेलू उपचार (Home Remedies & Care):</span>
+                    </div>
+                    <ul class="text-xs text-slate-200 space-y-1.5 pl-2">
+                        ${data.homeRemedies.map(r => `<li class="flex items-start gap-2"><span class="text-emerald-400 font-bold">✓</span><span>${escapeHtml(r)}</span></li>`).join('')}
+                    </ul>
+                </div>`;
+            }
+
             const cardHtml = `
             <div class="flex items-start gap-3 max-w-2xl">
                 <div class="w-8 h-8 rounded-xl bg-emerald-500/20 text-emerald-400 flex items-center justify-center flex-shrink-0 text-xs font-bold font-heading">
@@ -506,7 +583,7 @@
                     <!-- Header with Department & Severity -->
                     <div class="flex flex-wrap items-center justify-between gap-2 border-b border-slate-700/60 pb-3">
                         <div class="flex items-center gap-2">
-                            <span class="font-heading font-bold text-white text-sm">AI Health Clinical Assessment</span>
+                            <span class="font-heading font-bold text-white text-sm">AI Clinical Consultation</span>
                             <span class="px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-400 text-[10px] font-bold">Gemini AI</span>
                         </div>
                         <div class="flex items-center gap-1.5 flex-wrap">
@@ -532,6 +609,12 @@
                         </div>
                     </div>
 
+                    <!-- Follow-up Questions (Clarifying Vague Symptoms) -->
+                    ${followUpHtml}
+
+                    <!-- Safe Home Remedies -->
+                    ${homeRemediesHtml}
+
                     ${liveDocBadgeHtml}
 
                     <!-- Interactive Suggestion Chips -->
@@ -551,6 +634,11 @@
                     </div>
                 </div>
             </div>`;
+
+            stream.insertAdjacentHTML('beforeend', cardHtml);
+            stream.scrollTop = stream.scrollHeight;
+            if (window.lucide) lucide.createIcons();
+        }
 
             stream.insertAdjacentHTML('beforeend', cardHtml);
             stream.scrollTop = stream.scrollHeight;
@@ -592,14 +680,25 @@
             const indicatorId = 'aiTyping_' + Date.now();
             appendTypingIndicator(indicatorId);
 
+            // Record user turn in chat history
+            chatHistory.push({ role: 'user', content: query });
+            if (chatHistory.length > 10) chatHistory.shift();
+
             try {
                 const res = await fetch('/Search/Triage', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify(query)
+                    body: JSON.stringify({
+                        query: query,
+                        history: chatHistory.slice(-6)
+                    })
                 });
                 const data = await res.json();
                 removeTypingIndicator(indicatorId);
+                if (data.isMedical && (data.aiAdviceEn || data.aiAdvice)) {
+                    chatHistory.push({ role: 'model', content: data.aiAdviceEn || data.aiAdvice });
+                    if (chatHistory.length > 10) chatHistory.shift();
+                }
                 renderAiResponse(data, query);
             } catch (err) {
                 console.error(err);
@@ -622,14 +721,26 @@
             } else {
                 const indicatorId = 'aiTyping_' + Date.now();
                 appendTypingIndicator(indicatorId);
+
+                // Record user turn in chat history
+                chatHistory.push({ role: 'user', content: message });
+                if (chatHistory.length > 10) chatHistory.shift();
+
                 try {
                     const res = await fetch('/Search/Triage', {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify(message)
+                        body: JSON.stringify({
+                            query: message,
+                            history: chatHistory.slice(-6)
+                        })
                     });
                     const data = await res.json();
                     removeTypingIndicator(indicatorId);
+                    if (data.isMedical && (data.aiAdviceEn || data.aiAdvice)) {
+                        chatHistory.push({ role: 'model', content: data.aiAdviceEn || data.aiAdvice });
+                        if (chatHistory.length > 10) chatHistory.shift();
+                    }
                     renderAiResponse(data, message);
                 } catch (err) {
                     console.error(err);
