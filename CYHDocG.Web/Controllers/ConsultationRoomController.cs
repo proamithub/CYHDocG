@@ -3,6 +3,7 @@ using Dapper;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.SignalR;
+using CYHDocG.Repo.DTOs;
 using CYHDocG.Repo.Interfaces;
 using CYHDocG.Web.Hubs;
 
@@ -103,6 +104,8 @@ public class ConsultationRoomController : Controller
             canPublish: true,
             canSubscribe: true);
 
+        var existingMessages = (await _consultationRepo.GetConsultationMessagesAsync(id)).ToList();
+
         var vm = new ConsultationRoomViewModel
         {
             ConsultationId = id,
@@ -131,7 +134,8 @@ public class ConsultationRoomController : Controller
 
             LiveKitRoomName = roomName,
             LiveKitToken = token,
-            LiveKitServerUrl = _liveKitTokenService.GetServerUrl()
+            LiveKitServerUrl = _liveKitTokenService.GetServerUrl(),
+            Messages = existingMessages
         };
 
         return View("Index", vm);
@@ -167,4 +171,5 @@ public class ConsultationRoomViewModel
     public string LiveKitRoomName { get; set; } = string.Empty;
     public string LiveKitToken { get; set; } = string.Empty;
     public string LiveKitServerUrl { get; set; } = string.Empty;
+    public List<ConsultationMessageDto> Messages { get; set; } = new();
 }

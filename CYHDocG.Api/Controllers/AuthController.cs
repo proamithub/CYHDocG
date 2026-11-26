@@ -1,6 +1,7 @@
 using Microsoft.AspNetCore.Mvc;
 using CYHDocG.Repo.DTOs;
 using CYHDocG.Repo.Interfaces;
+using CYHDocG.Repo.Security;
 
 namespace CYHDocG.Api.Controllers;
 
@@ -10,34 +11,31 @@ public class AuthController : ControllerBase
 {
     private readonly IAuthRepository _authRepo;
     private readonly IJwtTokenService _jwtTokenService;
+    private readonly IGoogleTokenVerifier _googleVerifier;
     private readonly IConfiguration _config;
 
-    public AuthController(IAuthRepository authRepo, IJwtTokenService jwtTokenService, IConfiguration config)
+    public AuthController(
+        IAuthRepository authRepo,
+        IJwtTokenService jwtTokenService,
+        IGoogleTokenVerifier googleVerifier,
+        IConfiguration config)
     {
         _authRepo = authRepo;
         _jwtTokenService = jwtTokenService;
+        _googleVerifier = googleVerifier;
         _config = config;
-    }
-
-    private JwtConfig GetEffectiveJwtConfig()
-    {
-        var config = _config.GetSection("Authentication:Jwt").Get<JwtConfig>() ?? new JwtConfig();
-        if (!string.IsNullOrWhiteSpace(_config["Jwt:Key"])) config.SecretKey = _config["Jwt:Key"]!;
-        if (!string.IsNullOrWhiteSpace(_config["Jwt:Issuer"])) config.Issuer = _config["Jwt:Issuer"]!;
-        if (!string.IsNullOrWhiteSpace(_config["Jwt:Audience"])) config.Audience = _config["Jwt:Audience"]!;
-        return config;
     }
 
     [HttpPost("login")]
     public async Task<IActionResult> Login([FromBody] LoginRequestDto request)
     {
-        var user = await _authRepo.LoginUserAsync(request.Email);
-        if (user == null || user.PasswordHash != request.Password)
+        var user = await _authRepo.AuthenticateUserAsync(request.Email, request.Password);
+        if (user == null)
         {
             return Unauthorized(new { Success = false, Message = "Invalid email or password" });
         }
 
-        var jwtConfig = GetEffectiveJwtConfig();
+        var jwtConfig = JwtConfigResolver.Resolve(_config);
         var token = _jwtTokenService.GenerateToken(user, jwtConfig);
         var expiresAt = DateTime.UtcNow.AddMinutes(jwtConfig.ExpiryMinutes);
 
@@ -54,17 +52,20 @@ public class AuthController : ControllerBase
     [HttpPost("register")]
     public async Task<IActionResult> Register([FromBody] RegisterRequestDto request)
     {
+        request.RoleName = string.Equals(request.RoleName, "Doctor", StringComparison.OrdinalIgnoreCase)
+            ? "Doctor"
+            : "User";
+
         var result = await _authRepo.RegisterUserAsync(request);
         if (!result.Success)
         {
             return BadRequest(result);
         }
 
-        // Auto login
-        var user = await _authRepo.LoginUserAsync(request.Email);
+        var user = await _authRepo.AuthenticateUserAsync(request.Email, request.Password);
         if (user != null)
         {
-            var jwtConfig = GetEffectiveJwtConfig();
+            var jwtConfig = JwtConfigResolver.Resolve(_config);
             var token = _jwtTokenService.GenerateToken(user, jwtConfig);
             var expiresAt = DateTime.UtcNow.AddMinutes(jwtConfig.ExpiryMinutes);
 
@@ -84,13 +85,19 @@ public class AuthController : ControllerBase
     [HttpPost("google-login")]
     public async Task<IActionResult> GoogleLogin([FromBody] GoogleAuthDto request)
     {
-        var user = await _authRepo.GoogleLoginAsync(request);
+        var verifiedProfile = await _googleVerifier.VerifyIdTokenAsync(request?.IdToken);
+        if (verifiedProfile == null)
+        {
+            return Unauthorized(new { Success = false, Message = "Invalid or unverified Google ID token" });
+        }
+
+        var user = await _authRepo.GoogleLoginAsync(verifiedProfile);
         if (user == null)
         {
             return BadRequest(new { Success = false, Message = "Google sign-in failed" });
         }
 
-        var jwtConfig = GetEffectiveJwtConfig();
+        var jwtConfig = JwtConfigResolver.Resolve(_config);
         var token = _jwtTokenService.GenerateToken(user, jwtConfig);
         var expiresAt = DateTime.UtcNow.AddMinutes(jwtConfig.ExpiryMinutes);
 

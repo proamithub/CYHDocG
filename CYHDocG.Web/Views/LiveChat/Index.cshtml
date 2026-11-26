@@ -221,9 +221,11 @@
 
             // Receive message from the other party in this consultation
             consultationConnection.on('ReceiveConsultationMessage', function (payload) {
-                const isDoc = payload.SenderRole === 'Doctor';
+                const senderRole = payload.senderRole || payload.SenderRole || 'User';
+                const messageText = payload.messageText || payload.MessageText || '';
+                const isDoc = senderRole === 'Doctor';
                 const label = isDoc ? `Dr. ${activeDoctorName}` : activePatientName;
-                appendChatMessage(isDoc ? 'doctor' : 'user', payload.MessageText, label);
+                appendChatMessage(isDoc ? 'doctor' : 'user', messageText, label);
             });
 
             // Timer starts ONLY when doctor accepts

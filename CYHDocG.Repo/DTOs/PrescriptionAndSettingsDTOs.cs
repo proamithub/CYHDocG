@@ -34,11 +34,17 @@ public class MedicineItemDto
 public class PrescriptionHeaderDto
 {
     public long PrescriptionId { get; set; }
+    public long? ConsultationId { get; set; }
+    public long DoctorId { get; set; }
+    public long UserId { get; set; }
     public DateTime CreatedAt { get; set; }
     public string? CompressedFileUrl { get; set; }
     public string? DoctorNotes { get; set; }
     public string Specialty { get; set; } = string.Empty;
     public string DoctorName { get; set; } = string.Empty;
+    public string PatientName { get; set; } = string.Empty;
+    public string PatientPhone { get; set; } = string.Empty;
+    public string PatientEmail { get; set; } = string.Empty;
     public List<PrescriptionMedicineItemDto> Medicines { get; set; } = new();
 }
 
@@ -70,4 +76,25 @@ public class SecurityLogDto
     public string EventAction { get; set; } = string.Empty;
     public string? IpAddress { get; set; }
     public string? UserAgent { get; set; }
+}
+
+public class DoseReminderItemDto
+{
+    public long ReminderId { get; set; }
+    public long PrescriptionMedicineId { get; set; }
+    public string MedicineName { get; set; } = string.Empty;
+    public string DosageSchedule { get; set; } = string.Empty;
+    public string? TimingInstruction { get; set; }
+    public string Slot { get; set; } = "Morning"; // Morning, Afternoon, Night
+    public string SlotTimeLabel { get; set; } = "08:00 AM";
+    public DateTime ReminderDateTime { get; set; }
+    public string Status { get; set; } = "Pending";
+}
+
+public class PatientSummaryDto
+{
+    public long UserId { get; set; }
+    public string FullName { get; set; } = string.Empty;
+    public string Email { get; set; } = string.Empty;
+    public string Phone { get; set; } = string.Empty;
 }

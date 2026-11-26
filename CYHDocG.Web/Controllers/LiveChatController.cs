@@ -1,5 +1,5 @@
 using System.Security.Claims;
-using Dapper;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.SignalR;
 using CYHDocG.Repo.DTOs;
@@ -14,41 +14,45 @@ public class LiveChatController : Controller
     private readonly IDoctorRepository _doctorRepo;
     private readonly IAiSearchService _aiSearchService;
     private readonly ILiveKitTokenService _liveKitTokenService;
-    private readonly IConfiguration _config;
     private readonly IHubContext<LiveReelHub> _liveReelHub;
     private readonly IHubContext<ConsultationHub> _consultationHub;
-    private readonly IBaseRepository _baseRepo;
 
     public LiveChatController(
-        IConsultationRepository consultationRepo, 
-        IDoctorRepository doctorRepo, 
+        IConsultationRepository consultationRepo,
+        IDoctorRepository doctorRepo,
         IAiSearchService aiSearchService,
         ILiveKitTokenService liveKitTokenService,
-        IConfiguration config,
         IHubContext<LiveReelHub> liveReelHub,
-        IHubContext<ConsultationHub> consultationHub,
-        IBaseRepository baseRepo)
+        IHubContext<ConsultationHub> consultationHub)
     {
         _consultationRepo = consultationRepo;
         _doctorRepo = doctorRepo;
         _aiSearchService = aiSearchService;
         _liveKitTokenService = liveKitTokenService;
-        _config = config;
         _liveReelHub = liveReelHub;
         _consultationHub = consultationHub;
-        _baseRepo = baseRepo;
     }
 
+    [Authorize]
     [HttpPost("/api/consultation/video-token")]
-    public IActionResult GetVideoToken([FromBody] VideoTokenRequestDto request)
+    public async Task<IActionResult> GetVideoToken([FromBody] VideoTokenRequestDto request)
     {
+        if (!long.TryParse(User.FindFirstValue(ClaimTypes.NameIdentifier), out long callerUserId) || callerUserId <= 0)
+        {
+            return Unauthorized();
+        }
+
         string role = User.FindFirstValue(ClaimTypes.Role) ?? "User";
-        string userId = User.FindFirstValue(ClaimTypes.NameIdentifier) ?? Guid.NewGuid().ToString("N")[..6];
-        string identity = role == "Doctor" ? $"doc_{userId}" : $"user_{userId}";
-        string participantName = role == "Doctor" 
+        if (request.ConsultationId <= 0 || !await _consultationRepo.IsParticipantAsync(request.ConsultationId, callerUserId, role))
+        {
+            return Forbid();
+        }
+
+        string identity = role == "Doctor" ? $"doc_{callerUserId}" : $"user_{callerUserId}";
+        string participantName = role == "Doctor"
             ? $"Dr. {User.Identity?.Name ?? "Doctor"}"
             : (User.Identity?.Name ?? "Patient");
-        string roomName = !string.IsNullOrWhiteSpace(request.RoomName) ? request.RoomName : $"consultation_{request.ConsultationId}";
+        string roomName = $"consultation_{request.ConsultationId}";
 
         string token = _liveKitTokenService.GenerateAccessToken(roomName, identity, participantName, canPublish: true, canSubscribe: true);
         string serverUrl = _liveKitTokenService.GetServerUrl();
@@ -81,33 +85,30 @@ public class LiveChatController : Controller
         ViewBag.DoctorId = doctorId;
         ViewBag.ConsultationId = consultationId;
 
-        // If a consultationId was provided (from Doctor Studio Accept or Patient Reel Handoff), route directly to Dedicated Video Room
         if (consultationId.HasValue && consultationId.Value > 0)
         {
             return RedirectToAction("Room", "ConsultationRoom", new { id = consultationId.Value });
         }
 
-        // Fetch live doctors who can accept chats
         var liveDoctors = await _doctorRepo.SearchDoctorsAsync("");
         return View(liveDoctors.ToList());
     }
 
+    [Authorize]
     [HttpPost("/api/consultation/request")]
     public async Task<IActionResult> CreateRequest([FromBody] ConsultationRequestDto request)
     {
-        if (User.Identity?.IsAuthenticated != true)
+        if (!long.TryParse(User.FindFirstValue(ClaimTypes.NameIdentifier), out long userId) || userId <= 0)
         {
             return Unauthorized(new { Success = false, Message = "Please sign in to request a doctor consultation." });
         }
 
-        long.TryParse(User.FindFirstValue(ClaimTypes.NameIdentifier), out long userId);
         request.UserId = userId;
 
         var result = await _consultationRepo.CreateConsultationRequestAsync(request.UserId, request.DoctorId);
         if (result.Success && result.Data > 0)
         {
             string patientName = User.Identity?.Name ?? "Patient";
-            // Notify doctor in real time on Doctor Live Studio screen
             await _liveReelHub.Clients.Group($"Stream_{request.DoctorId}").SendAsync("ReceiveIncomingConsultationRequest", new
             {
                 consultationId = result.Data,
@@ -121,18 +122,19 @@ public class LiveChatController : Controller
         return Ok(result);
     }
 
+    [Authorize(Roles = "Doctor,Admin")]
     [HttpPost("/api/consultation/accept")]
     public async Task<IActionResult> AcceptConsultation([FromBody] long consultationId)
     {
         var role = User.FindFirstValue(ClaimTypes.Role);
-        if (role != "Doctor" && role != "Admin")
-        {
-            return Forbid();
-        }
-
         long.TryParse(User.FindFirstValue(ClaimTypes.NameIdentifier), out long currentUserId);
         var doctorIdClaim = User.FindFirstValue("DoctorId");
         long.TryParse(doctorIdClaim, out long doctorId);
+
+        if (role != "Admin" && !await _consultationRepo.IsDoctorAssignedAsync(consultationId, currentUserId, doctorId > 0 ? doctorId : null))
+        {
+            return Forbid();
+        }
 
         if (doctorId == 0)
         {
@@ -146,7 +148,6 @@ public class LiveChatController : Controller
         {
             DateTime startedAt = result.Data;
 
-            // Broadcast TimerStarted to Consultation room
             await _consultationHub.Clients.Group($"Consultation_{consultationId}").SendAsync("TimerStarted", new
             {
                 startedAt = startedAt,
@@ -154,7 +155,6 @@ public class LiveChatController : Controller
                 doctorId = doctorId
             });
 
-            // Also broadcast to LiveReelHub for direct handshake if patient requested from reel
             await _liveReelHub.Clients.Group($"Stream_{doctorId}").SendAsync("ConsultationAccepted", new
             {
                 consultationId = consultationId,
@@ -166,11 +166,47 @@ public class LiveChatController : Controller
         return Ok(result);
     }
 
+    [Authorize]
     [HttpPost("/api/consultation/end")]
     public async Task<IActionResult> EndConsultation([FromBody] long consultationId)
     {
-        long.TryParse(User.FindFirstValue(ClaimTypes.NameIdentifier), out long userId);
+        if (!long.TryParse(User.FindFirstValue(ClaimTypes.NameIdentifier), out long userId) || userId <= 0)
+        {
+            return Unauthorized();
+        }
+
+        string role = User.FindFirstValue(ClaimTypes.Role) ?? "User";
+        if (!await _consultationRepo.IsParticipantAsync(consultationId, userId, role))
+        {
+            return Forbid();
+        }
+
         var result = await _consultationRepo.EndAndDeductWalletAsync(consultationId, userId);
+        if (result.Success && result.Data != null)
+        {
+            await _consultationHub.Clients.Group($"Consultation_{consultationId}").SendAsync("ConsultationEnded", result.Data);
+        }
+
+        return Ok(result);
+    }
+
+    [Authorize]
+    [HttpPost("/api/consultation/cancel")]
+    public async Task<IActionResult> CancelConsultation([FromBody] long consultationId)
+    {
+        if (!long.TryParse(User.FindFirstValue(ClaimTypes.NameIdentifier), out long userId) || userId <= 0)
+        {
+            return Unauthorized();
+        }
+
+        string role = User.FindFirstValue(ClaimTypes.Role) ?? "User";
+        if (!await _consultationRepo.IsParticipantAsync(consultationId, userId, role))
+        {
+            return Forbid();
+        }
+
+        string targetStatus = role == "Doctor" ? "Declined" : "Cancelled";
+        var result = await _consultationRepo.CancelOrDeclineConsultationAsync(consultationId, userId, targetStatus, role == "Admin");
         return Ok(result);
     }
 

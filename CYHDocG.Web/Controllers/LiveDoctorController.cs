@@ -1,6 +1,7 @@
 using System.Security.Claims;
 using Microsoft.AspNetCore.Mvc;
 using CYHDocG.Repo.Interfaces;
+using CYHDocG.Repo.Security;
 
 namespace CYHDocG.Web.Controllers;
 
@@ -17,7 +18,7 @@ public class LiveDoctorController : Controller
 
     [HttpGet("/LiveDoctor")]
     [ResponseCache(NoStore = true, Location = ResponseCacheLocation.None)]
-    public async Task<IActionResult> Index([FromQuery] string? q)
+    public async Task<IActionResult> Index([FromQuery] string? q, [FromQuery(Name = "ref")] string? refDoc)
     {
         long? currentUserId = null;
         var userIdClaim = User.FindFirstValue(ClaimTypes.NameIdentifier);
@@ -30,6 +31,17 @@ public class LiveDoctorController : Controller
 
         // Strictly show ONLY doctors who are currently live
         reels = reels.Where(r => r.IsLive).ToList();
+
+        // Prioritize shared doctor reel when opened via ?ref=<EncryptedDoctorId>
+        if (!string.IsNullOrWhiteSpace(refDoc) && UrlProtector.TryDecryptId(refDoc, out long targetDoctorId))
+        {
+            var matched = reels.FirstOrDefault(r => r.DoctorId == targetDoctorId);
+            if (matched != null)
+            {
+                reels.Remove(matched);
+                reels.Insert(0, matched);
+            }
+        }
 
         // If a search query is passed, filter doctors
         if (!string.IsNullOrWhiteSpace(q))

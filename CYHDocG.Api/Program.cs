@@ -5,6 +5,7 @@ using Microsoft.OpenApi.Models;
 using CYHDocG.Repo.DTOs;
 using CYHDocG.Repo.Implementations;
 using CYHDocG.Repo.Interfaces;
+using CYHDocG.Repo.Security;
 
 using Microsoft.AspNetCore.ResponseCompression;
 
@@ -33,6 +34,7 @@ builder.Services.AddScoped<IPrescriptionRepository, PrescriptionRepository>();
 builder.Services.AddScoped<IAiSearchService, AiSearchService>();
 builder.Services.AddScoped<IJwtTokenService, JwtTokenService>();
 builder.Services.AddScoped<ILiveKitTokenService, LiveKitTokenService>();
+builder.Services.AddScoped<IGoogleTokenVerifier, GoogleTokenVerifier>();
 builder.Services.AddHttpClient();
 
 // Configure LiveKit Settings from appsettings
@@ -51,17 +53,9 @@ builder.Services.Configure<LiveKitSettings>(options =>
     }
 });
 
-// 3. Configure JWT Authentication
-var jwtKey = builder.Configuration["Authentication:Jwt:SecretKey"] 
-          ?? builder.Configuration["Jwt:Key"] 
-          ?? "PassCyh123456789987654321987654321_PROD";
-var jwtIssuer = builder.Configuration["Authentication:Jwt:Issuer"] 
-             ?? builder.Configuration["Jwt:Issuer"] 
-             ?? "CYHDocGuru";
-var jwtAudience = builder.Configuration["Authentication:Jwt:Audience"] 
-               ?? builder.Configuration["Jwt:Audience"] 
-               ?? "CYHDocGuruUsers";
-var keyBytes = Encoding.UTF8.GetBytes(jwtKey);
+// 3. Configure JWT Authentication (unified with AuthController via JwtConfigResolver)
+var jwtConfig = JwtConfigResolver.Resolve(builder.Configuration);
+var keyBytes = Encoding.UTF8.GetBytes(jwtConfig.SecretKey);
 
 builder.Services.AddAuthentication(options =>
 {
@@ -78,8 +72,8 @@ builder.Services.AddAuthentication(options =>
         ValidateAudience = true,
         ValidateLifetime = true,
         ValidateIssuerSigningKey = true,
-        ValidIssuer = jwtIssuer,
-        ValidAudience = jwtAudience,
+        ValidIssuer = jwtConfig.Issuer,
+        ValidAudience = jwtConfig.Audience,
         IssuerSigningKey = new SymmetricSecurityKey(keyBytes),
         ClockSkew = TimeSpan.Zero
     };

@@ -1,3 +1,5 @@
+using System.Security.Claims;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using CYHDocG.Repo.Interfaces;
 
@@ -15,13 +17,16 @@ public class DoctorsController : ControllerBase
     }
 
     [HttpGet("reels")]
+    [AllowAnonymous]
     public async Task<IActionResult> GetReels([FromQuery] long? currentUserId, [FromQuery] int page = 1, [FromQuery] int pageSize = 10)
     {
-        var reels = await _doctorRepo.GetReelsFeedAsync(currentUserId, page, pageSize);
+        long? authenticatedUserId = long.TryParse(User.FindFirstValue(ClaimTypes.NameIdentifier), out long uid) ? uid : null;
+        var reels = await _doctorRepo.GetReelsFeedAsync(authenticatedUserId ?? currentUserId, page, pageSize);
         return Ok(reels);
     }
 
     [HttpGet("search")]
+    [AllowAnonymous]
     public async Task<IActionResult> Search([FromQuery] string query)
     {
         var results = await _doctorRepo.SearchDoctorsAsync(query ?? "");
@@ -29,16 +34,28 @@ public class DoctorsController : ControllerBase
     }
 
     [HttpPost("toggle-follow")]
+    [Authorize]
     public async Task<IActionResult> ToggleFollow([FromQuery] long doctorId, [FromQuery] long userId)
     {
-        var result = await _doctorRepo.ToggleFollowAsync(doctorId, userId);
+        if (!long.TryParse(User.FindFirstValue(ClaimTypes.NameIdentifier), out long callerUserId) || callerUserId <= 0)
+        {
+            return Unauthorized();
+        }
+
+        var result = await _doctorRepo.ToggleFollowAsync(doctorId, callerUserId);
         return Ok(result);
     }
 
     [HttpPost("toggle-like")]
+    [Authorize]
     public async Task<IActionResult> ToggleLike([FromQuery] long streamId, [FromQuery] long userId)
     {
-        var result = await _doctorRepo.ToggleStreamLikeAsync(streamId, userId);
+        if (!long.TryParse(User.FindFirstValue(ClaimTypes.NameIdentifier), out long callerUserId) || callerUserId <= 0)
+        {
+            return Unauthorized();
+        }
+
+        var result = await _doctorRepo.ToggleStreamLikeAsync(streamId, callerUserId);
         return Ok(result);
     }
 }

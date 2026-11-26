@@ -48,6 +48,7 @@ builder.Services.AddScoped<IImageCompressionService, ImageCompressionService>();
 builder.Services.AddScoped<IOcrPrescriptionService, OcrPrescriptionService>();
 builder.Services.AddScoped<IJwtTokenService, JwtTokenService>();
 builder.Services.AddScoped<ILiveKitTokenService, LiveKitTokenService>();
+builder.Services.AddScoped<IGoogleTokenVerifier, GoogleTokenVerifier>();
 builder.Services.AddHttpClient();
 
 // 3. Cookie Authentication for Role-Based Portals (Admin, Doctor, User)

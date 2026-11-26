@@ -63,8 +63,15 @@
                     <!-- ===================== TOP OVERLAY ===================== -->
                     <div class="relative z-10 flex items-start justify-between pt-2 pr-10">
                         <div class="flex items-center gap-2.5">
-                            <div class="w-10 h-10 rounded-full bg-red-600 border-2 border-white flex items-center justify-center font-bold text-xs text-white shadow">
-                                @(reel.DoctorPhoto != null ? "" : "Dr")
+                            <div class="w-10 h-10 rounded-full bg-red-600 border-2 border-white flex items-center justify-center font-bold text-xs text-white shadow overflow-hidden">
+                                @if (!string.IsNullOrWhiteSpace(reel.DoctorPhoto))
+                                {
+                                    <img src="@reel.DoctorPhoto" alt="@reel.DoctorName" class="w-full h-full object-cover" />
+                                }
+                                else
+                                {
+                                    <span>Dr</span>
+                                }
                             </div>
                             <div>
                                 <div class="flex items-center gap-2">
@@ -393,8 +400,15 @@
 
         function cancelWaitingRequest() {
             if (requestedConsultationId && target1to1DoctorId) {
+                const cid = requestedConsultationId;
                 if (window.liveReelConnection && window.liveReelConnection.state === 'Connected') {
-                    window.liveReelConnection.invoke('CancelConsultationRequest', target1to1DoctorId, requestedConsultationId).catch(console.error);
+                    window.liveReelConnection.invoke('CancelConsultationRequest', target1to1DoctorId, cid).catch(console.error);
+                } else {
+                    fetch('/api/consultation/cancel', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify(cid)
+                    }).catch(() => {});
                 }
             }
             clearWaitingTimers();

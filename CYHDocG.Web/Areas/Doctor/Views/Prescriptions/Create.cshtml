@@ -1,5 +1,16 @@
+@using System.Text.Json
 @{
     ViewData["Title"] = "Smart Prescription Generator";
+    long targetUserId = ViewBag.TargetUserId ?? 0L;
+    long doctorId = ViewBag.DoctorId ?? 0L;
+    long? consultationId = ViewBag.ConsultationId as long?;
+    string targetPatientName = ViewBag.TargetPatientName ?? "";
+    string targetPatientContact = ViewBag.TargetPatientContact ?? "";
+    var initialHistory = ViewBag.InitialHistory as List<CYHDocG.Repo.DTOs.PrescriptionHeaderDto>
+                         ?? new List<CYHDocG.Repo.DTOs.PrescriptionHeaderDto>();
+    string initialHistoryJson = JsonSerializer.Serialize(
+        initialHistory,
+        new JsonSerializerOptions { PropertyNamingPolicy = JsonNamingPolicy.CamelCase });
 }
 
 <div class="max-w-5xl mx-auto space-y-6">
@@ -19,6 +30,43 @@
         </div>
     </div>
 
+    <!-- ===================== PATIENT SELECTION CARD ===================== -->
+    <div class="bg-slate-900 border border-slate-800 rounded-3xl p-5 space-y-3">
+        <div class="flex items-center justify-between">
+            <label class="text-xs font-bold text-slate-300 uppercase tracking-wider flex items-center gap-1.5">
+                <i data-lucide="user-check" class="w-4 h-4 text-blue-400"></i>
+                <span>Target Patient *</span>
+            </label>
+            @if (consultationId.HasValue)
+            {
+                <span class="text-[11px] px-2.5 py-0.5 rounded-full bg-purple-500/20 text-purple-300 border border-purple-500/30 font-semibold">
+                    Consultation #@consultationId.Value
+                </span>
+            }
+        </div>
+
+        <div id="selectedPatientBanner" class="@(targetUserId > 0 ? "" : "hidden") p-3.5 rounded-2xl bg-slate-950 border border-emerald-500/40 flex items-center justify-between gap-3">
+            <div>
+                <div class="text-sm font-bold text-white" id="selectedPatientNameText">@targetPatientName</div>
+                <div class="text-xs text-slate-400" id="selectedPatientContactText">@targetPatientContact</div>
+            </div>
+            <button type="button" onclick="clearSelectedPatient()" class="px-3 py-1.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-semibold border border-slate-700">
+                Change Patient
+            </button>
+        </div>
+
+        <div id="patientSearchWrapper" class="@(targetUserId > 0 ? "hidden" : "") relative">
+            <div class="relative">
+                <input type="tel" id="patientSearchInput" placeholder="Enter 10-digit patient mobile number (e.g. 9876543210)..."
+                       inputmode="numeric" maxlength="15"
+                       oninput="handlePatientSearch(this)" onkeydown="handlePatientKeyDown(event, this)" autocomplete="off"
+                       class="w-full px-4 py-2.5 pr-20 rounded-2xl bg-slate-950 border border-slate-800 text-white text-xs font-mono placeholder-slate-400 outline-none focus:border-blue-500" />
+                <span id="mobileDigitCounter" class="absolute inset-y-0 right-3 flex items-center text-[11px] font-semibold text-slate-400 pointer-events-none">0/10</span>
+            </div>
+            <div id="patientDropdown" class="absolute top-full left-0 right-0 mt-1.5 bg-slate-950 border border-slate-800 rounded-2xl shadow-2xl p-2 hidden z-50 max-h-56 overflow-y-auto"></div>
+        </div>
+    </div>
+
     <!-- ===================== MODE 1: OCR FILE UPLOAD & COMPRESSION ===================== -->
     <div id="ocrSection" class="bg-slate-900 border border-slate-800 rounded-3xl p-6 sm:p-8 space-y-6">
         <div class="border-2 border-dashed border-slate-700 hover:border-blue-500/60 rounded-3xl p-8 text-center bg-slate-950/60 transition-all cursor-pointer" onclick="document.getElementById('rxFileInput').click()">
@@ -27,26 +75,25 @@
                 <i data-lucide="file-up" class="w-8 h-8"></i>
             </div>
             <h3 class="font-heading font-bold text-base text-white">Upload Handwritten Slip or Photo</h3>
-            <p class="text-xs text-slate-400 mt-1">PNG, JPG, or PDF (Auto-compressed maintaining sharpness & OCR readability)</p>
+            <p class="text-xs text-slate-400 mt-1">PNG, JPG, WebP, or PDF (Max 10 MB • Auto-compressed for OCR readability)</p>
             <span class="inline-block mt-3 px-3 py-1 rounded-full bg-slate-800 text-slate-300 text-[11px] font-semibold">
                 Click to browse device
             </span>
         </div>
 
-        <!-- Compression Metrics & OCR Preview -->
         <div id="compressionStats" class="hidden bg-slate-950 border border-slate-800 rounded-2xl p-4 flex flex-wrap items-center justify-between gap-4">
             <div class="flex items-center gap-3">
                 <div class="w-10 h-10 rounded-xl bg-emerald-500/20 text-emerald-400 flex items-center justify-center">
                     <i data-lucide="check-check" class="w-5 h-5"></i>
                 </div>
                 <div>
-                    <h4 class="text-xs font-bold text-white">Quality-Preserved Smart Compression</h4>
+                    <h4 class="text-xs font-bold text-white">Quality-Preserved Smart Storage</h4>
                     <span id="compressionRatioBadge" class="text-[11px] text-emerald-400 font-semibold"></span>
                 </div>
             </div>
             <div class="text-right text-xs">
                 <span class="text-slate-400 block" id="sizeMetricText"></span>
-                <span class="text-blue-400 font-semibold">100% OCR Contrast Preserved</span>
+                <span class="text-blue-400 font-semibold">OCR Parsed &amp; Ready to Review</span>
             </div>
         </div>
     </div>
@@ -54,7 +101,7 @@
     <!-- ===================== MODE 2: MANUAL ENTRY WITH 3-4 LETTER AUTO-SUGGEST ===================== -->
     <div id="manualSection" class="hidden bg-slate-900 border border-slate-800 rounded-3xl p-6 sm:p-8 space-y-6">
         <div class="relative">
-            <label class="block text-xs font-semibold text-slate-300 uppercase tracking-wider mb-2">Search Medicine (Type 3-4 letters)</label>
+            <label class="block text-xs font-semibold text-slate-300 uppercase tracking-wider mb-2">Search Medicine (Type 2-4 letters)</label>
             <div class="relative">
                 <input type="text" id="medicineSearchInput" placeholder="Type par, pan, azi, aug..." 
                        class="w-full px-4 py-3 rounded-2xl bg-slate-950 border border-slate-800 text-white text-sm placeholder-slate-400 outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500" 
@@ -64,17 +111,15 @@
                 </span>
             </div>
 
-            <!-- Auto-Suggest Dropdown -->
             <div id="medicineDropdown" class="absolute top-full left-0 right-0 mt-2 bg-slate-950 border border-slate-800 rounded-2xl shadow-2xl p-2 hidden z-50 max-h-60 overflow-y-auto">
-                <!-- Injected via JS -->
             </div>
         </div>
     </div>
 
-    <!-- ===================== PRESCRIBED MEDICINES TABLE (SHARED REVIEW) ===================== -->
+    <!-- ===================== PRESCRIBED MEDICINES TABLE ===================== -->
     <div class="bg-slate-900 border border-slate-800 rounded-3xl p-6 space-y-4">
         <div class="flex items-center justify-between border-b border-slate-800 pb-4">
-            <h3 class="font-heading font-bold text-base text-white">Medicines & Dosage Schedule</h3>
+            <h3 class="font-heading font-bold text-base text-white">Medicines &amp; Dosage Schedule</h3>
             <span class="text-xs text-slate-400" id="medicineCountLabel">0 Medicines Added</span>
         </div>
 
@@ -91,29 +136,201 @@
                     </tr>
                 </thead>
                 <tbody id="medicineTableBody" class="divide-y divide-slate-800/60 text-slate-200">
-                    <!-- Populated dynamically -->
                 </tbody>
             </table>
         </div>
 
-        <!-- Doctor Notes -->
         <div class="pt-4 border-t border-slate-800">
-            <label class="block text-xs font-semibold text-slate-400 uppercase tracking-wider mb-2">Doctor Advice & Dietary Remarks</label>
+            <label class="block text-xs font-semibold text-slate-400 uppercase tracking-wider mb-2">Doctor Advice &amp; Dietary Remarks</label>
             <textarea id="doctorNotesInput" rows="2" placeholder="e.g. Drink 3 liters of water, avoid oily food, review in 7 days..." 
                       class="w-full p-3 rounded-2xl bg-slate-950 border border-slate-800 text-white text-xs placeholder-slate-500 outline-none focus:border-blue-500"></textarea>
         </div>
 
-        <button type="button" onclick="submitFinalPrescription()" class="w-full py-3.5 rounded-2xl bg-blue-600 hover:bg-blue-700 text-white font-bold text-sm shadow-lg shadow-blue-600/30 flex items-center justify-center gap-2 active:scale-95 transition-all">
+        <div id="rxSuccessBanner" class="hidden p-3.5 rounded-2xl bg-emerald-500/15 border border-emerald-500/40 text-emerald-300 text-xs font-semibold flex items-center justify-between gap-3">
+            <span id="rxSuccessBannerText">Prescription issued successfully!</span>
+            <button type="button" onclick="document.getElementById('rxSuccessBanner').classList.add('hidden')" class="text-emerald-200 hover:text-white text-[11px] underline">Dismiss</button>
+        </div>
+
+        <button type="button" id="btnIssuePrescription" onclick="submitFinalPrescription()" class="w-full py-3.5 rounded-2xl bg-blue-600 hover:bg-blue-700 text-white font-bold text-sm shadow-lg shadow-blue-600/30 flex items-center justify-center gap-2 active:scale-95 transition-all">
             <i data-lucide="check-circle" class="w-4 h-4"></i>
-            <span>Issue & Activate Reminders</span>
+            <span>Issue &amp; Activate Reminders</span>
         </button>
+    </div>
+
+    <!-- ===================== ISSUED PRESCRIPTIONS HISTORY ===================== -->
+    <div id="issuedHistorySection" class="bg-slate-900 border border-slate-800 rounded-3xl p-6 space-y-4">
+        <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-slate-800 pb-4">
+            <div>
+                <h3 id="issuedHistoryTitle" class="font-heading font-bold text-base text-white">Issued Prescriptions History</h3>
+                <p id="issuedHistorySubtitle" class="text-xs text-slate-400 mt-0.5">Prescriptions issued for the selected patient or by your clinic.</p>
+            </div>
+            <div class="flex items-center gap-2">
+                <span id="issuedHistoryCountBadge" class="text-xs px-2.5 py-1 rounded-full bg-slate-800 text-slate-300 font-semibold">0 Records</span>
+                <button type="button" onclick="refreshIssuedHistory()" class="px-3 py-1.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-semibold border border-slate-700 flex items-center gap-1.5">
+                    <i data-lucide="refresh-cw" class="w-3.5 h-3.5"></i>
+                    <span>Refresh</span>
+                </button>
+            </div>
+        </div>
+
+        <div id="issuedHistoryList" class="space-y-4"></div>
     </div>
 </div>
 
 @section Scripts {
     <script>
+        let selectedUserId = @targetUserId;
+        let selectedPatientName = @Html.Raw(JsonSerializer.Serialize(targetPatientName));
+        const activeDoctorId = @doctorId;
+        const activeConsultationId = @(consultationId.HasValue ? consultationId.Value.ToString() : "null");
+        let issuedPrescriptions = @Html.Raw(initialHistoryJson);
         let prescribedMedicines = [];
         let uploadedCompressedUrl = null;
+        let ocrRawText = null;
+
+        let patientDebounce = null;
+        let lastPatientQuerySeq = 0;
+
+        function normalizeMobileDigits(raw) {
+            let digits = (raw || '').replace(/\D/g, '');
+            if (digits.length === 12 && digits.startsWith('91')) {
+                digits = digits.slice(2);
+            } else if (digits.length === 11 && digits.startsWith('0')) {
+                digits = digits.slice(1);
+            } else if (digits.length > 10 && !digits.startsWith('91') && !digits.startsWith('0')) {
+                digits = digits.slice(0, 10);
+            }
+            return digits.slice(0, 12);
+        }
+
+        function updateDigitCounter(digits, statusText) {
+            const counter = document.getElementById('mobileDigitCounter');
+            if (!counter) return;
+            if (statusText) {
+                counter.textContent = statusText;
+                counter.className = 'absolute inset-y-0 right-3 flex items-center text-[11px] font-semibold text-blue-400 pointer-events-none';
+                return;
+            }
+            counter.textContent = `${Math.min(digits.length, 10)}/10`;
+            counter.className = digits.length === 10
+                ? 'absolute inset-y-0 right-3 flex items-center text-[11px] font-bold text-emerald-400 pointer-events-none'
+                : 'absolute inset-y-0 right-3 flex items-center text-[11px] font-semibold text-slate-400 pointer-events-none';
+        }
+
+        function handlePatientKeyDown(event, inputEl) {
+            if (event.key !== 'Enter') return;
+            event.preventDefault();
+            clearTimeout(patientDebounce);
+            const digits = normalizeMobileDigits(inputEl.value);
+            inputEl.value = digits;
+            updateDigitCounter(digits);
+            if (digits.length === 10) {
+                fetchPatientByMobile(digits);
+            } else {
+                const dropdown = document.getElementById('patientDropdown');
+                dropdown.innerHTML = '';
+                const msg = document.createElement('div');
+                msg.className = 'p-2 text-xs text-amber-400 text-center';
+                msg.textContent = `Please enter full 10-digit mobile number (${digits.length}/10)`;
+                dropdown.appendChild(msg);
+                dropdown.classList.remove('hidden');
+            }
+        }
+
+        function handlePatientSearch(inputEl) {
+            clearTimeout(patientDebounce);
+            const digits = normalizeMobileDigits(inputEl.value);
+            inputEl.value = digits;
+            updateDigitCounter(digits);
+
+            const dropdown = document.getElementById('patientDropdown');
+            if (digits.length !== 10) {
+                dropdown.classList.add('hidden');
+                dropdown.innerHTML = '';
+                return;
+            }
+
+            patientDebounce = setTimeout(() => fetchPatientByMobile(digits), 120);
+        }
+
+        async function fetchPatientByMobile(digits) {
+            const seq = ++lastPatientQuerySeq;
+            const dropdown = document.getElementById('patientDropdown');
+            updateDigitCounter(digits, 'Checking...');
+
+            try {
+                const res = await fetch('/api/prescriptions/search-patients?q=' + encodeURIComponent(digits));
+                const data = await res.json();
+                if (seq !== lastPatientQuerySeq) return;
+
+                updateDigitCounter(digits);
+                dropdown.innerHTML = '';
+
+                if (data && data.length === 1) {
+                    const p = data[0];
+                    const contact = (p.phone ? p.phone + ' • ' : '') + (p.email || '');
+                    selectPatient(p.userId, p.fullName || '', contact);
+                    return;
+                }
+
+                if (data && data.length > 1) {
+                    data.forEach(p => {
+                        const row = document.createElement('div');
+                        row.className = 'p-2.5 rounded-xl hover:bg-slate-900 cursor-pointer flex items-center justify-between text-xs';
+
+                        const phoneEl = document.createElement('span');
+                        phoneEl.className = 'font-bold text-white font-mono';
+                        phoneEl.textContent = p.phone || '';
+
+                        const nameEl = document.createElement('span');
+                        nameEl.className = 'text-slate-300 text-[11px] truncate ml-3';
+                        nameEl.textContent = p.fullName || '';
+
+                        row.appendChild(phoneEl);
+                        row.appendChild(nameEl);
+                        row.addEventListener('click', () => {
+                            const contact = (p.phone ? p.phone + ' • ' : '') + (p.email || '');
+                            selectPatient(p.userId, p.fullName || '', contact);
+                        });
+                        dropdown.appendChild(row);
+                    });
+                    dropdown.classList.remove('hidden');
+                } else {
+                    const empty = document.createElement('div');
+                    empty.className = 'p-2 text-xs text-slate-400 text-center';
+                    empty.textContent = `No patient found with mobile number ${digits}`;
+                    dropdown.appendChild(empty);
+                    dropdown.classList.remove('hidden');
+                }
+            } catch (e) {
+                console.error(e);
+                updateDigitCounter(digits);
+            }
+        }
+
+        function selectPatient(userId, name, contact) {
+            selectedUserId = userId;
+            selectedPatientName = name || '';
+            document.getElementById('selectedPatientNameText').textContent = name;
+            document.getElementById('selectedPatientContactText').textContent = contact;
+            document.getElementById('selectedPatientBanner').classList.remove('hidden');
+            document.getElementById('patientSearchWrapper').classList.add('hidden');
+            document.getElementById('patientDropdown').classList.add('hidden');
+            refreshIssuedHistory();
+        }
+
+        function clearSelectedPatient() {
+            selectedUserId = 0;
+            selectedPatientName = '';
+            document.getElementById('selectedPatientBanner').classList.add('hidden');
+            document.getElementById('patientSearchWrapper').classList.remove('hidden');
+            document.getElementById('patientSearchInput').value = '';
+            updateDigitCounter('');
+            document.getElementById('patientDropdown').classList.add('hidden');
+            document.getElementById('patientDropdown').innerHTML = '';
+            document.getElementById('patientSearchInput').focus();
+            refreshIssuedHistory();
+        }
 
         function switchMode(mode) {
             if (mode === 'ocr') {
@@ -135,8 +352,8 @@
 
             const formData = new FormData();
             formData.append('file', file);
-            formData.append('doctorId', '@(User.FindFirst("DoctorId")?.Value ?? "1")');
-            formData.append('userId', '@ViewBag.TargetUserId');
+            formData.append('doctorId', activeDoctorId.toString());
+            formData.append('userId', selectedUserId.toString());
 
             try {
                 const res = await fetch('/api/prescriptions/upload-and-compress', {
@@ -148,19 +365,25 @@
                     uploadedCompressedUrl = data.compressedFileUrl;
 
                     document.getElementById('compressionStats').classList.remove('hidden');
-                    document.getElementById('compressionRatioBadge').textContent = `Compressed: ${data.compressionRatio}`;
+                    document.getElementById('compressionRatioBadge').textContent = `Stored: ${data.compressionRatio}`;
                     document.getElementById('sizeMetricText').textContent = `${data.originalSizeKb} KB → ${data.compressedSizeKb} KB`;
 
-                    // Load extracted medicines
-                    if (data.extractedData && data.extractedData.medicines) {
-                        data.extractedData.medicines.forEach(m => addMedicineToTable(m));
+                    if (data.extractedData) {
+                        ocrRawText = data.extractedData.ocrExtractedText || null;
+                        if (data.extractedData.doctorNotes && !document.getElementById('doctorNotesInput').value) {
+                            document.getElementById('doctorNotesInput').value = data.extractedData.doctorNotes;
+                        }
+                        if (data.extractedData.medicines) {
+                            data.extractedData.medicines.forEach(m => addMedicineToTable(m));
+                        }
                     }
-                    alert("Prescription slip compressed with OCR sharpness and parsed successfully!");
+                    alert("Prescription document processed and parsed successfully!");
                 } else {
                     alert(data.message || 'Upload failed');
                 }
             } catch (err) {
                 console.error(err);
+                alert('Error uploading prescription file.');
             }
         }
 
@@ -181,7 +404,7 @@
                         let html = '';
                         data.forEach(item => {
                             html += `
-                            <div onclick="selectMasterMedicine('${item.brandName}')" class="p-2.5 rounded-xl hover:bg-slate-900 cursor-pointer flex items-center justify-between text-xs transition-colors">
+                            <div onclick='selectMasterMedicine(${JSON.stringify(item.brandName)})' class="p-2.5 rounded-xl hover:bg-slate-900 cursor-pointer flex items-center justify-between text-xs transition-colors">
                                 <span class="font-bold text-white">${item.brandName}</span>
                                 <span class="text-slate-400 text-[11px]">${item.dosageForm} • ${item.strength || ''}</span>
                             </div>`;
@@ -225,12 +448,13 @@
             document.getElementById('medicineCountLabel').textContent = `${prescribedMedicines.length} Medicines Added`;
 
             if (!prescribedMedicines.length) {
-                tbody.innerHTML = `<tr><td colspan="6" class="py-4 text-center text-slate-500">No medicines added yet. Type 3-4 letters above or upload slip.</td></tr>`;
+                tbody.innerHTML = `<tr><td colspan="6" class="py-4 text-center text-slate-500">No medicines added yet. Type 2-4 letters above or upload slip.</td></tr>`;
                 return;
             }
 
             let html = '';
             prescribedMedicines.forEach((m, idx) => {
+                const alertDay = Math.max(1, (m.durationDays || 5) - 2);
                 html += `
                 <tr class="hover:bg-slate-950/40">
                     <td class="py-3 font-semibold text-white">${m.medicineName}</td>
@@ -250,10 +474,10 @@
                         </select>
                     </td>
                     <td class="py-3">
-                        <input type="number" value="${m.durationDays}" min="1" max="90" onchange="prescribedMedicines[${idx}].durationDays = parseInt(this.value)" class="w-16 bg-slate-950 border border-slate-800 rounded-lg p-1 text-xs text-white text-center outline-none" />
+                        <input type="number" value="${m.durationDays}" min="1" max="90" onchange="prescribedMedicines[${idx}].durationDays = parseInt(this.value) || 1; renderMedicineTable();" class="w-16 bg-slate-950 border border-slate-800 rounded-lg p-1 text-xs text-white text-center outline-none" />
                     </td>
                     <td class="py-3 text-red-400 font-semibold">
-                        Day ${m.durationDays - 2} (Auto Alert)
+                        Day ${alertDay} (Auto Alert)
                     </td>
                     <td class="py-3 text-right">
                         <button type="button" onclick="removeMedicine(${idx})" class="p-1 text-red-400 hover:text-red-300">
@@ -266,16 +490,193 @@
             lucide.createIcons();
         }
 
+        function makeHistoryBadge(text, className) {
+            const span = document.createElement('span');
+            span.className = className;
+            span.textContent = text;
+            return span;
+        }
+
+        function formatHistoryDate(value, withTime) {
+            if (!value) return '';
+            const d = new Date(value);
+            if (isNaN(d.getTime())) return '';
+            return withTime
+                ? d.toLocaleString('en-IN', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' })
+                : d.toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' });
+        }
+
+        async function refreshIssuedHistory() {
+            const params = new URLSearchParams();
+            if (selectedUserId > 0) params.set('userId', selectedUserId.toString());
+            if (activeConsultationId) params.set('consultationId', activeConsultationId.toString());
+
+            try {
+                const res = await fetch('/api/prescriptions/doctor-history?' + params.toString());
+                if (!res.ok) return;
+                issuedPrescriptions = await res.json();
+                renderIssuedHistory();
+            } catch (e) {
+                console.error('Failed to load prescription history', e);
+            }
+        }
+
+        function renderIssuedHistory() {
+            const titleEl = document.getElementById('issuedHistoryTitle');
+            const subtitleEl = document.getElementById('issuedHistorySubtitle');
+            const countEl = document.getElementById('issuedHistoryCountBadge');
+            const listEl = document.getElementById('issuedHistoryList');
+
+            const hasPatient = selectedUserId > 0;
+            titleEl.textContent = hasPatient && selectedPatientName
+                ? `Issued Prescriptions History — ${selectedPatientName}`
+                : (hasPatient ? `Issued Prescriptions History — Patient #${selectedUserId}` : 'Recently Issued Prescriptions (Your Clinic)');
+            subtitleEl.textContent = hasPatient
+                ? 'Showing issued prescriptions for this patient (current consultation highlighted first).'
+                : 'Showing your latest issued prescriptions across patients. Search a 10-digit mobile above to filter to one patient.';
+
+            const items = Array.isArray(issuedPrescriptions) ? issuedPrescriptions : [];
+            countEl.textContent = `${items.length} Record${items.length === 1 ? '' : 's'}`;
+            listEl.innerHTML = '';
+
+            if (!items.length) {
+                const emptyBox = document.createElement('div');
+                emptyBox.className = 'p-6 rounded-2xl bg-slate-950/60 border border-slate-800 text-center text-xs text-slate-400';
+                emptyBox.textContent = hasPatient
+                    ? 'No prescriptions have been issued for this patient yet.'
+                    : 'No issued prescriptions recorded yet.';
+                listEl.appendChild(emptyBox);
+                return;
+            }
+
+            items.forEach(rx => {
+                const card = document.createElement('div');
+                const isSameConsultation = activeConsultationId && rx.consultationId === activeConsultationId;
+                card.className = isSameConsultation
+                    ? 'bg-slate-950/90 border border-purple-500/40 rounded-2xl p-4 sm:p-5 space-y-3'
+                    : 'bg-slate-950/70 border border-slate-800 rounded-2xl p-4 sm:p-5 space-y-3';
+
+                const header = document.createElement('div');
+                header.className = 'flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-slate-800/80 pb-3';
+
+                const leftInfo = document.createElement('div');
+                leftInfo.className = 'space-y-1';
+
+                const topRow = document.createElement('div');
+                topRow.className = 'flex flex-wrap items-center gap-2';
+                topRow.appendChild(makeHistoryBadge(`Rx #${rx.prescriptionId}`, 'font-heading font-bold text-sm text-white'));
+
+                if (rx.consultationId) {
+                    const consultBadge = isSameConsultation
+                        ? makeHistoryBadge(`This Consultation (#${rx.consultationId})`, 'px-2 py-0.5 rounded-full text-[10px] font-bold bg-purple-500/20 text-purple-300 border border-purple-500/30')
+                        : makeHistoryBadge(`Consultation #${rx.consultationId}`, 'px-2 py-0.5 rounded-full text-[10px] font-semibold bg-slate-800 text-slate-300 border border-slate-700');
+                    topRow.appendChild(consultBadge);
+                }
+
+                const docBadge = rx.doctorId === activeDoctorId
+                    ? makeHistoryBadge('Issued by You', 'px-2 py-0.5 rounded-full text-[10px] font-semibold bg-emerald-500/15 text-emerald-300 border border-emerald-500/30')
+                    : makeHistoryBadge(`By ${rx.doctorName || 'Doctor'}`, 'px-2 py-0.5 rounded-full text-[10px] font-semibold bg-blue-500/15 text-blue-300 border border-blue-500/30');
+                topRow.appendChild(docBadge);
+
+                leftInfo.appendChild(topRow);
+
+                const metaLine = document.createElement('div');
+                metaLine.className = 'text-[11px] text-slate-400 flex flex-wrap items-center gap-x-2 gap-y-1';
+                const patientMeta = !hasPatient && rx.patientName
+                    ? `Patient: ${rx.patientName}${rx.patientPhone ? ' (' + rx.patientPhone + ')' : ''} • `
+                    : '';
+                metaLine.textContent = `${patientMeta}Issued on ${formatHistoryDate(rx.createdAt, true)}`;
+                leftInfo.appendChild(metaLine);
+                header.appendChild(leftInfo);
+
+                const actions = document.createElement('div');
+                actions.className = 'flex items-center gap-2 self-start sm:self-auto';
+
+                if (!hasPatient && rx.userId > 0) {
+                    const pickBtn = document.createElement('button');
+                    pickBtn.type = 'button';
+                    pickBtn.className = 'px-2.5 py-1.5 rounded-xl bg-blue-600/20 hover:bg-blue-600/30 text-blue-300 text-[11px] font-semibold border border-blue-500/30';
+                    pickBtn.textContent = 'Select Patient';
+                    pickBtn.addEventListener('click', () => {
+                        const contact = (rx.patientPhone ? rx.patientPhone + ' • ' : '') + (rx.patientEmail || '');
+                        selectPatient(rx.userId, rx.patientName || '', contact);
+                    });
+                    actions.appendChild(pickBtn);
+                }
+
+                if (rx.compressedFileUrl && (rx.compressedFileUrl.startsWith('/') || rx.compressedFileUrl.startsWith('http'))) {
+                    const slipLink = document.createElement('a');
+                    slipLink.href = rx.compressedFileUrl;
+                    slipLink.target = '_blank';
+                    slipLink.rel = 'noopener noreferrer';
+                    slipLink.className = 'px-3 py-1.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-xs text-slate-200 border border-slate-700 flex items-center gap-1.5';
+                    slipLink.textContent = 'View Slip';
+                    actions.appendChild(slipLink);
+                }
+
+                header.appendChild(actions);
+                card.appendChild(header);
+
+                const meds = Array.isArray(rx.medicines) ? rx.medicines : [];
+                if (meds.length > 0) {
+                    const medGrid = document.createElement('div');
+                    medGrid.className = 'grid grid-cols-1 sm:grid-cols-2 gap-2.5';
+                    meds.forEach(m => {
+                        const medBox = document.createElement('div');
+                        medBox.className = 'bg-slate-900 border border-slate-800/80 rounded-xl p-3 flex items-center justify-between gap-2';
+
+                        const medLeft = document.createElement('div');
+                        const medName = document.createElement('div');
+                        medName.className = 'text-xs font-bold text-white';
+                        medName.textContent = m.medicineName || '';
+                        const medDose = document.createElement('div');
+                        medDose.className = 'text-[11px] text-slate-400 mt-0.5';
+                        medDose.textContent = `${m.dosageSchedule || ''} • ${m.timingInstruction || 'After Meal'} • ${m.durationDays || 0}d`;
+                        medLeft.appendChild(medName);
+                        medLeft.appendChild(medDose);
+
+                        const medRight = makeHistoryBadge(
+                            `Ends ${formatHistoryDate(m.courseEndDate, false)}`,
+                            'px-2 py-0.5 rounded-full bg-slate-800 text-slate-300 text-[10px] font-semibold flex-shrink-0'
+                        );
+
+                        medBox.appendChild(medLeft);
+                        medBox.appendChild(medRight);
+                        medGrid.appendChild(medBox);
+                    });
+                    card.appendChild(medGrid);
+                }
+
+                if (rx.doctorNotes) {
+                    const notesBox = document.createElement('div');
+                    notesBox.className = 'text-xs text-slate-300 bg-slate-900/70 p-2.5 rounded-xl border border-slate-800/60';
+                    notesBox.textContent = `Advice: ${rx.doctorNotes}`;
+                    card.appendChild(notesBox);
+                }
+
+                listEl.appendChild(card);
+            });
+        }
+
         async function submitFinalPrescription() {
+            if (!selectedUserId || selectedUserId <= 0) {
+                alert("Please search and select a target patient first.");
+                return;
+            }
             if (!prescribedMedicines.length) {
                 return alert("Please add at least one medicine before issuing prescription.");
             }
 
+            const btn = document.getElementById('btnIssuePrescription');
+            if (btn) btn.disabled = true;
+
             const payload = {
-                doctorId: @(User.FindFirst("DoctorId")?.Value ?? "1"),
-                userId: @ViewBag.TargetUserId,
+                consultationId: activeConsultationId,
+                doctorId: activeDoctorId,
+                userId: selectedUserId,
                 compressedFileUrl: uploadedCompressedUrl,
                 originalFileUrl: uploadedCompressedUrl,
+                ocrExtractedText: ocrRawText,
                 doctorNotes: document.getElementById('doctorNotesInput').value,
                 medicines: prescribedMedicines
             };
@@ -288,16 +689,35 @@
                 });
                 const data = await res.json();
                 if (data.success) {
-                    alert("Prescription issued successfully! Daily dose reminders & refill alerts have been scheduled.");
-                    window.location.reload();
+                    const banner = document.getElementById('rxSuccessBanner');
+                    const bannerText = document.getElementById('rxSuccessBannerText');
+                    bannerText.textContent = `Prescription #${data.data || ''} issued! Daily dose reminders & refill alerts activated.`;
+                    banner.classList.remove('hidden');
+
+                    prescribedMedicines = [];
+                    uploadedCompressedUrl = null;
+                    ocrRawText = null;
+                    document.getElementById('doctorNotesInput').value = '';
+                    document.getElementById('rxFileInput').value = '';
+                    document.getElementById('compressionStats').classList.add('hidden');
+                    renderMedicineTable();
+
+                    await refreshIssuedHistory();
+                    document.getElementById('issuedHistorySection').scrollIntoView({ behavior: 'smooth', block: 'start' });
                 } else {
                     alert(data.message || 'Saving failed');
                 }
             } catch (err) {
                 console.error(err);
+                alert('Failed to issue prescription.');
+            } finally {
+                if (btn) btn.disabled = false;
             }
         }
 
-        document.addEventListener('DOMContentLoaded', renderMedicineTable);
+        document.addEventListener('DOMContentLoaded', () => {
+            renderMedicineTable();
+            renderIssuedHistory();
+        });
     </script>
 }

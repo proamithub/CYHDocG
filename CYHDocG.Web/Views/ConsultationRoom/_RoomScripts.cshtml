@@ -1,0 +1,362 @@
+@model CYHDocG.Web.Controllers.ConsultationRoomViewModel
+
+<script>
+    const consultationId = @Model.ConsultationId;
+    const isDoctor = @(Model.IsDoctor ? "true" : "false");
+    const ratePerMinute = @Model.RatePerMinute;
+    const isPaid = @(Model.IsPaid ? "true" : "false");
+    const livekitServerUrl = "@Model.LiveKitServerUrl";
+    const livekitToken = "@Model.LiveKitToken";
+    const roomName = "@Model.LiveKitRoomName";
+    const currentRole = "@Model.CurrentRole";
+    const currentUserName = "@Model.CurrentUserName";
+
+    let livekitRoom = null;
+    let consultationHubConn = null;
+    let timerInterval = null;
+    let timerStartedAt = @(Model.StartedAt != null ? $"new Date('{Model.StartedAt.Value.ToString("o")}').getTime()" : "null");
+    let isMicMuted = false;
+    let isCamOff = false;
+    let summaryDisplayed = false;
+
+    async function setupSignalR() {
+        try {
+            consultationHubConn = new signalR.HubConnectionBuilder()
+                .withUrl('/hubs/consultation')
+                .withAutomaticReconnect([0, 2000, 5000, 10000])
+                .build();
+
+            consultationHubConn.on("ReceiveConsultationMessage", (payload) => {
+                const role = payload.senderRole || payload.SenderRole || "User";
+                const text = payload.messageText || payload.MessageText || "";
+                const created = payload.createdAt || payload.CreatedAt || new Date().toISOString();
+                appendChatMessage(role, text, created, false);
+            });
+
+            consultationHubConn.on("TimerStarted", (payload) => {
+                const serverTime = payload.startedAt || payload.StartedAt;
+                timerStartedAt = serverTime ? new Date(serverTime).getTime() : new Date().getTime();
+                startSynchronizedTimer();
+
+                const startBtn = document.getElementById('btnDoctorStartCall');
+                if (startBtn) startBtn.classList.add('hidden');
+
+                const statusBadge = document.getElementById('sessionStatusBadge');
+                if (statusBadge) {
+                    statusBadge.className = "px-2.5 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider bg-emerald-500/20 text-emerald-400 border border-emerald-500/30";
+                    statusBadge.textContent = "● LIVE CALL";
+                }
+                const dot = document.getElementById('timerPulseDot');
+                if (dot) dot.className = "w-2.5 h-2.5 rounded-full bg-red-500 animate-ping";
+
+                if (!livekitRoom) {
+                    connectLiveKitRoom();
+                }
+            });
+
+            consultationHubConn.on("ConsultationEnded", (summary) => {
+                showEndSummaryModal(summary);
+            });
+
+            await consultationHubConn.start();
+            await consultationHubConn.invoke("JoinConsultation", consultationId.toString());
+        } catch (err) {
+            console.warn("[ConsultationRoom] SignalR connection notice:", err);
+        }
+    }
+
+    async function connectLiveKitRoom() {
+        if (!window.LivekitClient || !livekitServerUrl || !livekitToken) {
+            return;
+        }
+
+        try {
+            livekitRoom = new LivekitClient.Room({
+                adaptiveStream: true,
+                dynacast: true
+            });
+
+            livekitRoom.on(LivekitClient.RoomEvent.TrackSubscribed, (track) => {
+                if (track.kind === LivekitClient.Track.Kind.Video || track.kind === 'video') {
+                    const remoteVid = document.getElementById('remoteParticipantVideo');
+                    track.attach(remoteVid);
+                    remoteVid.classList.remove('hidden');
+                    document.getElementById('remoteVideoPlaceholder').classList.add('hidden');
+                } else if (track.kind === LivekitClient.Track.Kind.Audio || track.kind === 'audio') {
+                    const audioEl = document.getElementById('remoteAudioTrack');
+                    track.attach(audioEl);
+                    audioEl.play().catch(() => {});
+                }
+            });
+
+            livekitRoom.on(LivekitClient.RoomEvent.TrackUnsubscribed, (track) => {
+                track.detach();
+            });
+
+            livekitRoom.on(LivekitClient.RoomEvent.ParticipantDisconnected, () => {
+                const remoteVid = document.getElementById('remoteParticipantVideo');
+                if (remoteVid) {
+                    remoteVid.classList.add('hidden');
+                    remoteVid.srcObject = null;
+                }
+                const placeholder = document.getElementById('remoteVideoPlaceholder');
+                if (placeholder) {
+                    placeholder.classList.remove('hidden');
+                    const subtitleEl = document.getElementById('placeholderSubtitle');
+                    if (subtitleEl) {
+                        subtitleEl.textContent = 'Participant has disconnected or left the consultation room.';
+                    }
+                }
+            });
+
+            await livekitRoom.connect(livekitServerUrl, livekitToken);
+
+            await livekitRoom.localParticipant.setCameraEnabled(true);
+            await livekitRoom.localParticipant.setMicrophoneEnabled(true);
+
+            const localVideoPub = Array.from(livekitRoom.localParticipant.videoTrackPublications.values())[0];
+            if (localVideoPub && localVideoPub.track) {
+                localVideoPub.track.attach(document.getElementById('localParticipantVideo'));
+            }
+
+            livekitRoom.remoteParticipants.forEach(participant => {
+                participant.trackPublications.forEach(pub => {
+                    if (pub.track) {
+                        if (pub.kind === 'video') {
+                            const remoteVid = document.getElementById('remoteParticipantVideo');
+                            pub.track.attach(remoteVid);
+                            remoteVid.classList.remove('hidden');
+                            document.getElementById('remoteVideoPlaceholder').classList.add('hidden');
+                        } else if (pub.kind === 'audio') {
+                            const audioEl = document.getElementById('remoteAudioTrack');
+                            pub.track.attach(audioEl);
+                        }
+                    }
+                });
+            });
+        } catch (err) {
+            console.error("[ConsultationRoom] LiveKit connect error:", err);
+        }
+    }
+
+    function startSynchronizedTimer() {
+        if (timerInterval) clearInterval(timerInterval);
+        if (!timerStartedAt) return;
+
+        function updateClock() {
+            const now = new Date().getTime();
+            const diffSeconds = Math.max(0, Math.floor((now - timerStartedAt) / 1000));
+
+            const hrs = Math.floor(diffSeconds / 3600);
+            const mins = Math.floor((diffSeconds % 3600) / 60);
+            const secs = diffSeconds % 60;
+
+            const clockEl = document.getElementById('consultationClock');
+            if (clockEl) {
+                clockEl.textContent = `${pad(hrs)}:${pad(mins)}:${pad(secs)}`;
+            }
+
+            const costEl = document.getElementById('liveAccruedCost');
+            if (costEl) {
+                if (!isPaid) {
+                    costEl.textContent = "FREE";
+                } else {
+                    const billedMinutes = Math.max(1, Math.ceil(diffSeconds / 60));
+                    const accrued = billedMinutes * ratePerMinute;
+                    costEl.textContent = `₹${accrued.toFixed(2)}`;
+                }
+            }
+        }
+
+        updateClock();
+        timerInterval = setInterval(updateClock, 1000);
+    }
+
+    function pad(n) { return n < 10 ? '0' + n : n; }
+
+    async function doctorStartConsultation() {
+        const btn = document.getElementById('btnDoctorStartCall');
+        if (btn) {
+            btn.disabled = true;
+            btn.innerHTML = 'Starting Call...';
+        }
+
+        try {
+            const res = await fetch('/api/consultation/accept', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(consultationId)
+            });
+            const data = await res.json();
+            if (data.success) {
+                if (btn) btn.classList.add('hidden');
+                timerStartedAt = data.data ? new Date(data.data).getTime() : new Date().getTime();
+                startSynchronizedTimer();
+                connectLiveKitRoom();
+            } else {
+                alert(data.message || "Failed to start consultation session");
+                if (btn) {
+                    btn.disabled = false;
+                    btn.innerHTML = '<i data-lucide="play" class="w-4 h-4 fill-current"></i><span>Start Consultation (Begin Timer)</span>';
+                    if (window.lucide) lucide.createIcons();
+                }
+            }
+        } catch (err) {
+            console.error(err);
+            if (btn) btn.disabled = false;
+        }
+    }
+
+    async function toggleMicrophone() {
+        if (!livekitRoom?.localParticipant) return;
+        isMicMuted = !isMicMuted;
+        await livekitRoom.localParticipant.setMicrophoneEnabled(!isMicMuted);
+
+        const btn = document.getElementById('btnToggleMic');
+        const icon = document.getElementById('iconMic');
+        if (isMicMuted) {
+            btn.className = "w-10 h-10 rounded-2xl bg-red-600/30 text-red-400 border border-red-500/40 flex items-center justify-center transition-all";
+            icon.setAttribute('data-lucide', 'mic-off');
+        } else {
+            btn.className = "w-10 h-10 rounded-2xl bg-slate-800 hover:bg-slate-700 text-white flex items-center justify-center transition-all border border-slate-700";
+            icon.setAttribute('data-lucide', 'mic');
+        }
+        if (window.lucide) lucide.createIcons();
+    }
+
+    async function toggleCamera() {
+        if (!livekitRoom?.localParticipant) return;
+        isCamOff = !isCamOff;
+        await livekitRoom.localParticipant.setCameraEnabled(!isCamOff);
+
+        const btn = document.getElementById('btnToggleCam');
+        const icon = document.getElementById('iconCam');
+        if (isCamOff) {
+            btn.className = "w-10 h-10 rounded-2xl bg-red-600/30 text-red-400 border border-red-500/40 flex items-center justify-center transition-all";
+            icon.setAttribute('data-lucide', 'video-off');
+        } else {
+            btn.className = "w-10 h-10 rounded-2xl bg-slate-800 hover:bg-slate-700 text-white flex items-center justify-center transition-all border border-slate-700";
+            icon.setAttribute('data-lucide', 'video');
+        }
+        if (window.lucide) lucide.createIcons();
+    }
+
+    function toggleFullscreen() {
+        if (!document.fullscreenElement) {
+            document.documentElement.requestFullscreen().catch(() => {});
+        } else {
+            document.exitFullscreen().catch(() => {});
+        }
+    }
+
+    async function handleSendChatMessage(e) {
+        e.preventDefault();
+        const input = document.getElementById('consultationChatInput');
+        const msg = input.value.trim();
+        if (!msg) return;
+
+        appendChatMessage(currentRole, msg, new Date().toISOString(), true);
+        input.value = '';
+
+        if (consultationHubConn && consultationHubConn.state === "Connected") {
+            try {
+                await consultationHubConn.invoke("SendMessage", consultationId, msg, currentRole);
+            } catch (err) {
+                console.error("Failed to send message via SignalR:", err);
+            }
+        }
+    }
+
+    function appendChatMessage(role, text, time, isSelf) {
+        const stream = document.getElementById('chatMessageStream');
+        const item = document.createElement('div');
+        item.className = `flex flex-col ${isSelf ? 'items-end' : 'items-start'} space-y-1 animate-fade-in`;
+
+        const bubbleColor = isSelf
+            ? (role === 'Doctor' ? 'bg-purple-600 text-white' : 'bg-red-600 text-white')
+            : 'bg-slate-800 border border-slate-700 text-slate-200';
+
+        item.innerHTML = `
+            <div class="max-w-[85%] rounded-2xl px-3.5 py-2.5 ${bubbleColor} shadow">
+                <p class="text-xs leading-relaxed break-words">${escapeHtml(text)}</p>
+            </div>
+            <span class="text-[9px] text-slate-500 font-mono px-1">${formatTime(time)}</span>
+        `;
+        stream.appendChild(item);
+        stream.scrollTop = stream.scrollHeight;
+    }
+
+    function formatTime(iso) {
+        try {
+            return new Date(iso).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+        } catch {
+            return '';
+        }
+    }
+
+    function escapeHtml(t) {
+        if (!t) return '';
+        const m = { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#039;' };
+        return t.replace(/[&<>"']/g, c => m[c]);
+    }
+
+    async function confirmEndConsultation() {
+        if (!confirm("Are you sure you want to end this 1-to-1 consultation?")) return;
+
+        try {
+            const res = await fetch('/api/consultation/end', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(consultationId)
+            });
+            const data = await res.json();
+            if (data.success) {
+                showEndSummaryModal(data.data);
+            } else {
+                alert(data.message || "Failed to end consultation");
+            }
+        } catch (err) {
+            console.error(err);
+        }
+    }
+
+    function showEndSummaryModal(summary) {
+        if (summaryDisplayed) return;
+        summaryDisplayed = true;
+
+        if (timerInterval) clearInterval(timerInterval);
+        if (livekitRoom) {
+            livekitRoom.disconnect().catch(() => {});
+            livekitRoom = null;
+        }
+
+        const statusBadge = document.getElementById('sessionStatusBadge');
+        if (statusBadge) {
+            statusBadge.className = "px-2.5 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider bg-slate-800 text-slate-300 border border-slate-700";
+            statusBadge.textContent = "COMPLETED";
+        }
+
+        const modal = document.getElementById('endSummaryModal');
+        if (modal) {
+            const duration = summary ? (summary.durationSeconds || summary.DurationSeconds || 0) : 0;
+            const billed = summary ? (summary.billedAmount || summary.BilledAmount || 0) : 0;
+            const mins = duration > 0 ? Math.max(1, Math.ceil(duration / 60)) : 0;
+
+            document.getElementById('summaryDuration').textContent = `${mins} min(s) (${duration}s)`;
+            document.getElementById('summaryTotalBilled').textContent = `₹${parseFloat(billed).toFixed(2)}`;
+            modal.classList.remove('hidden');
+            if (window.lucide) lucide.createIcons();
+        }
+    }
+
+    window.addEventListener('DOMContentLoaded', () => {
+        setupSignalR();
+        if (timerStartedAt) {
+            startSynchronizedTimer();
+            connectLiveKitRoom();
+        }
+        const stream = document.getElementById('chatMessageStream');
+        if (stream) stream.scrollTop = stream.scrollHeight;
+        if (window.lucide) lucide.createIcons();
+    });
+</script>

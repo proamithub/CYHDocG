@@ -154,6 +154,7 @@ public class DoctorEarningsSummaryDto
     public decimal MonthGrossEarnings { get; set; }
     public decimal MonthNetEarnings { get; set; }
     public List<DoctorConsultationSettlementDto> RecentConsultations { get; set; } = new();
+    public List<DoctorPayoutItemDto> PayoutHistory { get; set; } = new();
 }
 
 public class DoctorConsultationSettlementDto
@@ -182,4 +183,48 @@ public class DoctorPayoutRequestDto
     public string? AccountNumber { get; set; }
     public string? IfscCode { get; set; }
     public string? UpiId { get; set; }
+}
+
+public class DoctorPayoutItemDto
+{
+    public long PayoutRequestId { get; set; }
+    public long DoctorId { get; set; }
+    public string DoctorName { get; set; } = string.Empty;
+    public string DoctorEmail { get; set; } = string.Empty;
+    public decimal Amount { get; set; }
+    public string Status { get; set; } = "Pending";
+    public string? BankName { get; set; }
+    public string? AccountNumber { get; set; }
+    public string? IfscCode { get; set; }
+    public string? UpiId { get; set; }
+    public string? AdminRemarks { get; set; }
+    public DateTime CreatedAt { get; set; }
+    public DateTime? ProcessedAt { get; set; }
+}
+
+public class PlatformLedgerItemDto
+{
+    public long LedgerId { get; set; }
+    public string TransactionType { get; set; } = string.Empty;
+    public string? FromUserName { get; set; }
+    public string? ToDoctorName { get; set; }
+    public decimal Amount { get; set; }
+    public decimal PlatformFee { get; set; }
+    public string? ReferenceId { get; set; }
+    public string? Description { get; set; }
+    public DateTime CreatedAt { get; set; }
+}
+
+public class AdminLedgerPageDto
+{
+    public decimal GrossConsultationVolume { get; set; }
+    public decimal PlatformNetRevenue { get; set; }
+    public decimal DoctorEarningsCredited { get; set; }
+    public decimal DoctorAvailablePayoutBalance { get; set; }
+    public decimal TotalDoctorWithdrawn { get; set; }
+    public int PendingPayoutsCount { get; set; }
+    public decimal PendingPayoutsAmount { get; set; }
+    public List<DoctorSearchDto> Doctors { get; set; } = new();
+    public List<DoctorPayoutItemDto> PayoutRequests { get; set; } = new();
+    public List<PlatformLedgerItemDto> RecentLedgerEntries { get; set; } = new();
 }

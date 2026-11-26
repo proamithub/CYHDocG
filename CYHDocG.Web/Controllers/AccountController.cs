@@ -10,23 +10,23 @@ namespace CYHDocG.Web.Controllers;
 public class AccountController : Controller
 {
     private readonly IAuthRepository _authRepo;
-    private readonly IConfiguration _config;
+    private readonly IGoogleTokenVerifier _googleVerifier;
 
-    public AccountController(IAuthRepository authRepo, IConfiguration config)
+    public AccountController(IAuthRepository authRepo, IGoogleTokenVerifier googleVerifier)
     {
         _authRepo = authRepo;
-        _config = config;
+        _googleVerifier = googleVerifier;
     }
 
     [HttpGet]
-    public IActionResult Login(string? returnUrl = null)
+    public async Task<IActionResult> Login(string? returnUrl = null)
     {
         if (User.Identity?.IsAuthenticated == true)
         {
             return RedirectToUserDashboard();
         }
         ViewData["ReturnUrl"] = returnUrl;
-        ViewBag.GoogleClientId = _config["Authentication:Google:ClientId"] ?? _config["Google:ClientId"];
+        ViewBag.GoogleClientId = await _googleVerifier.ResolveClientIdAsync() ?? "";
         return View();
     }
 
@@ -34,13 +34,16 @@ public class AccountController : Controller
     [ValidateAntiForgeryToken]
     public async Task<IActionResult> Login(LoginRequestDto model, string? returnUrl = null)
     {
+        ViewData["ReturnUrl"] = returnUrl;
+        ViewBag.GoogleClientId = await _googleVerifier.ResolveClientIdAsync() ?? "";
+
         if (!ModelState.IsValid)
         {
             return View(model);
         }
 
-        var user = await _authRepo.LoginUserAsync(model.Email);
-        if (user == null || user.PasswordHash != model.Password) // Note: In production use BCrypt/Argon2
+        var user = await _authRepo.AuthenticateUserAsync(model.Email, model.Password);
+        if (user == null)
         {
             ModelState.AddModelError(string.Empty, "Invalid email or password.");
             return View(model);
@@ -70,6 +73,10 @@ public class AccountController : Controller
     [ValidateAntiForgeryToken]
     public async Task<IActionResult> Register(RegisterRequestDto model)
     {
+        model.RoleName = string.Equals(model.RoleName, "Doctor", StringComparison.OrdinalIgnoreCase)
+            ? "Doctor"
+            : "User";
+
         // Normalize and strictly validate 10-digit mobile number
         if (!TryValidateIndianMobile(model.Phone, out string normalizedPhone, out string phoneError))
         {
@@ -94,7 +101,7 @@ public class AccountController : Controller
         }
 
         // Auto login on register
-        var user = await _authRepo.LoginUserAsync(model.Email);
+        var user = await _authRepo.AuthenticateUserAsync(model.Email, model.Password);
         if (user != null)
         {
             await SignInUserClaimsAsync(user);
@@ -161,14 +168,16 @@ public class AccountController : Controller
     }
 
     [HttpPost]
+    [ValidateAntiForgeryToken]
     public async Task<IActionResult> GoogleLogin([FromBody] GoogleAuthDto model)
     {
-        if (string.IsNullOrEmpty(model.Email) || string.IsNullOrEmpty(model.GoogleId))
+        var verifiedProfile = await _googleVerifier.VerifyIdTokenAsync(model?.IdToken);
+        if (verifiedProfile == null)
         {
-            return BadRequest(new { Success = false, Message = "Invalid Google account data" });
+            return Unauthorized(new { Success = false, Message = "Google sign-in could not be verified. Ensure Google OAuth Client ID is configured and retry." });
         }
 
-        var user = await _authRepo.GoogleLoginAsync(model);
+        var user = await _authRepo.GoogleLoginAsync(verifiedProfile);
         if (user == null)
         {
             return BadRequest(new { Success = false, Message = "Google sign-in failed" });
@@ -198,7 +207,7 @@ public class AccountController : Controller
     [HttpGet]
     public IActionResult ChangePassword()
     {
-        return View();
+        return View(new ChangePasswordDto());
     }
 
     [Authorize]
@@ -206,6 +215,11 @@ public class AccountController : Controller
     [ValidateAntiForgeryToken]
     public async Task<IActionResult> ChangePassword(ChangePasswordDto model)
     {
+        if (!ModelState.IsValid)
+        {
+            return View(model);
+        }
+
         var userIdClaim = User.FindFirstValue(ClaimTypes.NameIdentifier);
         if (long.TryParse(userIdClaim, out long userId))
         {
@@ -219,6 +233,12 @@ public class AccountController : Controller
             ModelState.AddModelError(string.Empty, result.Message);
         }
         return View(model);
+    }
+
+    [HttpGet]
+    public IActionResult AccessDenied()
+    {
+        return View();
     }
 
     private async Task SignInUserClaimsAsync(UserProfileDto user)

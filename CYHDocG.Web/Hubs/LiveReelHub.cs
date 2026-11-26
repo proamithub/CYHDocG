@@ -1,5 +1,6 @@
 using System.Collections.Concurrent;
 using System.Security.Claims;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.SignalR;
 using CYHDocG.Repo.DTOs;
 using CYHDocG.Repo.Interfaces;
@@ -9,6 +10,7 @@ namespace CYHDocG.Web.Hubs;
 public class LiveReelHub : Hub
 {
     private readonly IDoctorRepository _doctorRepo;
+    private readonly IConsultationRepository _consultationRepo;
 
     // Room viewers: roomKey -> Set of ConnectionIds
     private static readonly ConcurrentDictionary<string, ConcurrentDictionary<string, bool>> _roomViewers = new();
@@ -23,15 +25,35 @@ public class LiveReelHub : Hub
     private static readonly ConcurrentDictionary<long, string> _doctorLiveConnections = new();
     private static readonly ConcurrentDictionary<string, long> _connectionToDoctors = new();
 
-    public LiveReelHub(IDoctorRepository doctorRepo)
+    public LiveReelHub(IDoctorRepository doctorRepo, IConsultationRepository consultationRepo)
     {
         _doctorRepo = doctorRepo;
+        _consultationRepo = consultationRepo;
     }
 
+    private async Task<bool> IsAuthorizedDoctorOwnerAsync(long doctorId)
+    {
+        string? role = Context.User?.FindFirstValue(ClaimTypes.Role);
+        if (role == "Admin") return true;
+        if (role != "Doctor") return false;
+
+        if (!long.TryParse(Context.User?.FindFirstValue(ClaimTypes.NameIdentifier), out long callerUserId) || callerUserId <= 0)
+        {
+            return false;
+        }
+
+        if (long.TryParse(Context.User?.FindFirstValue("DoctorId"), out long claimDocId) && claimDocId == doctorId)
+        {
+            return true;
+        }
+
+        return await _doctorRepo.IsDoctorUserOwnerAsync(doctorId, callerUserId);
+    }
+
+    [Authorize(Roles = "Doctor,Admin")]
     public async Task RegisterDoctorBroadcaster(long doctorId)
     {
-        var currentRole = Context.User?.FindFirstValue(ClaimTypes.Role);
-        if (currentRole != "Doctor" && currentRole != "Admin") return;
+        if (!await IsAuthorizedDoctorOwnerAsync(doctorId)) return;
 
         string connId = Context.ConnectionId;
         _doctorLiveConnections[doctorId] = connId;
@@ -73,7 +95,7 @@ public class LiveReelHub : Hub
         // Add to new room
         _connectionRooms[connId] = key;
         var viewers = _roomViewers.GetOrAdd(key, _ => new ConcurrentDictionary<string, bool>());
-        
+
         // Count in viewer stats only if patient (not doctor broadcaster)
         if (!isDoctorBroadcaster)
         {
@@ -83,11 +105,9 @@ public class LiveReelHub : Hub
         await Groups.AddToGroupAsync(connId, $"Stream_{key}");
 
         int currentCount = viewers.Count;
-        // Broadcast real-time viewer count to all viewers and doctor in this stream room
         await Clients.Group($"Stream_{key}").SendAsync("UpdateViewerCount", key, currentCount);
         await Clients.Caller.SendAsync("UpdateViewerCount", key, currentCount);
 
-        // If there is an active pinned banner for this room, send to the joining viewer
         if (_roomPinnedBanners.TryGetValue(key, out var activeBanner))
         {
             await Clients.Caller.SendAsync("ReceivePinnedBanner", key, activeBanner);
@@ -117,7 +137,6 @@ public class LiveReelHub : Hub
     {
         string connId = Context.ConnectionId;
 
-        // If a broadcasting doctor disconnected abruptly, mark them offline and notify all clients
         if (_connectionToDoctors.TryRemove(connId, out long docId))
         {
             _doctorLiveConnections.TryRemove(docId, out _);
@@ -185,7 +204,6 @@ public class LiveReelHub : Hub
         if (result.Success && result.Data != null)
         {
             string key = NormalizeKey(streamId.ToString());
-            // Broadcast new comment to everyone watching this stream room
             await Clients.Group($"Stream_{key}").SendAsync("ReceiveNewComment", streamId, result.Data);
         }
         else
@@ -211,48 +229,43 @@ public class LiveReelHub : Hub
         }
     }
 
+    [Authorize(Roles = "Doctor,Admin")]
     public async Task ModerateBlockUser(long doctorId, long targetUserId, string reason)
     {
-        var currentRole = Context.User?.FindFirstValue(ClaimTypes.Role);
-        if (currentRole != "Doctor" && currentRole != "Admin")
-        {
-            return;
-        }
+        if (!await IsAuthorizedDoctorOwnerAsync(doctorId)) return;
 
         await _doctorRepo.BlockUserAsync(doctorId, targetUserId, reason);
         await Clients.User(targetUserId.ToString()).SendAsync("UserBlockedFromChat", "You have been restricted from this stream by the doctor.");
 
         string key = NormalizeKey(doctorId.ToString());
-        // Broadcast to both doctor and all patients watching to remove this user's comments from screen
         await Clients.Group($"Stream_{key}").SendAsync("UserRemovedFromChat", new { doctorId, targetUserId });
     }
 
+    [Authorize(Roles = "Doctor,Admin")]
     public async Task ModerateUnblockUser(long doctorId, long targetUserId)
     {
-        var currentRole = Context.User?.FindFirstValue(ClaimTypes.Role);
-        if (currentRole != "Doctor" && currentRole != "Admin")
-        {
-            return;
-        }
+        if (!await IsAuthorizedDoctorOwnerAsync(doctorId)) return;
 
         await _doctorRepo.UnblockUserAsync(doctorId, targetUserId);
         await Clients.User(targetUserId.ToString()).SendAsync("UserUnblockedFromChat", "Your chat restriction has been lifted by the doctor.");
     }
 
+    [Authorize(Roles = "Doctor,Admin")]
     public async Task DeleteComment(long doctorId, long commentId)
     {
-        var currentRole = Context.User?.FindFirstValue(ClaimTypes.Role);
-        if (currentRole != "Doctor" && currentRole != "Admin")
-        {
-            return;
-        }
+        if (!await IsAuthorizedDoctorOwnerAsync(doctorId)) return;
+
+        bool isAdmin = Context.User?.IsInRole("Admin") == true;
+        await _doctorRepo.DeleteStreamCommentAsync(doctorId, commentId, isAdmin);
 
         string key = NormalizeKey(doctorId.ToString());
         await Clients.Group($"Stream_{key}").SendAsync("CommentDeleted", commentId);
     }
 
+    [Authorize(Roles = "Doctor,Admin")]
     public async Task PinStreamBanner(long doctorId, string bannerText, string bannerType, string? medicineName)
     {
+        if (!await IsAuthorizedDoctorOwnerAsync(doctorId)) return;
         if (string.IsNullOrWhiteSpace(bannerText)) return;
 
         string key = NormalizeKey(doctorId.ToString());
@@ -266,22 +279,32 @@ public class LiveReelHub : Hub
         };
 
         _roomPinnedBanners[key] = banner;
-
-        // Broadcast to everyone currently watching this doctor's stream (both doctor and all patients)
         await Clients.Group($"Stream_{key}").SendAsync("ReceivePinnedBanner", key, banner);
     }
 
+    [Authorize(Roles = "Doctor,Admin")]
     public async Task UnpinStreamBanner(long doctorId)
     {
+        if (!await IsAuthorizedDoctorOwnerAsync(doctorId)) return;
+
         string key = NormalizeKey(doctorId.ToString());
         _roomPinnedBanners.TryRemove(key, out _);
         await Clients.Group($"Stream_{key}").SendAsync("ClearPinnedBanner", key);
     }
 
+    [Authorize(Roles = "Doctor,Admin")]
     public async Task DeclineConsultationRequest(long doctorId, long consultationId)
     {
-        var currentRole = Context.User?.FindFirstValue(ClaimTypes.Role);
-        if (currentRole != "Doctor" && currentRole != "Admin") return;
+        if (!await IsAuthorizedDoctorOwnerAsync(doctorId)) return;
+
+        if (long.TryParse(Context.User?.FindFirstValue(ClaimTypes.NameIdentifier), out long callerUserId))
+        {
+            await _consultationRepo.CancelOrDeclineConsultationAsync(
+                consultationId,
+                callerUserId,
+                "Declined",
+                Context.User?.IsInRole("Admin") == true);
+        }
 
         string key = NormalizeKey(doctorId.ToString());
         await Clients.Group($"Stream_{key}").SendAsync("ConsultationDeclined", new
@@ -292,8 +315,18 @@ public class LiveReelHub : Hub
         });
     }
 
+    [Authorize]
     public async Task CancelConsultationRequest(long doctorId, long consultationId)
     {
+        if (long.TryParse(Context.User?.FindFirstValue(ClaimTypes.NameIdentifier), out long callerUserId))
+        {
+            await _consultationRepo.CancelOrDeclineConsultationAsync(
+                consultationId,
+                callerUserId,
+                "Cancelled",
+                Context.User?.IsInRole("Admin") == true);
+        }
+
         string key = NormalizeKey(doctorId.ToString());
         await Clients.Group($"Stream_{key}").SendAsync("ConsultationCancelled", new
         {

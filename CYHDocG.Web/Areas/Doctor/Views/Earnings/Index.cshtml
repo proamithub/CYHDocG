@@ -121,6 +121,60 @@
             </div>
         }
     </div>
+
+    <!-- Payout Requests History -->
+    <div class="bg-slate-900 border border-slate-800 rounded-3xl p-6 space-y-4 shadow-xl">
+        <div class="flex items-center justify-between border-b border-slate-800 pb-4">
+            <div>
+                <h3 class="font-heading font-bold text-base text-white">Payout Withdrawal History</h3>
+                <p class="text-xs text-slate-400 mt-0.5">Track your bank/UPI payout requests and settlement status.</p>
+            </div>
+            <span class="text-xs text-slate-400 bg-slate-950 px-3 py-1 rounded-full border border-slate-800 font-mono">
+                Total: @(Model.PayoutHistory?.Count ?? 0)
+            </span>
+        </div>
+
+        @if (Model.PayoutHistory != null && Model.PayoutHistory.Any())
+        {
+            <div class="overflow-x-auto no-scrollbar">
+                <table class="w-full text-left text-xs">
+                    <thead>
+                        <tr class="text-slate-400 border-b border-slate-800/80 uppercase tracking-wider text-[11px]">
+                            <th class="pb-3 font-semibold">Requested At</th>
+                            <th class="pb-3 font-semibold">Amount</th>
+                            <th class="pb-3 font-semibold">Destination</th>
+                            <th class="pb-3 font-semibold">Status</th>
+                            <th class="pb-3 font-semibold text-right">Admin Remarks</th>
+                        </tr>
+                    </thead>
+                    <tbody class="divide-y divide-slate-800/60 text-slate-200">
+                        @foreach (var p in Model.PayoutHistory)
+                        {
+                            <tr class="hover:bg-slate-950/40 transition-colors">
+                                <td class="py-3 text-slate-400 font-mono">@p.CreatedAt.ToLocalTime().ToString("dd MMM yyyy, hh:mm tt")</td>
+                                <td class="py-3 font-mono font-bold text-white">₹@p.Amount.ToString("N2")</td>
+                                <td class="py-3 text-slate-300 text-[11px]">
+                                    @(!string.IsNullOrWhiteSpace(p.UpiId) ? $"UPI: {p.UpiId}" : $"{p.BankName} • {p.AccountNumber}")
+                                </td>
+                                <td class="py-3">
+                                    <span class="px-2 py-0.5 rounded-full text-[10px] font-bold uppercase @(p.Status == "Paid" ? "bg-emerald-500/20 text-emerald-400 border border-emerald-500/30" : (p.Status == "Rejected" ? "bg-red-500/20 text-red-400 border border-red-500/30" : "bg-amber-500/20 text-amber-300 border border-amber-500/30"))">
+                                        @p.Status
+                                    </span>
+                                </td>
+                                <td class="py-3 text-right text-slate-400 text-[11px]">
+                                    @(string.IsNullOrWhiteSpace(p.AdminRemarks) ? "-" : p.AdminRemarks)
+                                </td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            </div>
+        }
+        else
+        {
+            <p class="text-xs text-slate-500 text-center py-6">No payout withdrawal requests submitted yet.</p>
+        }
+    </div>
 </div>
 
 <!-- ===================== PAYOUT REQUEST MODAL ===================== -->

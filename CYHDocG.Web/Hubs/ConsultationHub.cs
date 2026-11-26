@@ -1,9 +1,11 @@
 using System.Security.Claims;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.SignalR;
 using CYHDocG.Repo.Interfaces;
 
 namespace CYHDocG.Web.Hubs;
 
+[Authorize]
 public class ConsultationHub : Hub
 {
     private readonly IConsultationRepository _consultationRepo;
@@ -15,40 +17,71 @@ public class ConsultationHub : Hub
 
     public async Task JoinConsultation(string consultationId)
     {
-        await Groups.AddToGroupAsync(Context.ConnectionId, $"Consultation_{consultationId}");
+        if (!long.TryParse(consultationId, out long cid) || cid <= 0) return;
+        if (!long.TryParse(Context.User?.FindFirstValue(ClaimTypes.NameIdentifier), out long userId)) return;
+
+        string role = Context.User?.FindFirstValue(ClaimTypes.Role) ?? "User";
+        if (!await _consultationRepo.IsParticipantAsync(cid, userId, role))
+        {
+            return;
+        }
+
+        await Groups.AddToGroupAsync(Context.ConnectionId, $"Consultation_{cid}");
     }
 
     public async Task SendMessage(long consultationId, string message, string senderRole)
     {
-        var userIdStr = Context.User?.FindFirstValue(ClaimTypes.NameIdentifier);
-        long.TryParse(userIdStr, out long senderId);
+        if (consultationId <= 0 || string.IsNullOrWhiteSpace(message)) return;
+        if (!long.TryParse(Context.User?.FindFirstValue(ClaimTypes.NameIdentifier), out long senderId) || senderId <= 0) return;
+
+        string role = Context.User?.FindFirstValue(ClaimTypes.Role) ?? "User";
+        if (!await _consultationRepo.IsParticipantAsync(consultationId, senderId, role))
+        {
+            return;
+        }
+
+        string effectiveRole = role == "Doctor" ? "Doctor" : "User";
+        var saved = await _consultationRepo.SaveConsultationMessageAsync(consultationId, senderId, effectiveRole, message);
 
         var payload = new
         {
-            SenderId = senderId,
-            SenderRole = senderRole,
-            MessageText = message,
-            CreatedAt = DateTime.UtcNow
+            senderId = senderId,
+            senderRole = effectiveRole,
+            messageText = saved.Data?.MessageText ?? message.Trim(),
+            createdAt = saved.Data?.CreatedAt ?? DateTime.UtcNow
         };
 
-        // Broadcast to other participant in the consultation room
         await Clients.OthersInGroup($"Consultation_{consultationId}").SendAsync("ReceiveConsultationMessage", payload);
     }
 
     public async Task BroadcastTimerStart(long consultationId, DateTime startedAt, decimal ratePerMinute, bool isPaid)
     {
+        if (!long.TryParse(Context.User?.FindFirstValue(ClaimTypes.NameIdentifier), out long callerUserId)) return;
+        string role = Context.User?.FindFirstValue(ClaimTypes.Role) ?? "User";
+        long? doctorIdClaim = long.TryParse(Context.User?.FindFirstValue("DoctorId"), out long dc) ? dc : null;
+
+        if (role != "Admin" && !await _consultationRepo.IsDoctorAssignedAsync(consultationId, callerUserId, doctorIdClaim))
+        {
+            return;
+        }
+
         await Clients.Group($"Consultation_{consultationId}").SendAsync("TimerStarted", new
         {
-            StartedAt = startedAt,
-            RatePerMinute = ratePerMinute,
-            IsPaid = isPaid
+            startedAt = startedAt,
+            ratePerMinute = ratePerMinute,
+            isPaid = isPaid
         });
     }
 
     public async Task EndSession(long consultationId)
     {
-        var userIdStr = Context.User?.FindFirstValue(ClaimTypes.NameIdentifier);
-        long.TryParse(userIdStr, out long endedByUserId);
+        if (!long.TryParse(Context.User?.FindFirstValue(ClaimTypes.NameIdentifier), out long endedByUserId) || endedByUserId <= 0) return;
+
+        string role = Context.User?.FindFirstValue(ClaimTypes.Role) ?? "User";
+        if (!await _consultationRepo.IsParticipantAsync(consultationId, endedByUserId, role))
+        {
+            return;
+        }
 
         var result = await _consultationRepo.EndAndDeductWalletAsync(consultationId, endedByUserId);
         if (result.Success && result.Data != null)

@@ -33,6 +33,7 @@ public class RegisterRequestDto
 
 public class GoogleAuthDto
 {
+    public string? IdToken { get; set; }
     public string GoogleId { get; set; } = string.Empty;
     public string Email { get; set; } = string.Empty;
     public string FullName { get; set; } = string.Empty;
@@ -56,8 +57,17 @@ public class UserProfileDto
 public class ChangePasswordDto
 {
     public long UserId { get; set; }
+
+    [Required(ErrorMessage = "Current password is required")]
     public string OldPassword { get; set; } = string.Empty;
+
+    [Required(ErrorMessage = "New password is required")]
+    [MinLength(6, ErrorMessage = "New password must be at least 6 characters")]
     public string NewPassword { get; set; } = string.Empty;
+
+    [Required(ErrorMessage = "Please confirm your new password")]
+    [Compare(nameof(NewPassword), ErrorMessage = "New password and confirmation do not match")]
+    public string ConfirmNewPassword { get; set; } = string.Empty;
 }
 
 public class AdminUserListDto

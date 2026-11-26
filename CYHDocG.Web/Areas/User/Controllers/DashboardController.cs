@@ -30,10 +30,11 @@ public class DashboardController : Controller
             ViewBag.ActivePrescriptionsCount = prescriptions.Count;
 
             var activeMedicines = prescriptions.SelectMany(p => p.Medicines ?? new List<CYHDocG.Repo.DTOs.PrescriptionMedicineItemDto>()).ToList();
-            var now = DateTime.UtcNow;
+            var now = DateTime.UtcNow.Date;
 
-            ViewBag.DosesDueCount = activeMedicines.Count(m => m.CourseEndDate >= now);
-            ViewBag.RefillAlertsCount = activeMedicines.Count(m => m.RefillAlertDate <= now && m.CourseEndDate >= now);
+            var todayDoses = (await _prescriptionRepo.GetUserTodayDoseRemindersAsync(userId)).ToList();
+            ViewBag.DosesDueCount = todayDoses.Count(d => d.Status == "Pending");
+            ViewBag.RefillAlertsCount = activeMedicines.Count(m => m.RefillAlertDate.Date <= now && m.CourseEndDate.Date >= now);
         }
         catch
         {

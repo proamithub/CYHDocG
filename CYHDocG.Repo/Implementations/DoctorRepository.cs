@@ -30,7 +30,6 @@ public class DoctorRepository : BaseRepository, IDoctorRepository
         }
         catch { }
 
-        // Fallback: If SP had an issue or returned 0 rows, load directly
         using var connection = CreateConnection();
         string fallbackSql = @"
             SELECT 
@@ -164,6 +163,17 @@ public class DoctorRepository : BaseRepository, IDoctorRepository
         return result != null && (int)result.IsBlocked == 1;
     }
 
+    public async Task<bool> IsDoctorUserOwnerAsync(long doctorId, long callerUserId)
+    {
+        if (doctorId <= 0 || callerUserId <= 0) return false;
+
+        using var connection = CreateConnection();
+        int count = await connection.ExecuteScalarAsync<int>(
+            "SELECT COUNT(1) FROM dbo.Doctors WHERE DoctorId = @DoctorId AND UserId = @UserId",
+            new { DoctorId = doctorId, UserId = callerUserId });
+        return count > 0;
+    }
+
     public async Task<ApiResponse<LiveCommentDto>> AddStreamCommentAsync(long streamId, long userId, string message)
     {
         long resolvedStreamId = await ResolveActiveStreamIdAsync(streamId);
@@ -203,6 +213,24 @@ public class DoctorRepository : BaseRepository, IDoctorRepository
             return Enumerable.Empty<LiveCommentDto>();
         }
         return await QuerySPAsync<LiveCommentDto>("dbo.usp_LiveStream_GetRecentComments", new { StreamId = resolvedStreamId });
+    }
+
+    public async Task<ApiResponse> DeleteStreamCommentAsync(long doctorId, long commentId, bool isAdmin = false)
+    {
+        if (commentId <= 0) return ApiResponse.Fail("Invalid comment");
+
+        using var connection = CreateConnection();
+        int rows = await connection.ExecuteAsync(@"
+            DELETE c
+            FROM dbo.LiveStreamComments c
+            INNER JOIN dbo.LiveStreams s ON c.StreamId = s.StreamId
+            WHERE c.CommentId = @CommentId
+              AND (@IsAdmin = 1 OR s.DoctorId = @DoctorId);",
+            new { CommentId = commentId, DoctorId = doctorId, IsAdmin = isAdmin ? 1 : 0 });
+
+        return rows > 0
+            ? ApiResponse.Ok("Comment deleted")
+            : ApiResponse.Fail("Comment not found or unauthorized");
     }
 
     public async Task<ApiResponse<bool>> ToggleStreamLikeAsync(long streamId, long userId)
@@ -309,10 +337,10 @@ public class DoctorRepository : BaseRepository, IDoctorRepository
                     (SELECT COUNT(*) FROM dbo.Users WHERE RoleId = 2) AS TotalDoctors,
                     (SELECT COUNT(*) FROM dbo.Doctors WHERE IsLive = 1) AS LiveDoctors,
                     (SELECT COUNT(*) FROM dbo.Consultations WHERE CreatedAt >= CAST(SYSUTCDATETIME() AS DATE)) AS ConsultationsToday,
-                    (SELECT ISNULL(SUM(PlatformFeeAmount), 0.00) FROM dbo.PlatformLedger) AS PlatformRevenue,
+                    (SELECT ISNULL(SUM(PlatformFee), 0.00) FROM dbo.PlatformLedger WHERE TransactionType = 'ConsultationDebit') AS PlatformRevenue,
                     (SELECT COUNT(*) FROM dbo.Prescriptions) AS PrescriptionsIssued,
-                    (SELECT COUNT(*) FROM dbo.MedicineReminders WHERE IsActive = 1) AS RemindersDue;";
-            
+                    (SELECT COUNT(*) FROM dbo.MedicineReminders WHERE Status = 'Pending' AND ReminderDateTime >= CAST(SYSUTCDATETIME() AS DATE)) AS RemindersDue;";
+
             var row = await connection.QueryFirstOrDefaultAsync<dynamic>(sql);
             if (row != null)
             {
@@ -326,12 +354,7 @@ public class DoctorRepository : BaseRepository, IDoctorRepository
         }
         catch
         {
-            metrics.TotalDoctors = 4;
-            metrics.LiveDoctors = 1;
-            metrics.ConsultationsToday = 12;
-            metrics.PlatformRevenue = 48920.00m;
-            metrics.PrescriptionsIssued = 28;
-            metrics.RemindersDue = 14;
+            // Return zeroed metrics rather than fabricated numbers if DB is unavailable
         }
         return metrics;
     }
@@ -357,23 +380,12 @@ public class DoctorRepository : BaseRepository, IDoctorRepository
                 LEFT JOIN dbo.Doctors d ON u.UserId = d.UserId
                 LEFT JOIN dbo.DoctorWallets dw ON d.DoctorId = dw.DoctorId
                 WHERE u.UserId = @UserId;";
-            
+
             return await connection.QueryFirstOrDefaultAsync<DoctorStudioMetricsDto>(sql, new { UserId = doctorUserId });
         }
         catch
         {
-            return new DoctorStudioMetricsDto
-            {
-                DoctorId = 1,
-                DoctorName = "Doctor Specialist",
-                Specialty = "Cardiology",
-                FollowerCount = 142,
-                ConsultationsToday = 5,
-                ConsultationFeePerMinute = 35.00m,
-                IsFreeConsultation = false,
-                IsLive = false,
-                WalletBalance = 8450.00m
-            };
+            return null;
         }
     }
 
@@ -551,12 +563,43 @@ public class DoctorRepository : BaseRepository, IDoctorRepository
         return await connection.QueryFirstOrDefaultAsync<LiveStreamSessionDto>(sql, new { StreamId = streamId });
     }
 
+    private static async Task EnsurePayoutRequestsSchemaAsync(System.Data.IDbConnection connection)
+    {
+        string ensureSql = @"
+            IF OBJECT_ID('dbo.DoctorPayoutRequests', 'U') IS NULL
+            BEGIN
+                CREATE TABLE dbo.DoctorPayoutRequests (
+                    PayoutRequestId BIGINT IDENTITY(1,1) PRIMARY KEY,
+                    DoctorId BIGINT NOT NULL CONSTRAINT FK_PayoutReq_Doctor REFERENCES dbo.Doctors(DoctorId),
+                    Amount DECIMAL(18,2) NOT NULL,
+                    Status NVARCHAR(50) NOT NULL DEFAULT 'Pending',
+                    BankName NVARCHAR(100) NULL,
+                    AccountNumber NVARCHAR(50) NULL,
+                    IfscCode NVARCHAR(20) NULL,
+                    UpiId NVARCHAR(100) NULL,
+                    AdminRemarks NVARCHAR(300) NULL,
+                    ProcessedAt DATETIME2 NULL,
+                    CreatedAt DATETIME2 NOT NULL DEFAULT SYSUTCDATETIME()
+                );
+            END
+            ELSE
+            BEGIN
+                IF COL_LENGTH('dbo.DoctorPayoutRequests', 'AdminRemarks') IS NULL
+                    ALTER TABLE dbo.DoctorPayoutRequests ADD AdminRemarks NVARCHAR(300) NULL;
+                IF COL_LENGTH('dbo.DoctorPayoutRequests', 'ProcessedAt') IS NULL
+                    ALTER TABLE dbo.DoctorPayoutRequests ADD ProcessedAt DATETIME2 NULL;
+            END";
+
+        await connection.ExecuteAsync(ensureSql);
+    }
+
     public async Task<DoctorEarningsSummaryDto> GetDoctorEarningsSummaryAsync(long doctorIdOrUserId)
     {
         using var connection = CreateConnection();
         try
         {
-            // Resolve DoctorId from UserId if necessary
+            await EnsurePayoutRequestsSchemaAsync(connection);
+
             long doctorId = doctorIdOrUserId;
             string resolveSql = @"
                 SELECT TOP 1 d.DoctorId, u.FullName AS DoctorName
@@ -637,8 +680,26 @@ public class DoctorRepository : BaseRepository, IDoctorRepository
                 WHERE c.DoctorId = @DoctorId
                 ORDER BY c.ConsultationId DESC;";
 
-            var consultations = await connection.QueryAsync<DoctorConsultationSettlementDto>(consultationsSql, new { DoctorId = doctorId });
-            summary.RecentConsultations = consultations.ToList();
+            summary.RecentConsultations = (await connection.QueryAsync<DoctorConsultationSettlementDto>(consultationsSql, new { DoctorId = doctorId })).ToList();
+
+            string payoutHistorySql = @"
+                SELECT TOP 25
+                    pr.PayoutRequestId,
+                    pr.DoctorId,
+                    pr.Amount,
+                    pr.Status,
+                    pr.BankName,
+                    pr.AccountNumber,
+                    pr.IfscCode,
+                    pr.UpiId,
+                    pr.AdminRemarks,
+                    pr.CreatedAt,
+                    pr.ProcessedAt
+                FROM dbo.DoctorPayoutRequests pr
+                WHERE pr.DoctorId = @DoctorId
+                ORDER BY pr.PayoutRequestId DESC;";
+
+            summary.PayoutHistory = (await connection.QueryAsync<DoctorPayoutItemDto>(payoutHistorySql, new { DoctorId = doctorId })).ToList();
 
             return summary;
         }
@@ -658,63 +719,258 @@ public class DoctorRepository : BaseRepository, IDoctorRepository
         using var connection = CreateConnection();
         try
         {
-            // Resolve DoctorId
-            var doc = await connection.QueryFirstOrDefaultAsync<dynamic>(@"
-                SELECT d.DoctorId, ISNULL(dw.Balance, 0.00) AS Balance
+            await EnsurePayoutRequestsSchemaAsync(connection);
+
+            long doctorId = await connection.ExecuteScalarAsync<long>(@"
+                SELECT TOP 1 d.DoctorId
                 FROM dbo.Doctors d
-                LEFT JOIN dbo.DoctorWallets dw ON d.DoctorId = dw.DoctorId
                 WHERE d.DoctorId = @Id OR d.UserId = @Id;", new { Id = doctorIdOrUserId });
 
-            if (doc == null)
+            if (doctorId <= 0)
             {
                 return ApiResponse.Fail("Doctor account not found");
             }
 
-            long doctorId = (long)doc.DoctorId;
-            decimal balance = (decimal)doc.Balance;
-
-            if (amount > balance)
+            if (connection.State != System.Data.ConnectionState.Open)
             {
-                return ApiResponse.Fail($"Insufficient wallet balance. Available: ₹{balance:N2}");
+                connection.Open();
             }
 
-            // Ensure table exists
-            string ensureTableSql = @"
-                IF OBJECT_ID('dbo.DoctorPayoutRequests', 'U') IS NULL
-                BEGIN
-                    CREATE TABLE dbo.DoctorPayoutRequests (
-                        PayoutRequestId BIGINT IDENTITY(1,1) PRIMARY KEY,
-                        DoctorId BIGINT NOT NULL CONSTRAINT FK_PayoutReq_Doctor REFERENCES dbo.Doctors(DoctorId),
-                        Amount DECIMAL(18,2) NOT NULL,
-                        Status NVARCHAR(50) NOT NULL DEFAULT 'Pending',
-                        BankName NVARCHAR(100) NULL,
-                        AccountNumber NVARCHAR(50) NULL,
-                        IfscCode NVARCHAR(20) NULL,
-                        UpiId NVARCHAR(100) NULL,
-                        CreatedAt DATETIME2 NOT NULL DEFAULT SYSUTCDATETIME()
-                    );
-                END";
-            await connection.ExecuteAsync(ensureTableSql);
-
-            string insertSql = @"
-                INSERT INTO dbo.DoctorPayoutRequests (DoctorId, Amount, Status, BankName, AccountNumber, IfscCode, UpiId)
-                VALUES (@DoctorId, @Amount, 'Pending', @BankName, @AccountNumber, @IfscCode, @UpiId);";
-
-            await connection.ExecuteAsync(insertSql, new
+            using var tx = connection.BeginTransaction();
+            try
             {
-                DoctorId = doctorId,
-                Amount = amount,
-                BankName = bankName,
-                AccountNumber = accountNumber,
-                IfscCode = ifscCode,
-                UpiId = upiId
-            });
+                // Atomically reserve/hold requested payout amount so duplicate requests cannot overdraw balance
+                int updatedRows = await connection.ExecuteAsync(@"
+                    UPDATE dbo.DoctorWallets
+                    SET Balance = Balance - @Amount,
+                        UpdatedAt = SYSUTCDATETIME()
+                    WHERE DoctorId = @DoctorId
+                      AND Balance >= @Amount;",
+                    new { DoctorId = doctorId, Amount = amount },
+                    tx);
 
-            return ApiResponse.Ok("Payout request submitted successfully to Admin accounts team. Processing time: 24-48 hours.");
+                if (updatedRows == 0)
+                {
+                    decimal currentBalance = await connection.ExecuteScalarAsync<decimal?>(
+                        "SELECT Balance FROM dbo.DoctorWallets WHERE DoctorId = @DoctorId",
+                        new { DoctorId = doctorId },
+                        tx) ?? 0.00m;
+
+                    tx.Rollback();
+                    return ApiResponse.Fail($"Insufficient wallet balance. Available: ₹{currentBalance:N2}");
+                }
+
+                await connection.ExecuteAsync(@"
+                    INSERT INTO dbo.DoctorPayoutRequests (DoctorId, Amount, Status, BankName, AccountNumber, IfscCode, UpiId)
+                    VALUES (@DoctorId, @Amount, 'Pending', @BankName, @AccountNumber, @IfscCode, @UpiId);",
+                    new
+                    {
+                        DoctorId = doctorId,
+                        Amount = amount,
+                        BankName = bankName,
+                        AccountNumber = accountNumber,
+                        IfscCode = ifscCode,
+                        UpiId = upiId
+                    },
+                    tx);
+
+                tx.Commit();
+                return ApiResponse.Ok("Payout request submitted and balance reserved for settlement. Processing time: 24-48 hours.");
+            }
+            catch
+            {
+                tx.Rollback();
+                throw;
+            }
         }
         catch (Exception ex)
         {
             return ApiResponse.Fail("Failed to submit payout request: " + ex.Message);
+        }
+    }
+
+    public async Task<AdminLedgerPageDto> GetAdminLedgerDataAsync()
+    {
+        var result = new AdminLedgerPageDto();
+        using var connection = CreateConnection();
+
+        await EnsurePayoutRequestsSchemaAsync(connection);
+
+        var totals = await connection.QueryFirstOrDefaultAsync<dynamic>(@"
+            SELECT
+                ISNULL((SELECT SUM(TotalAmount) FROM dbo.Consultations WHERE Status = 'Completed' AND IsPaid = 1), 0.00) AS GrossVolume,
+                ISNULL((SELECT SUM(PlatformFee) FROM dbo.PlatformLedger WHERE TransactionType = 'ConsultationDebit'), 0.00) AS PlatformNet,
+                ISNULL((SELECT SUM(TotalAmount * 0.80) FROM dbo.Consultations WHERE Status = 'Completed' AND IsPaid = 1), 0.00) AS DoctorCredited,
+                ISNULL((SELECT SUM(Balance) FROM dbo.DoctorWallets), 0.00) AS DoctorAvail,
+                ISNULL((SELECT SUM(TotalWithdrawn) FROM dbo.DoctorWallets), 0.00) AS TotalWithdrawn,
+                ISNULL((SELECT COUNT(1) FROM dbo.DoctorPayoutRequests WHERE Status = 'Pending'), 0) AS PendingCount,
+                ISNULL((SELECT SUM(Amount) FROM dbo.DoctorPayoutRequests WHERE Status = 'Pending'), 0.00) AS PendingAmount;");
+
+        if (totals != null)
+        {
+            result.GrossConsultationVolume = (decimal)(totals.GrossVolume ?? 0.00m);
+            result.PlatformNetRevenue = (decimal)(totals.PlatformNet ?? 0.00m);
+            result.DoctorEarningsCredited = (decimal)(totals.DoctorCredited ?? 0.00m);
+            result.DoctorAvailablePayoutBalance = (decimal)(totals.DoctorAvail ?? 0.00m);
+            result.TotalDoctorWithdrawn = (decimal)(totals.TotalWithdrawn ?? 0.00m);
+            result.PendingPayoutsCount = (int)(totals.PendingCount ?? 0);
+            result.PendingPayoutsAmount = (decimal)(totals.PendingAmount ?? 0.00m);
+        }
+
+        result.Doctors = (await SearchDoctorsAsync("")).ToList();
+
+        result.PayoutRequests = (await connection.QueryAsync<DoctorPayoutItemDto>(@"
+            SELECT TOP 50
+                pr.PayoutRequestId,
+                pr.DoctorId,
+                u.FullName AS DoctorName,
+                u.Email AS DoctorEmail,
+                pr.Amount,
+                pr.Status,
+                pr.BankName,
+                pr.AccountNumber,
+                pr.IfscCode,
+                pr.UpiId,
+                pr.AdminRemarks,
+                pr.CreatedAt,
+                pr.ProcessedAt
+            FROM dbo.DoctorPayoutRequests pr
+            INNER JOIN dbo.Doctors d ON pr.DoctorId = d.DoctorId
+            INNER JOIN dbo.Users u ON d.UserId = u.UserId
+            ORDER BY CASE WHEN pr.Status = 'Pending' THEN 0 ELSE 1 END, pr.PayoutRequestId DESC;")).ToList();
+
+        result.RecentLedgerEntries = (await connection.QueryAsync<PlatformLedgerItemDto>(@"
+            SELECT TOP 50
+                l.LedgerId,
+                l.TransactionType,
+                fu.FullName AS FromUserName,
+                du.FullName AS ToDoctorName,
+                l.Amount,
+                l.PlatformFee,
+                l.ReferenceId,
+                l.Description,
+                l.CreatedAt
+            FROM dbo.PlatformLedger l
+            LEFT JOIN dbo.Users fu ON l.FromUserId = fu.UserId
+            LEFT JOIN dbo.Doctors d ON l.ToDoctorId = d.DoctorId
+            LEFT JOIN dbo.Users du ON d.UserId = du.UserId
+            ORDER BY l.LedgerId DESC;")).ToList();
+
+        return result;
+    }
+
+    public async Task<ApiResponse> ProcessDoctorPayoutAsync(long payoutRequestId, string action, string? adminRemarks)
+    {
+        if (payoutRequestId <= 0)
+        {
+            return ApiResponse.Fail("Invalid payout request ID");
+        }
+
+        bool isApprove = string.Equals(action, "Paid", StringComparison.OrdinalIgnoreCase) ||
+                         string.Equals(action, "Approve", StringComparison.OrdinalIgnoreCase);
+        bool isReject = string.Equals(action, "Reject", StringComparison.OrdinalIgnoreCase) ||
+                        string.Equals(action, "Rejected", StringComparison.OrdinalIgnoreCase);
+
+        if (!isApprove && !isReject)
+        {
+            return ApiResponse.Fail("Unsupported payout action");
+        }
+
+        using var connection = CreateConnection();
+        await EnsurePayoutRequestsSchemaAsync(connection);
+
+        if (connection.State != System.Data.ConnectionState.Open)
+        {
+            connection.Open();
+        }
+
+        using var tx = connection.BeginTransaction();
+        try
+        {
+            var req = await connection.QueryFirstOrDefaultAsync<dynamic>(@"
+                SELECT PayoutRequestId, DoctorId, Amount, Status
+                FROM dbo.DoctorPayoutRequests WITH (UPDLOCK, ROWLOCK)
+                WHERE PayoutRequestId = @Id;",
+                new { Id = payoutRequestId },
+                tx);
+
+            if (req == null)
+            {
+                tx.Rollback();
+                return ApiResponse.Fail("Payout request not found");
+            }
+
+            if (!string.Equals((string)req.Status, "Pending", StringComparison.OrdinalIgnoreCase))
+            {
+                tx.Rollback();
+                return ApiResponse.Fail($"Payout request is already {(string)req.Status}");
+            }
+
+            long doctorId = (long)req.DoctorId;
+            decimal amount = (decimal)req.Amount;
+
+            if (isApprove)
+            {
+                await connection.ExecuteAsync(@"
+                    UPDATE dbo.DoctorPayoutRequests
+                    SET Status = 'Paid',
+                        ProcessedAt = SYSUTCDATETIME(),
+                        AdminRemarks = @Remarks
+                    WHERE PayoutRequestId = @Id;",
+                    new { Id = payoutRequestId, Remarks = adminRemarks },
+                    tx);
+
+                await connection.ExecuteAsync(@"
+                    IF EXISTS (SELECT 1 FROM dbo.DoctorWallets WHERE DoctorId = @DoctorId)
+                        UPDATE dbo.DoctorWallets SET TotalWithdrawn = TotalWithdrawn + @Amount, UpdatedAt = SYSUTCDATETIME() WHERE DoctorId = @DoctorId;
+                    ELSE
+                        INSERT INTO dbo.DoctorWallets (DoctorId, Balance, TotalWithdrawn, UpdatedAt) VALUES (@DoctorId, 0.00, @Amount, SYSUTCDATETIME());",
+                    new { DoctorId = doctorId, Amount = amount },
+                    tx);
+
+                await connection.ExecuteAsync(@"
+                    INSERT INTO dbo.PlatformLedger (TransactionType, FromUserId, ToDoctorId, Amount, PlatformFee, ReferenceId, Description, CreatedAt)
+                    VALUES ('DoctorPayout', NULL, @DoctorId, @Amount, 0.00, @RefId, @Desc, SYSUTCDATETIME());",
+                    new
+                    {
+                        DoctorId = doctorId,
+                        Amount = amount,
+                        RefId = $"PAYOUT_{payoutRequestId}",
+                        Desc = string.IsNullOrWhiteSpace(adminRemarks) ? "Doctor bank/UPI payout settled by Admin" : adminRemarks.Trim()
+                    },
+                    tx);
+
+                tx.Commit();
+                return ApiResponse.Ok($"Payout #{payoutRequestId} marked as Paid (₹{amount:N2}).");
+            }
+            else
+            {
+                await connection.ExecuteAsync(@"
+                    UPDATE dbo.DoctorPayoutRequests
+                    SET Status = 'Rejected',
+                        ProcessedAt = SYSUTCDATETIME(),
+                        AdminRemarks = @Remarks
+                    WHERE PayoutRequestId = @Id;",
+                    new { Id = payoutRequestId, Remarks = adminRemarks },
+                    tx);
+
+                // Refund held balance back to DoctorWallet
+                await connection.ExecuteAsync(@"
+                    UPDATE dbo.DoctorWallets
+                    SET Balance = Balance + @Amount,
+                        UpdatedAt = SYSUTCDATETIME()
+                    WHERE DoctorId = @DoctorId;",
+                    new { DoctorId = doctorId, Amount = amount },
+                    tx);
+
+                tx.Commit();
+                return ApiResponse.Ok($"Payout #{payoutRequestId} rejected and ₹{amount:N2} refunded to doctor wallet.");
+            }
+        }
+        catch (Exception ex)
+        {
+            tx.Rollback();
+            return ApiResponse.Fail("Failed to process payout: " + ex.Message);
         }
     }
 }

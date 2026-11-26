@@ -11,8 +11,10 @@ public interface IDoctorRepository
     Task<ApiResponse> BlockUserAsync(long doctorId, long userId, string reason);
     Task<ApiResponse> UnblockUserAsync(long doctorId, long userId);
     Task<bool> IsUserBlockedAsync(long doctorId, long userId);
+    Task<bool> IsDoctorUserOwnerAsync(long doctorId, long callerUserId);
     Task<ApiResponse<LiveCommentDto>> AddStreamCommentAsync(long streamId, long userId, string message);
     Task<IEnumerable<LiveCommentDto>> GetRecentCommentsAsync(long streamId);
+    Task<ApiResponse> DeleteStreamCommentAsync(long doctorId, long commentId, bool isAdmin = false);
     Task<ApiResponse<bool>> ToggleStreamLikeAsync(long streamId, long userId);
     Task<ApiResponse> UpdateDoctorPricingAsync(long doctorId, bool isFree, decimal feePerMinute);
     Task<IEnumerable<DoctorAdminListDto>> GetAllDoctorsForAdminAsync();
@@ -26,4 +28,6 @@ public interface IDoctorRepository
     Task<LiveStreamSessionDto?> GetSessionDetailsAsync(long streamId);
     Task<DoctorEarningsSummaryDto> GetDoctorEarningsSummaryAsync(long doctorIdOrUserId);
     Task<ApiResponse> RequestDoctorPayoutAsync(long doctorIdOrUserId, decimal amount, string? bankName, string? accountNumber, string? ifscCode, string? upiId);
+    Task<AdminLedgerPageDto> GetAdminLedgerDataAsync();
+    Task<ApiResponse> ProcessDoctorPayoutAsync(long payoutRequestId, string action, string? adminRemarks);
 }

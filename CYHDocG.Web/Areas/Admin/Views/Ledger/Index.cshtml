@@ -1,4 +1,4 @@
-@model List<CYHDocG.Repo.DTOs.DoctorSearchDto>
+@model CYHDocG.Repo.DTOs.AdminLedgerPageDto
 @{
     ViewData["Title"] = "Multi-Party Platform Ledger & Service Pricing";
 }
@@ -7,9 +7,16 @@
     <!-- Header -->
     <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
-            <h1 class="font-heading font-extrabold text-2xl text-white">Platform Ledger & Doctor Pricing</h1>
-            <p class="text-xs text-slate-400 mt-1">Configure Free vs Paid doctor consultation rates and inspect multi-party ledger settlement.</p>
+            <h1 class="font-heading font-extrabold text-2xl text-white">Platform Ledger, Payouts & Doctor Pricing</h1>
+            <p class="text-xs text-slate-400 mt-1">Live multi-party revenue settlement, doctor payout approvals, and per-minute consultation rate settings.</p>
         </div>
+        @if (Model.PendingPayoutsCount > 0)
+        {
+            <span class="px-3.5 py-1.5 rounded-xl bg-amber-500/15 border border-amber-500/30 text-amber-300 text-xs font-bold flex items-center gap-2">
+                <span class="w-2 h-2 rounded-full bg-amber-400 animate-ping"></span>
+                <span>@Model.PendingPayoutsCount Pending Payout(s) • ₹@Model.PendingPayoutsAmount.ToString("N2")</span>
+            </span>
+        }
     </div>
 
     @if (TempData["SuccessMessage"] != null)
@@ -19,31 +26,144 @@
             <span>@TempData["SuccessMessage"]</span>
         </div>
     }
+    @if (TempData["ErrorMessage"] != null)
+    {
+        <div class="p-4 rounded-2xl bg-red-500/10 border border-red-500/30 text-red-400 text-xs font-semibold flex items-center gap-2">
+            <i data-lucide="alert-triangle" class="w-4 h-4"></i>
+            <span>@TempData["ErrorMessage"]</span>
+        </div>
+    }
 
-    <!-- Financial KPI Cards -->
-    <div class="grid grid-cols-1 sm:grid-cols-3 gap-4 sm:gap-6">
+    <!-- Live Financial KPI Cards (Real DB Aggregates) -->
+    <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-5">
         <div class="bg-slate-900/80 border border-slate-800 rounded-2xl p-5">
             <span class="text-xs font-semibold text-slate-400 uppercase tracking-wider block mb-1">Gross Consultation Volume</span>
-            <div class="font-heading font-bold text-2xl text-white">₹2,44,600</div>
+            <div class="font-heading font-bold text-2xl text-white">₹@Model.GrossConsultationVolume.ToString("N2")</div>
             <span class="text-[11px] text-slate-400 flex items-center gap-1 mt-1">
-                <i data-lucide="arrow-up-right" class="w-3.5 h-3.5 text-emerald-400"></i> Lifetime Billed
+                <i data-lucide="arrow-up-right" class="w-3.5 h-3.5 text-emerald-400"></i> Completed Paid Sessions
             </span>
         </div>
 
         <div class="bg-slate-900/80 border border-slate-800 rounded-2xl p-5">
             <span class="text-xs font-semibold text-slate-400 uppercase tracking-wider block mb-1">Platform Net Revenue (20%)</span>
-            <div class="font-heading font-bold text-2xl text-emerald-400">₹48,920</div>
+            <div class="font-heading font-bold text-2xl text-emerald-400">₹@Model.PlatformNetRevenue.ToString("N2")</div>
             <span class="text-[11px] text-emerald-400 font-semibold flex items-center gap-1 mt-1">
-                Retained Gross Margin
+                Verified Ledger Commission
             </span>
         </div>
 
         <div class="bg-slate-900/80 border border-slate-800 rounded-2xl p-5">
-            <span class="text-xs font-semibold text-slate-400 uppercase tracking-wider block mb-1">Doctor Payout Balance (80%)</span>
-            <div class="font-heading font-bold text-2xl text-blue-400">₹1,95,680</div>
+            <span class="text-xs font-semibold text-slate-400 uppercase tracking-wider block mb-1">Doctor Wallets Available</span>
+            <div class="font-heading font-bold text-2xl text-blue-400">₹@Model.DoctorAvailablePayoutBalance.ToString("N2")</div>
             <span class="text-[11px] text-slate-400 flex items-center gap-1 mt-1">
-                Credited to Doctor Wallets
+                Earned: ₹@Model.DoctorEarningsCredited.ToString("N2") • Withdrawn: ₹@Model.TotalDoctorWithdrawn.ToString("N2")
             </span>
+        </div>
+
+        <div class="bg-slate-900/80 border border-slate-800 rounded-2xl p-5">
+            <span class="text-xs font-semibold text-slate-400 uppercase tracking-wider block mb-1">Pending Payout Queue</span>
+            <div class="font-heading font-bold text-2xl text-amber-400">₹@Model.PendingPayoutsAmount.ToString("N2")</div>
+            <span class="text-[11px] text-amber-300 font-medium flex items-center gap-1 mt-1">
+                @Model.PendingPayoutsCount Request(s) Awaiting Settlement
+            </span>
+        </div>
+    </div>
+
+    <!-- Doctor Payout Requests Approval Queue -->
+    <div class="bg-slate-900 border border-slate-800 rounded-3xl p-6 space-y-4">
+        <div class="flex items-center justify-between border-b border-slate-800 pb-4">
+            <div>
+                <h3 class="font-heading font-bold text-base text-white">Doctor Payout Settlement Queue</h3>
+                <p class="text-xs text-slate-400">Review doctor bank/UPI payout requests. Marking Paid records the payout; Rejecting refunds the held amount back to the doctor wallet.</p>
+            </div>
+            <span class="text-xs text-slate-400">@Model.PayoutRequests.Count Request(s)</span>
+        </div>
+
+        <div class="overflow-x-auto no-scrollbar">
+            <table class="w-full text-left text-xs">
+                <thead>
+                    <tr class="text-slate-400 border-b border-slate-800/80">
+                        <th class="pb-3 font-semibold">Doctor</th>
+                        <th class="pb-3 font-semibold">Amount</th>
+                        <th class="pb-3 font-semibold">Payout Details (UPI / Bank)</th>
+                        <th class="pb-3 font-semibold">Requested</th>
+                        <th class="pb-3 font-semibold">Status</th>
+                        <th class="pb-3 font-semibold text-right">Settlement Action</th>
+                    </tr>
+                </thead>
+                <tbody class="divide-y divide-slate-800/60 text-slate-200">
+                    @if (Model.PayoutRequests.Any())
+                    {
+                        foreach (var pr in Model.PayoutRequests)
+                        {
+                            <tr class="hover:bg-slate-950/40">
+                                <td class="py-3.5 pr-3">
+                                    <div class="font-bold text-white">@pr.DoctorName</div>
+                                    <div class="text-[11px] text-slate-400">@pr.DoctorEmail</div>
+                                </td>
+                                <td class="py-3.5 pr-3 font-mono font-bold text-emerald-400">
+                                    ₹@pr.Amount.ToString("N2")
+                                </td>
+                                <td class="py-3.5 pr-3 text-[11px] text-slate-300 space-y-0.5">
+                                    @if (!string.IsNullOrWhiteSpace(pr.UpiId))
+                                    {
+                                        <div><span class="text-slate-400">UPI:</span> <span class="font-mono text-white">@pr.UpiId</span></div>
+                                    }
+                                    @if (!string.IsNullOrWhiteSpace(pr.AccountNumber))
+                                    {
+                                        <div><span class="text-slate-400">Bank:</span> @pr.BankName • <span class="font-mono">@pr.AccountNumber</span> (@pr.IfscCode)</div>
+                                    }
+                                </td>
+                                <td class="py-3.5 pr-3 text-slate-400 font-mono">
+                                    @pr.CreatedAt.ToString("dd MMM yyyy, hh:mm tt")
+                                </td>
+                                <td class="py-3.5 pr-3">
+                                    @if (pr.Status == "Pending")
+                                    {
+                                        <span class="px-2.5 py-1 rounded-full text-[10px] font-bold bg-amber-500/20 text-amber-300 border border-amber-500/30">Pending</span>
+                                    }
+                                    else if (pr.Status == "Paid")
+                                    {
+                                        <span class="px-2.5 py-1 rounded-full text-[10px] font-bold bg-emerald-500/20 text-emerald-400 border border-emerald-500/30">Paid</span>
+                                    }
+                                    else
+                                    {
+                                        <span class="px-2.5 py-1 rounded-full text-[10px] font-bold bg-red-500/20 text-red-400 border border-red-500/30">@pr.Status</span>
+                                    }
+                                </td>
+                                <td class="py-3.5 text-right">
+                                    @if (pr.Status == "Pending")
+                                    {
+                                        <form asp-area="Admin" asp-controller="Ledger" asp-action="ProcessPayout" method="post" class="inline-flex items-center justify-end gap-2">
+                                            @Html.AntiForgeryToken()
+                                            <input type="hidden" name="payoutRequestId" value="@pr.PayoutRequestId" />
+                                            <input type="text" name="adminRemarks" placeholder="UTR / Note (optional)" class="w-36 bg-slate-950 border border-slate-800 rounded-lg px-2.5 py-1.5 text-[11px] text-white outline-none focus:border-emerald-500" />
+                                            <button type="submit" name="payoutAction" value="Paid" class="px-3 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white font-semibold text-[11px] transition-all">
+                                                Mark Paid
+                                            </button>
+                                            <button type="submit" name="payoutAction" value="Reject" onclick="return confirm('Reject payout and refund ₹@pr.Amount.ToString("N2") back to doctor wallet?');" class="px-3 py-1.5 rounded-lg bg-red-600/20 hover:bg-red-600 text-red-300 hover:text-white border border-red-500/30 font-semibold text-[11px] transition-all">
+                                                Reject
+                                            </button>
+                                        </form>
+                                    }
+                                    else
+                                    {
+                                        <span class="text-[11px] text-slate-400">
+                                            @(string.IsNullOrWhiteSpace(pr.AdminRemarks) ? (pr.ProcessedAt.HasValue ? $"Settled {pr.ProcessedAt.Value:dd MMM}" : "Processed") : pr.AdminRemarks)
+                                        </span>
+                                    }
+                                </td>
+                            </tr>
+                        }
+                    }
+                    else
+                    {
+                        <tr>
+                            <td colspan="6" class="py-6 text-center text-slate-500">No payout requests submitted yet.</td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
         </div>
     </div>
 
@@ -54,8 +174,16 @@
                 <h3 class="font-heading font-bold text-base text-white">Doctor Service Pricing Management</h3>
                 <p class="text-xs text-slate-400">Set whether a doctor's live 1-to-1 consultation is Free or Paid per minute.</p>
             </div>
-            <span class="text-xs text-slate-400">@Model.Count Doctor(s) Registered</span>
+            <span class="text-xs text-slate-400">@Model.Doctors.Count Doctor(s) Registered</span>
         </div>
+
+        @foreach (var doc in Model.Doctors)
+        {
+            <form id="pricingForm_@doc.DoctorId" asp-area="Admin" asp-controller="Ledger" asp-action="UpdatePricing" method="post" class="hidden">
+                @Html.AntiForgeryToken()
+                <input type="hidden" name="doctorId" value="@doc.DoctorId" />
+            </form>
+        }
 
         <div class="overflow-x-auto no-scrollbar">
             <table class="w-full text-left text-xs">
@@ -69,10 +197,11 @@
                     </tr>
                 </thead>
                 <tbody class="divide-y divide-slate-800/60 text-slate-200">
-                    @if (Model.Any())
+                    @if (Model.Doctors.Any())
                     {
-                        foreach (var doc in Model)
+                        foreach (var doc in Model.Doctors)
                         {
+                            var formId = $"pricingForm_{doc.DoctorId}";
                             <tr class="hover:bg-slate-950/40">
                                 <td class="py-3">
                                     <div class="flex items-center gap-2.5">
@@ -86,28 +215,24 @@
                                     </div>
                                 </td>
                                 <td class="py-3 text-slate-300">@doc.Department</td>
-                                <form asp-area="Admin" asp-controller="Ledger" asp-action="UpdatePricing" method="post">
-                                    @Html.AntiForgeryToken()
-                                    <input type="hidden" name="doctorId" value="@doc.DoctorId" />
-                                    <td class="py-3">
-                                        <select name="isFree" class="bg-slate-950 border border-slate-800 rounded-xl px-2.5 py-1.5 text-xs text-slate-200 outline-none">
-                                            <option value="false" selected="@(!doc.IsFreeConsultation)">Paid Consultation</option>
-                                            <option value="true" selected="@(doc.IsFreeConsultation)">Free Consultation</option>
-                                        </select>
-                                    </td>
-                                    <td class="py-3">
-                                        <div class="flex items-center gap-1">
-                                            <span class="text-slate-400 font-mono">₹</span>
-                                            <input type="number" name="feePerMinute" value="@doc.ConsultationFeePerMinute" min="0" step="5" class="w-24 bg-slate-950 border border-slate-800 rounded-xl px-2.5 py-1.5 text-xs text-white font-mono outline-none focus:border-red-500" />
-                                            <span class="text-slate-400 text-[10px]">/ min</span>
-                                        </div>
-                                    </td>
-                                    <td class="py-3 text-right">
-                                        <button type="submit" class="px-3.5 py-1.5 rounded-xl bg-red-600 hover:bg-red-700 text-white font-semibold text-xs shadow-md shadow-red-600/30 transition-all active:scale-95">
-                                            Save
-                                        </button>
-                                    </td>
-                                </form>
+                                <td class="py-3">
+                                    <select name="isFree" form="@formId" class="bg-slate-950 border border-slate-800 rounded-xl px-2.5 py-1.5 text-xs text-slate-200 outline-none">
+                                        <option value="false" selected="@(!doc.IsFreeConsultation)">Paid Consultation</option>
+                                        <option value="true" selected="@(doc.IsFreeConsultation)">Free Consultation</option>
+                                    </select>
+                                </td>
+                                <td class="py-3">
+                                    <div class="flex items-center gap-1">
+                                        <span class="text-slate-400 font-mono">₹</span>
+                                        <input type="number" name="feePerMinute" form="@formId" value="@doc.ConsultationFeePerMinute" min="0" step="5" class="w-24 bg-slate-950 border border-slate-800 rounded-xl px-2.5 py-1.5 text-xs text-white font-mono outline-none focus:border-red-500" />
+                                        <span class="text-slate-400 text-[10px]">/ min</span>
+                                    </div>
+                                </td>
+                                <td class="py-3 text-right">
+                                    <button type="submit" form="@formId" class="px-3.5 py-1.5 rounded-xl bg-red-600 hover:bg-red-700 text-white font-semibold text-xs shadow-md shadow-red-600/30 transition-all active:scale-95">
+                                        Save
+                                    </button>
+                                </td>
                             </tr>
                         }
                     }
@@ -115,6 +240,71 @@
                     {
                         <tr>
                             <td colspan="5" class="py-6 text-center text-slate-500">No doctors registered yet.</td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <!-- Platform Ledger Audit Trail -->
+    <div class="bg-slate-900 border border-slate-800 rounded-3xl p-6 space-y-4">
+        <div class="flex items-center justify-between border-b border-slate-800 pb-4">
+            <div>
+                <h3 class="font-heading font-bold text-base text-white">Recent Platform Ledger Audit Trail</h3>
+                <p class="text-xs text-slate-400">Latest wallet top-ups, consultation fee settlements, platform cuts, and doctor payouts.</p>
+            </div>
+            <span class="text-xs text-slate-400">Last @Model.RecentLedgerEntries.Count Entries</span>
+        </div>
+
+        <div class="overflow-x-auto no-scrollbar">
+            <table class="w-full text-left text-xs">
+                <thead>
+                    <tr class="text-slate-400 border-b border-slate-800/80">
+                        <th class="pb-3 font-semibold">Date (UTC)</th>
+                        <th class="pb-3 font-semibold">Type</th>
+                        <th class="pb-3 font-semibold">Parties</th>
+                        <th class="pb-3 font-semibold">Reference</th>
+                        <th class="pb-3 font-semibold">Gross Amount</th>
+                        <th class="pb-3 font-semibold text-right">Platform Fee</th>
+                    </tr>
+                </thead>
+                <tbody class="divide-y divide-slate-800/60 text-slate-200">
+                    @if (Model.RecentLedgerEntries.Any())
+                    {
+                        foreach (var entry in Model.RecentLedgerEntries)
+                        {
+                            <tr class="hover:bg-slate-950/40">
+                                <td class="py-3 text-slate-400 font-mono">@entry.CreatedAt.ToString("dd MMM yyyy, hh:mm tt")</td>
+                                <td class="py-3">
+                                    <span class="px-2 py-0.5 rounded-full text-[10px] font-bold bg-slate-800 text-slate-200 border border-slate-700">@entry.TransactionType</span>
+                                </td>
+                                <td class="py-3 text-slate-300">
+                                    @if (!string.IsNullOrEmpty(entry.FromUserName))
+                                    {
+                                        <span>@entry.FromUserName</span>
+                                    }
+                                    @if (!string.IsNullOrEmpty(entry.ToDoctorName))
+                                    {
+                                        <span class="text-slate-500"> &rarr; </span><span class="text-blue-300">Dr. @entry.ToDoctorName</span>
+                                    }
+                                    @if (!string.IsNullOrEmpty(entry.Description))
+                                    {
+                                        <div class="text-[11px] text-slate-500">@entry.Description</div>
+                                    }
+                                </td>
+                                <td class="py-3 font-mono text-[11px] text-slate-400">@(entry.ReferenceId ?? "-")</td>
+                                <td class="py-3 font-mono font-bold text-white">₹@entry.Amount.ToString("N2")</td>
+                                <td class="py-3 text-right font-mono font-bold @(entry.PlatformFee > 0 ? "text-emerald-400" : "text-slate-500")">
+                                    ₹@entry.PlatformFee.ToString("N2")
+                                </td>
+                            </tr>
+                        }
+                    }
+                    else
+                    {
+                        <tr>
+                            <td colspan="6" class="py-6 text-center text-slate-500">No ledger transactions recorded yet.</td>
                         </tr>
                     }
                 </tbody>
